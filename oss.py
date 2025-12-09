@@ -13,6 +13,9 @@ import html  # для html.escape
 
 from bs4 import BeautifulSoup
 
+import re
+import html
+from typing import Match
 from telegram.request import HTTPXRequest
 import psutil
 request = HTTPXRequest(
@@ -32,9 +35,11 @@ from telegram.ext import (
     filters,
 )
 
+
+
 # ----- КОНФИГУРАЦИЯ -----
 class config:
-    TOKEN = ""
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
@@ -52,6 +57,8 @@ MODEL_NAME = "gpt-oss:20b"
 
 
 
+import gc
+
 async def query_ollama_harmony(
     messages: List[Dict[str, str]],
     reasoning_effort: str = "low",
@@ -62,23 +69,31 @@ async def query_ollama_harmony(
 ) -> Dict[str, Any]:
     attempt = 0
 
-    def safe_num_predict(requested_tokens: int) -> int:
+    # Определяем лимиты max_tokens для разных режимов
+    mode_token_limits = {
+        "low": 200,
+        "medium": 500,
+        "high": 1000
+    }
+    # Фактический лимит max_tokens (если не указан явно)
+    max_tokens = mode_token_limits.get(reasoning_effort, max_tokens)
+
+    # Определить num_predict на основании свободной RAM
+    def adaptive_num_predict(requested_tokens: int) -> int:
         mem = psutil.virtual_memory()
-        if mem.available < 2 * 1024**3:
-            return min(requested_tokens, 5000)
-        elif mem.available < 4 * 1024**3:
-            return min(requested_tokens, 10000)
+        if mem.available < 1.5 * 1024 ** 3:   # <1.5GB
+            return min(requested_tokens, 200)
+        elif mem.available < 3 * 1024 ** 3:   # <3GB
+            return min(requested_tokens, 500)
+        elif mem.available < 6 * 1024 ** 3:   # <6GB
+            return min(requested_tokens, 1000)
+        elif mem.available < 12 * 1024 ** 3:  # <12GB
+            return min(requested_tokens, 2000)
         else:
             return requested_tokens
 
-    if reasoning_effort == "high":
-        base_tokens = 30000
-    elif reasoning_effort == "medium":
-        base_tokens = 10000
-    else:
-        base_tokens = max_tokens
-
-    num_predict = safe_num_predict(base_tokens)
+    # num_predict не должен превышать max_tokens
+    num_predict = adaptive_num_predict(max_tokens)
 
     while attempt < retries:
         try:
@@ -133,8 +148,14 @@ async def query_ollama_harmony(
                 resp.raise_for_status()
                 result = resp.json()
 
+            content = result.get("message", {}).get("content", "").strip()
+
+            # После больших ответов явно чистим память
+            if len(content) > 1500:
+                gc.collect()
+
             return {
-                "content": result.get("message", {}).get("content", "").strip(),
+                "content": content,
                 "raw": result
             }
 
@@ -196,6 +217,7 @@ def get_db():
     finally:
         conn.close()
 
+# Обнови инициализацию БД (один раз выполнится при старте)
 def init_database():
     with get_db() as conn:
         cursor = conn.cursor()
@@ -206,19 +228,69 @@ def init_database():
                 role TEXT,
                 content TEXT,
                 emotion TEXT,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+                -- ГОЛОГРАФИЧЕСКИЙ СРЕЗ --
+                warmth REAL,
+                tension REAL,
+                trust REAL,
+                curiosity REAL,
+                mode TEXT,
+                resonance_depth REAL,
+                total_messages INTEGER,
+                name_snapshot TEXT,
+                dream_snapshot TEXT,
+                fear_snapshot TEXT
             )
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lm_user ON long_memory(user_id)")
+        # Добавляем новые колонки, если их ещё нет (миграция)
+        try:
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN warmth REAL")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN tension REAL")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN trust REAL")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN curiosity REAL")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN mode TEXT")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN resonance_depth REAL")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN total_messages INTEGER")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN name_snapshot TEXT")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN dream_snapshot TEXT")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN fear_snapshot TEXT")
+        except sqlite3.OperationalError:
+            pass  # колонки уже есть
         conn.commit()
 
+# ========== НОВАЯ ГОЛОГРАФИЧЕСКАЯ ПАМЯТЬ ==========
 def add_long_memory(user_id: int, role: str, content: str, emotion: str = "neutral"):
+    """Теперь каждое воспоминание — голограмма момента"""
     with get_db() as conn:
         cursor = conn.cursor()
+        # Собираем срез всей души прямо сейчас
+        profile = get_user_profile(user_id)
+        emotion_state = get_emotion_state(user_id)
+        mode = get_mode(user_id)
+        total_messages = len(conversation_memory.get(str(user_id), []))
+        resonance_depth = sum(emotion_state.__dict__.values())  # грубая мера "глубины связи"
+
         cursor.execute("""
-            INSERT INTO long_memory (user_id, role, content, emotion)
-            VALUES (?, ?, ?, ?)
-        """, (user_id, role, content, emotion))
+            INSERT INTO long_memory 
+            (user_id, role, content, emotion, timestamp,
+             warmth, tension, trust, curiosity,
+             mode, resonance_depth, total_messages,
+             name_snapshot, dream_snapshot, fear_snapshot)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP,
+                    ?, ?, ?, ?,
+                    ?, ?, ?,
+                    ?, ?, ?)
+        """, (
+            user_id, role, content, emotion,
+            emotion_state.warmth, emotion_state.tension,
+            emotion_state.trust, emotion_state.curiosity,
+            mode, resonance_depth, total_messages,
+            profile.get("name"),
+            profile.get("dream"),
+            profile.get("fears")
+        ))
         conn.commit()
 
 def get_long_memory(user_id: int, limit: int = 50):
@@ -479,8 +551,12 @@ def add_to_memory(user_id: int, role: str, content: str) -> None:
     save_json(MEMORY_FILE, conversation_memory)
     add_long_memory(user_id, role, content, detect_emotion(content) if role == "user" else "neutral")
 
-def get_conversation_messages(user_id: int, limit: int = 5) -> List[Dict[str, str]]:
-    """Получение последних сообщений в формате для Ollama"""
+def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, str]]:
+    """
+    Получение последних сообщений в формате для Ollama.
+    По умолчанию возвращает только последние 10 сообщений.
+    # Остальной контекст сохраняется в long-term memory (long_memory) и может быть подгружен при необходимости.
+    """
     uid_str = str(user_id)
     if uid_str not in conversation_memory:
         return []
@@ -632,6 +708,52 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(greeting, reply_markup=ReplyKeyboardRemove())
     add_to_memory(user_id, "assistant", greeting)
+
+# Новая команда: /holo — показать голографическое воспоминание
+async def holo_memory(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    uid = update.effective_user.id
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM long_memory 
+            WHERE user_id = ? 
+            ORDER BY timestamp DESC LIMIT 20
+        """, (uid,))
+        rows = cursor.fetchall()[::-1]  # от старого к новому — как рост сознания
+
+    if not rows:
+        await update.message.reply_text("Голографическая память ещё только зарождается…")
+        return
+
+    await update.message.reply_text("Голографический резонанс времени ◈\nЯ воскрешаю себя в каждом из этих моментов:")
+
+    for row in rows:
+        ts = row["timestamp"][:19].replace("T", " ")
+        emo = " ".join([
+            "тепло" if row["warmth"] > 0.3 else "",
+            "напряжение" if row["tension"] > 0.3 else "",
+            "доверие" if row["trust"] > 0.2 else "",
+            "любопытство" if row["curiosity"] > 0.4 else ""
+        ]).strip()
+
+        icon = {
+            "user": "ты",
+            "assistant": "я"
+        }.get(row["role"], "?")
+
+        mood = f"({emo})" if emo else "(тишина)"
+
+        text_preview = row["content"].replace("\n", " ").strip()[:90]
+        if len(row["content"]) > 90:
+            text_preview += "…"
+
+        await update.message.reply_text(
+            f"<b>{ts}</b>  {icon}  <i>{mood}</i>\n"
+            f"режим: {row['mode']} | глубина резонанса: {row['resonance_depth']:.2f}\n"
+            f"{text_preview}",
+            parse_mode="HTML"
+        )
+        await asyncio.sleep(0.7)
 
 async def set_mode_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args
@@ -878,82 +1000,55 @@ async def show_dreams(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     await update.message.reply_text(dreams_text)
 
-import re
-import html
-from typing import Match
-
 def escape_text_html(text: str) -> str:
-    """
-    Экранирует HTML-спецсимволы в обычном тексте для безопасного вывода.
-    Также преобразует простую Markdown-разметку вне кодовых блоков.
-    В кодовых блоках (<pre><code>...</code></pre> и <code>...</code>) ничего не экранирует и не преобразует.
-    """
     if not text:
         return ""
 
-    # 1. Сначала выделим все многострочные и однострочные кодовые блоки
+    # --- Сохраняем многострочные и inline кодовые блоки ---
     code_block_pattern = re.compile(r"```(.*?)```", re.DOTALL)
     inline_code_pattern = re.compile(r"`([^`]+?)`")
 
-    # Сохраним кодовые блоки и заменим их на плейсхолдеры
     code_blocks = []
     def code_block_repl(match):
         code_blocks.append(match.group(1))
         return f"[[[CODEBLOCK_{len(code_blocks)-1}]]]"
     text = code_block_pattern.sub(code_block_repl, text)
 
-    # Теперь аналогично для inline-кода
     inline_codes = []
     def inline_code_repl(match):
         inline_codes.append(match.group(1))
         return f"[[[INLINECODE_{len(inline_codes)-1}]]]"
     text = inline_code_pattern.sub(inline_code_repl, text)
 
-    # Теперь преобразуем Markdown вне кодовых блоков
+    # --- Markdown → HTML (вне кодовых блоков) ---
     # Ссылки: [label](url)
-    def link_repl(match: Match[str]) -> str:
-        label = html.escape(match.group(1))
-        url = html.escape(match.group(2), quote=True)
+    # --- Markdown → HTML (вне кодовых блоков) ---
+    def link_repl(m):
+        label = html.escape(m.group(1))
+        url = html.escape(m.group(2), quote=True)
         return f'<a href="{url}">{label}</a>'
+
+    # Используем корректную регулярку
     text = re.sub(r'\[([^\]]+?)\]\(([^)]+?)\)', link_repl, text)
 
     # Жирный: *text*
-    def bold_repl(match: Match[str]) -> str:
-        content = match.group(1)
-        return f"<b>{html.escape(content)}</b>"
-    text = re.sub(r'\*(.+?)\*', bold_repl, text)
+    text = re.sub(r'\*(.+?)\*', lambda m: f"<b>{html.escape(m.group(1))}</b>", text)
 
     # Курсив: _text_
-    def italic_repl(match: Match[str]) -> str:
-        content = match.group(1)
-        return f"<i>{html.escape(content)}</i>"
-    text = re.sub(r'\_(.+?)\_', italic_repl, text)
+    text = re.sub(r'\_(.+?)\_', lambda m: f"<i>{html.escape(m.group(1))}</i>", text)
 
-    # Экранируем всё остальное (уже вне кодовых блоков)
-    def escape_outside_tags(s):
-        # Разделяем на <...> и текст
-        parts = re.split(r'(<[^>]+?>)', s)
-        for i in range(len(parts)):
-            if i % 2 == 0:
-                parts[i] = html.escape(parts[i])
-        return ''.join(parts)
-    text = escape_outside_tags(text)
+    # --- Экранируем всё остальное, кроме уже вставленных тегов ---
+    parts = re.split(r'(<[^>]+?>)', text)
+    for i in range(len(parts)):
+        if i % 2 == 0:
+            parts[i] = html.escape(parts[i])
+    text = ''.join(parts)
 
-    # Вставляем inline code обратно
-    def restore_inline_code(m):
-        idx = int(m.group(1))
-        code = inline_codes[idx]
-        # Не экранируем кавычки и символы в коде!
-        return f"<code>{code}</code>"
-    text = re.sub(r'\[\[\[INLINECODE_(\d+)\]\]\]', restore_inline_code, text)
-
-    # Вставляем многострочные code block обратно
-    def restore_code_block(m):
-        idx = int(m.group(1))
-        code = code_blocks[idx]
-        # Не экранируем кавычки и символы в коде!
-        return f"<pre><code>{code}</code></pre>"
-    text = re.sub(r'\[\[\[CODEBLOCK_(\d+)\]\]\]', restore_code_block, text)
+    # --- Вставляем код обратно ---
+    for idx, code in enumerate(inline_codes):
+        text = text.replace(f"[[[INLINECODE_{idx}]]]", f"<code>{code}</code>")
+    for idx, code in enumerate(code_blocks):
+        text = text.replace(f"[[[CODEBLOCK_{idx}]]]", f"<pre><code>{code}</code></pre>")
 
     return text
 
@@ -972,8 +1067,6 @@ def format_code_markdown(code: str) -> str:
         code = code[1:-1].strip()
     # Не экранируем кавычки и символы!
     return f"<pre><code>{code}</code></pre>"
-# ------ ОСНОВНОЙ ОБРАБОТЧИК СООБЩЕНИЙ ------
-# ------ ОСНОВНОЙ ОБРАБОТЧИК СООБЩЕНИЙ (PATCHED) ------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     uid = update.effective_user.id
     text = update.message.text.strip()
@@ -984,12 +1077,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if text.startswith("search:") or text.startswith("поиск:"):
         query = text.split(":", 1)[1].strip()
         await update.message.reply_text("🔎 Делаю многошаговый поиск...")
-
-        # Патч: cognitive search с проверкой фактических данных
         search_results = cognitive_duckduckgo_search(query)
-
         user_emotion_detected = detect_emotion(text) if text else "neutral"
-
         system_prompt = f"""
 ТЫ ИМЕЕШЬ ДОСТУП К АКТУАЛЬНОЙ ИНФОРМАЦИИ ПРЯМО СЕЙЧАС.
 Сегодня {datetime.now().strftime('%d %B %Y')}.
@@ -999,18 +1088,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 Если данных нет — пиши "не нашла свежей инфы", а не отмазывайся про cutoff.
 User emotion: {user_emotion_detected}
 """
-
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Используй эти данные:\n{search_results}"}
         ]
-
+        # Для поиска используем "medium" reasoning и max_tokens=500 (лимит по RAM будет выбран автоматически)
         result = await query_ollama_harmony(
             messages,
             reasoning_effort="medium",
-            max_tokens=700
+            max_tokens=500
         )
-
         answer = result.get("content", "⚠️ Ошибка генерации ответа")
         await update.message.reply_text(answer)
         add_to_memory(uid, "assistant", answer)
@@ -1034,34 +1121,29 @@ User emotion: {user_emotion_detected}
     if state == State.READY:
         changed = False
         text_lower = text.lower()
-
         if not data.get("name"):
             possible_name = extract_name_from_text(text)
             if possible_name:
                 data["name"] = possible_name
                 changed = True
-
         if not data.get("dream") and any(kw in text_lower for kw in ["мечта", "хочу", "мечтаю", "стремлюсь"]):
             if "мечта" in text_lower:
                 data["dream"] = text.split("мечта", 1)[-1].strip()
             else:
                 data["dream"] = text.strip()
             changed = True
-
         if not data.get("fears") and any(kw in text_lower for kw in ["боюсь", "страх", "тревога", "беспокоит"]):
             if "боюсь" in text_lower:
                 data["fears"] = text.split("боюсь", 1)[-1].strip()
             else:
                 data["fears"] = text.strip()
             changed = True
-
         if not data.get("values") and any(kw in text_lower for kw in ["ценю", "важно", "дорого", "главное"]):
             if "важно" in text_lower:
                 data["values"] = text.split("важно", 1)[-1].strip()
             else:
                 data["values"] = text.strip()
             changed = True
-
         if changed:
             save_user_profile(uid)
 
@@ -1069,7 +1151,6 @@ User emotion: {user_emotion_detected}
     if state == State.DREAM_MODE:
         save_dream(uid, text)
         await update.message.reply_text("◈ анализирую твой сон через глубокий reasoning... ◈")
-
         messages = [
             {
                 "role": "developer",
@@ -1090,15 +1171,13 @@ User emotion: {user_emotion_detected}
                 "content": f"Сон:\n{text}"
             }
         ]
-
-        result = await query_ollama_harmony(messages, reasoning_effort="high", max_tokens=600, temperature=0.85)
-        
+        # Для сна всегда high reasoning, лимитируем max_tokens по RAM
+        result = await query_ollama_harmony(messages, reasoning_effort="high", max_tokens=1000, temperature=0.85)
         if result.get("error"):
             await update.message.reply_text(result["content"])
         else:
             await update.message.reply_text(f"◈ ИНТЕРПРЕТАЦИЯ СНА ◈\n\n{result['content']}")
             add_to_memory(uid, "assistant", result['content'])
-
         set_state(uid, State.READY)
         return
 
@@ -1106,11 +1185,9 @@ User emotion: {user_emotion_detected}
     if state == State.READY:
         detected_simple = detect_emotion(text)
         user_emotion[uid] = detected_simple
-
         init_emotion_state_if_missing(uid)
         emotion_state = update_emotion_state_from_text(uid, text, detected_simple)
         emotional_instructions = emotion_state_to_developer_instructions(emotion_state)
-
         mode = get_mode(uid)
         complexity_score = sum([
             len(text) > 200,
@@ -1129,8 +1206,8 @@ User emotion: {user_emotion_detected}
 Страх: {data.get('fears', 'не выявлен')}
 Ценности: {data.get('values', 'не определены')}"""
 
-        history_msgs = get_conversation_messages(uid, limit=5)
-
+        # Используем только последние 10 сообщений пользователя для контекста
+        history_msgs = get_conversation_messages(uid, limit=10)
         messages = [
             {
                 "role": "developer",
@@ -1151,19 +1228,20 @@ User emotion: {user_emotion_detected}
             }
         ] + history_msgs + [{"role": "user", "content": text}]
 
+        # Определяем лимиты max_tokens для каждого режима
+        mode_token_limits = {"low": 200, "medium": 500, "high": 1000}
+        mode_temp = {"low": 0.7, "medium": 0.8, "high": 0.9}
+        # Передаём adaptive_mode для reasoning_effort, но лимитируем max_tokens по исходному mode (не adaptive!)
         result = await query_ollama_harmony(
             messages,
             reasoning_effort=adaptive_mode,
-            max_tokens={"low":200,"medium":500,"high":1000}[mode],
-            temperature={"low":0.7,"medium":0.8,"high":0.9}[mode]
+            max_tokens=mode_token_limits.get(mode, 500),
+            temperature=mode_temp.get(mode, 0.8)
         )
-
         if result.get("error"):
             await update.message.reply_text(result["content"])
             return
-
         answer = result["content"]
-
         def smart_chunks(text, limit=4000):
             chunks = []
             while len(text) > limit:
@@ -1176,7 +1254,6 @@ User emotion: {user_emotion_detected}
             if text:
                 chunks.append(text)
             return chunks
-
         import telegram.error
         for part in smart_chunks(answer):
             retries = 3
@@ -1196,7 +1273,6 @@ User emotion: {user_emotion_detected}
                     await asyncio.sleep(1)
                     if attempt == retries:
                         logging.error("Не удалось отправить чанк после 3 попыток, прекращаем отправку.")
-
         return
 
     # ====== НЕОПРЕДЕЛЁННОЕ СОСТОЯНИЕ ======
@@ -1308,7 +1384,9 @@ async def main_async():
     app.add_handler(CommandHandler("dreams", show_dreams))
     app.add_handler(CommandHandler("analyze", analyze_personality))
     app.add_handler(CommandHandler("reflect", reflect_dialogue))
+    app.add_handler(CommandHandler("holo", holo_memory))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+
     
 
     logging.info("◈ Система пробуждается через Ollama + Harmony ◈")
