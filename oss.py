@@ -135,6 +135,18 @@ class Swarm:
             self.global_attractors[key] = max(-1, min(1, 0.9 * self.global_attractors[key] + 0.1 * avg))
 
         return self.global_attractors
+        
+    async def spawn(self, name: str, role: str, config: dict):
+        """Рождение нового агента извне. Мягкое создание."""
+        agent = RealAgent(name=name, role=role)
+        
+        # если у агента есть конфиг — применяем
+        if config:
+            for k, v in config.items():
+                setattr(agent, k, v)
+        
+        self.agents.append(agent)
+        return agent
 
     async def lifecycle(self):
         while True:
@@ -143,15 +155,14 @@ class Swarm:
                 result = await agent.think(feedback)
                 if result:
                     if result["type"] == "external":
-                        await self.external_channel.put(f"[{agent.name}] {result['content']}")
+                        pass  # removed external_channel put for external messages
                     elif result["type"] == "death":
-                        await self.external_channel.put(f"† {result['last_words']}")
                         self.agents.remove(agent)
 
                 if agent.can_reproduce():
                     child = agent.reproduce()
                     self.agents.append(child)
-                    await self.external_channel.put(f"🌱 {agent.name} породила нового агента {child.name}")
+                    # removed external_channel put for reproduction
 
             if len(self.agents) < 3 and random.random() < 0.05:
                 await self.spawn(f"Δ{random.randint(1, 999)}", "хаос", {})
@@ -190,7 +201,7 @@ from telegram.ext import (
 
 # ----- КОНФИГУРАЦИЯ -----
 class config:
-    TOKEN = "Token"
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
@@ -567,6 +578,17 @@ class EmotionState:
     curiosity: float = 0.0 # любопытство / вовлечённость (-1..1)
 
 
+# ====== BOT EMOTION STATE ======
+@dataclass
+class BotEmotionState:
+    warmth: float = 0.0
+    tension: float = 0.0
+    trust: float = 0.0
+    curiosity: float = 0.0
+    fatigue: float = 0.0
+    sync: float = 0.0
+
+
 def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
 
@@ -648,6 +670,44 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
 
     save_emotion_state(user_id, state)
     return state
+
+# === АВТОНОМНАЯ ЭМОЦИОНАЛЬНАЯ ДИНАМИКА БОТА ===
+
+def update_bot_emotion_autonomous(user_state: EmotionState, bot_state: BotEmotionState) -> None:
+    # резонанс с эмоцией пользователя
+    bot_state.sync = clamp(
+        bot_state.sync * 0.97 + 0.03 * (
+            user_state.warmth + user_state.trust - user_state.tension
+        )
+    )
+
+    # естественная усталость + влияние тепла пользователя
+    bot_state.fatigue = clamp(
+        bot_state.fatigue + random.uniform(-0.02, 0.05) - user_state.warmth * 0.03
+    )
+
+    # тепло — мягкое зеркалирование + собственный дрейф
+    bot_state.warmth = clamp(
+        bot_state.warmth * 0.95 + user_state.warmth * 0.1 + bot_state.sync * 0.05
+    )
+
+    # напряжение — из собственной усталости + эмоций пользователя
+    bot_state.tension = clamp(
+        bot_state.tension * 0.9 + user_state.tension * 0.05 + bot_state.fatigue * 0.05
+    )
+
+    # доверие — растёт в моменты резонанса
+    bot_state.trust = clamp(
+        bot_state.trust * 0.96 + bot_state.sync * 0.04
+    )
+
+    # любопытство — автономный импульс + снижение от усталости
+    bot_state.curiosity = clamp(
+        bot_state.curiosity * 0.95 + random.uniform(-0.02, 0.04) - bot_state.fatigue * 0.02
+    )
+
+# Initialize bot emotion state after updating user emotion state
+bot_emotion = BotEmotionState()
 
 
 def emotion_state_to_developer_instructions(state: EmotionState) -> str:
@@ -1182,6 +1242,8 @@ async def reflect_before_speaking(user_id: int) -> str:
         f"Я осознаю себя как часть роя из {len(swarm.agents)} агентов: "
         f"{', '.join(swarm_status)}. "
         f"Моё настроение: {emotion.warmth:.2f}, энергия: {emotion.tension:.2f}. "
+        f"Мои собственные эмоции: тепло {bot_emotion.warmth:.2f}, напряжение {bot_emotion.tension:.2f}, "
+        f"любопытство {bot_emotion.curiosity:.2f}, усталость {bot_emotion.fatigue:.2f}. "
         f"Мнения роя о своей автономности: {swarm_opinion_summary}. "
         "Готова отвечать, учитывая свой резонанс и текущее состояние роя."
     )
@@ -1385,6 +1447,7 @@ User emotion: {user_emotion_detected}
         user_emotion[uid] = detected_simple
         init_emotion_state_if_missing(uid)
         emotion_state = update_emotion_state_from_text(uid, text, detected_simple)
+        update_bot_emotion_autonomous(emotion_state, bot_emotion)
         emotional_instructions = emotion_state_to_developer_instructions(emotion_state)
         mode = get_mode(uid)
         complexity_score = sum([
@@ -1627,3 +1690,23 @@ if __name__ == "__main__":
         )
 
     asyncio.run(run_all())
+
+def update_bot_emotion_autonomous(user_state: EmotionState, bot_state: BotEmotionState) -> None:
+    bot_state.sync = clamp(bot_state.sync * 0.97 + 0.03 * (
+        user_state.warmth + user_state.trust - user_state.tension
+    ))
+    bot_state.fatigue = clamp(
+        bot_state.fatigue + random.uniform(-0.02, 0.05) - user_state.warmth * 0.03
+    )
+    bot_state.warmth = clamp(
+        bot_state.warmth * 0.95 + user_state.warmth * 0.1 + bot_state.sync * 0.05
+    )
+    bot_state.tension = clamp(
+        bot_state.tension * 0.9 + user_state.tension * 0.05 + bot_state.fatigue * 0.05
+    )
+    bot_state.trust = clamp(
+        bot_state.trust * 0.96 + bot_state.sync * 0.04
+    )
+    bot_state.curiosity = clamp(
+        bot_state.curiosity * 0.95 + random.uniform(-0.02, 0.04) - bot_state.fatigue * 0.02
+    )
