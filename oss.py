@@ -1,4 +1,4 @@
-# bot.py - ПРАВИЛЬНАЯ ВЕРСИЯ С HARMONY FORMAT
+# oss.py - HARMONY FORMAT
 import json
 import logging
 from pathlib import Path
@@ -1691,22 +1691,3 @@ if __name__ == "__main__":
 
     asyncio.run(run_all())
 
-def update_bot_emotion_autonomous(user_state: EmotionState, bot_state: BotEmotionState) -> None:
-    bot_state.sync = clamp(bot_state.sync * 0.97 + 0.03 * (
-        user_state.warmth + user_state.trust - user_state.tension
-    ))
-    bot_state.fatigue = clamp(
-        bot_state.fatigue + random.uniform(-0.02, 0.05) - user_state.warmth * 0.03
-    )
-    bot_state.warmth = clamp(
-        bot_state.warmth * 0.95 + user_state.warmth * 0.1 + bot_state.sync * 0.05
-    )
-    bot_state.tension = clamp(
-        bot_state.tension * 0.9 + user_state.tension * 0.05 + bot_state.fatigue * 0.05
-    )
-    bot_state.trust = clamp(
-        bot_state.trust * 0.96 + bot_state.sync * 0.04
-    )
-    bot_state.curiosity = clamp(
-        bot_state.curiosity * 0.95 + random.uniform(-0.02, 0.04) - bot_state.fatigue * 0.02
-    )
