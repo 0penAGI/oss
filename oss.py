@@ -10,7 +10,7 @@ from datetime import datetime
 import requests
 import httpx
 import html  # для html.escape
-
+import telegram
 # ====== MULTI‑AGENT SWARM LIFE ======
 import uuid
 from dataclasses import dataclass, field
