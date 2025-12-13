@@ -12,7 +12,7 @@ import httpx
 import html  # для html.escape
 
 class config:
-    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
+    TOKEN = "YourTokenHere"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
