@@ -250,43 +250,28 @@
                 }
             `,
             fragmentShader: `
-    varying vec2 vUv;
-    uniform sampler2D tOld;
-    uniform sampler2D tNew;
-    uniform float decay;
-    uniform vec2 resolution;
+                varying vec2 vUv;
+                uniform sampler2D tOld;
+                uniform sampler2D tNew;
+                uniform float decay;
+                uniform vec2 resolution;
 
-    // hash noise
-    float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-    }
+                vec4 blur(sampler2D tex, vec2 uv) {
+                    vec2 px = 1.0 / resolution;
+                    vec4 c = texture2D(tex, uv) * 0.36;
+                    c += texture2D(tex, uv + vec2(px.x, 0.0)) * 0.16;
+                    c += texture2D(tex, uv - vec2(px.x, 0.0)) * 0.16;
+                    c += texture2D(tex, uv + vec2(0.0, px.y)) * 0.16;
+                    c += texture2D(tex, uv - vec2(0.0, px.y)) * 0.16;
+                    return c;
+                }
 
-    vec2 noiseDir(vec2 uv) {
-        float n = hash(uv * resolution);
-        float a = n * 6.28318530718;
-        return vec2(cos(a), sin(a));
-    }
-
-    vec4 noiseBlur(sampler2D tex, vec2 uv) {
-        vec2 px = 1.0 / resolution;
-        vec2 dir = noiseDir(uv);
-
-        vec4 col = vec4(0.0);
-        col += texture2D(tex, uv) * 0.28;
-        col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv + dir * px * 2.5) * 0.14;
-        col += texture2D(tex, uv - dir * px * 2.5) * 0.14;
-
-        return col;
-    }
-
-    void main() {
-        vec4 oldCol = noiseBlur(tOld, vUv) * decay;
-        vec4 newCol = texture2D(tNew, vUv);
-        gl_FragColor = max(oldCol, newCol);
-    }
-`,
+                void main() {
+                    vec4 oldCol = blur(tOld, vUv) * decay;
+                    vec4 newCol = texture2D(tNew, vUv);
+                    gl_FragColor = max(oldCol, newCol);
+                }
+            `,
             transparent: true
         });
 
