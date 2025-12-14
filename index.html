@@ -708,50 +708,75 @@
                 msize.delete();
                 // Сохраняем описание в глобальную переменную
                 latestCameraDescription = desc;
-                // Отправляем результат через sendToBot
-                sendToBot(`[Вижу]: ${desc}`);
+                // Не вызываем sendToBot автоматически!
             } catch (e) {
                 // В случае ошибки не отправляем, просто игнорируем
             }
         }
 
-        // Периодический захват кадра и анализ OpenCV.js
-        let visionInterval = null;
-        async function processVisionFrame() {
+        // ====== Единый цикл для анализа камеры и отправки описания ======
+        let cameraAnalysisInterval = null;
+        async function analyzeAndSendCameraFrame() {
             if (
+                cameraEnabled &&
+                cameraVideo.style.display === 'block' &&
                 cameraVideo.readyState >= 2 &&
                 cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0
             ) {
                 visionCanvas.width = cameraVideo.videoWidth;
                 visionCanvas.height = cameraVideo.videoHeight;
                 visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
-                // Передаем сам canvas для OpenCV.js
-                detectFacesAndSend(visionCanvas, visionCanvas.width, visionCanvas.height);
+                // Анализ с помощью OpenCV.js (например, лица)
+                let description = '';
+                try {
+                    if (!opencvReady || !cascadeLoaded) {
+                        // Откладываем вызов, если OpenCV не готов
+                        pendingVisionFrames.push([visionCanvas, visionCanvas.width, visionCanvas.height]);
+                        return;
+                    }
+                    let src = cv.imread(visionCanvas);
+                    let gray = new cv.Mat();
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                    let faces = new cv.RectVector();
+                    let msize = new cv.Size(0, 0);
+                    faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
+                    let count = faces.size();
+                    if (count === 0) {
+                        description = 'Лиц не обнаружено.';
+                    } else if (count === 1) {
+                        description = 'Обнаружено 1 лицо в кадре.';
+                    } else {
+                        description = `Обнаружено лиц: ${count}.`;
+                    }
+                    src.delete();
+                    gray.delete();
+                    faces.delete();
+                    msize.delete();
+                } catch (e) {
+                    description = 'Ошибка анализа изображения.';
+                }
+                // Сохраняем описание в глобальную переменную
+                latestCameraDescription = description;
+                // Отправляем на ngrok endpoint
+                try {
+                    const userId = tg?.initDataUnsafe?.user?.id || 0;
+                    await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                        body: JSON.stringify({ user_id: userId, description })
+                    });
+                } catch (e) {
+                    // ignore
+                }
             }
         }
-        // Запускать анализ только если камера активна
-        function startVisionBackground() {
-            if (visionInterval) clearInterval(visionInterval);
-            visionInterval = setInterval(() => {
-                if (cameraVideo.style.display === 'block') {
-                    processVisionFrame();
-                }
-            }, 2000);
+        function startCameraAnalysisLoop() {
+            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
+            cameraAnalysisInterval = setInterval(analyzeAndSendCameraFrame, 2000);
         }
-        function stopVisionBackground() {
-            if (visionInterval) clearInterval(visionInterval);
-            visionInterval = null;
-        }
-        // Автоматически запускать/останавливать анализ вместе с камерой
-        const origStartCamera = startCamera;
-        startCamera = async function(...args) {
-            await origStartCamera.apply(this, args);
-            startVisionBackground();
-        }
-        const origStopCamera = stopCamera;
-        stopCamera = function(...args) {
-            origStopCamera.apply(this, args);
-            stopVisionBackground();
+        function stopCameraAnalysisLoop() {
+            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
+            cameraAnalysisInterval = null;
         }
 
         // ===== Голосовые команды для камеры + переменная cameraEnabled =====
@@ -782,74 +807,16 @@
             }
         };
 
-        // ====== Вторая версия фонового анализа: отправка описания на /api/camera_analysis ======
-        // Новый цикл: каждые 2 секунды берем кадр, анализируем, отправляем описание на backend
-        let cameraAnalysisInterval = null;
-        async function analyzeAndSendCameraFrame() {
-            if (
-                cameraEnabled &&
-                cameraVideo.readyState >= 2 &&
-                cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0
-            ) {
-                visionCanvas.width = cameraVideo.videoWidth;
-                visionCanvas.height = cameraVideo.videoHeight;
-                visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
-                // Анализ с помощью OpenCV.js (например, лица)
-                let description = '';
-                try {
-                    if (!opencvReady || !cascadeLoaded) return;
-                    let src = cv.imread(visionCanvas);
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    let faces = new cv.RectVector();
-                    let msize = new cv.Size(0, 0);
-                    faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                    let count = faces.size();
-                    if (count === 0) {
-                        description = 'Лиц не обнаружено.';
-                    } else if (count === 1) {
-                        description = 'Обнаружено 1 лицо в кадре.';
-                    } else {
-                        description = `Обнаружено лиц: ${count}.`;
-                    }
-                    src.delete();
-                    gray.delete();
-                    faces.delete();
-                    msize.delete();
-                } catch (e) {
-                    description = 'Ошибка анализа изображения.';
-                }
-                // Отправляем на новый endpoint /api/camera_analysis
-                try {
-                    const userId = tg?.initDataUnsafe?.user?.id || 0;
-                    await fetch('/api/camera_analysis', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, description })
-                    });
-                } catch (e) {
-                    // ignore
-                }
-            }
-        }
-        function startCameraAnalysisLoop() {
-            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
-            cameraAnalysisInterval = setInterval(analyzeAndSendCameraFrame, 2000);
-        }
-        function stopCameraAnalysisLoop() {
-            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
-            cameraAnalysisInterval = null;
-        }
-        // Включать/выключать цикл вместе с камерой
-        const origStartCameraAnalysis = startCamera;
+        // ====== Включать/выключать анализ вместе с камерой (единый цикл) ======
+        const origStartCamera = startCamera;
         startCamera = async function(...args) {
-            await origStartCameraAnalysis.apply(this, args);
+            await origStartCamera.apply(this, args);
             cameraEnabled = true;
             startCameraAnalysisLoop();
         }
-        const origStopCameraAnalysis = stopCamera;
+        const origStopCamera = stopCamera;
         stopCamera = function(...args) {
-            origStopCameraAnalysis.apply(this, args);
+            origStopCamera.apply(this, args);
             cameraEnabled = false;
             stopCameraAnalysisLoop();
         }
