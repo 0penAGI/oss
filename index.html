@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
-            background: linear-gradient(135deg, #ffffff 0%, #1a1a1a 50%, #0a0a0a 100%);
-            color: #0a0a0a;
+            background: #000;
+            color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            display: flex;a--
+            display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -23,41 +23,12 @@
             overflow: hidden;
             position: relative;
         }
-
-        .particles {
+        #webgl-canvas {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 0;
         }
-
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            animation: float 20s infinite linear;
-        }
-
-        @keyframes float {
-            0% {
-                transform: translateY(100vh) translateX(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 1;
-            }
-            90% {
-                opacity: 1;
-            }
-            100% {
-                transform: translateY(-100vh) translateX(100px);
-                opacity: 0;
-            }
-        }
-
         .content {
             position: relative;
             z-index: 1;
@@ -67,25 +38,23 @@
             width: 100%;
             padding: 20px;
         }
-
         .soul-container {
             position: relative;
             margin-bottom: 50px;
         }
-
         .soul-orb {
             position: relative;
             width: 200px;
             height: 200px;
             border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%, 
-                rgba(255, 255, 255, 0.9) 0%, 
+            background: radial-gradient(circle at 35% 35%,
+                rgba(255, 255, 255, 0.9) 0%,
                 rgba(200, 200, 200, 0.6) 20%,
                 rgba(100, 100, 100, 0.4) 40%,
                 rgba(40, 40, 40, 0.8) 70%,
                 rgba(0, 0, 0, 1) 100%
             );
-            box-shadow: 
+            box-shadow:
                 0 0 60px rgba(255, 255, 255, 0.3),
                 0 0 100px rgba(255, 255, 255, 0.1),
                 inset -30px -30px 80px rgba(0, 0, 0, 0.9),
@@ -94,7 +63,6 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
         .soul-orb::before {
             content: '';
             position: absolute;
@@ -103,245 +71,194 @@
             width: 35%;
             height: 35%;
             border-radius: 50%;
-            background: radial-gradient(circle, 
-                rgba(255, 255, 255, 0.9) 0%, 
+            background: radial-gradient(circle,
+                rgba(255, 255, 255, 0.9) 0%,
                 rgba(255, 255, 255, 0.4) 40%,
                 transparent 70%
             );
             filter: blur(8px);
         }
-
         .soul-orb::after {
             content: '';
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: radial-gradient(circle at 70% 70%, 
-                transparent 40%, 
+            background: radial-gradient(circle at 70% 70%,
+                transparent 40%,
                 rgba(0, 0, 0, 0.6) 80%
             );
         }
-
         .aura {
             position: absolute;
             inset: -20px;
             border-radius: 50%;
-            background: radial-gradient(circle, 
-                transparent 60%, 
+            background: radial-gradient(circle,
+                transparent 60%,
                 rgba(255, 255, 255, 0.1) 70%,
                 transparent 100%
             );
             animation: auraGlow 3s infinite ease-in-out;
             opacity: 0.5;
         }
-
-        .soul-orb.listening {
-            animation: pulse 1.2s infinite ease-in-out;
-            box-shadow: 
-                0 0 80px rgba(255, 255, 255, 0.5),
-                0 0 120px rgba(255, 255, 255, 0.3),
-                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
-                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
-        }
-
-        .soul-orb.listening .aura {
-            animation: auraExpand 1.2s infinite ease-in-out;
-        }
-
-        .soul-orb.speaking {
-            animation: vibrate 0.15s infinite linear;
-            box-shadow: 
-                0 0 100px rgba(255, 255, 255, 0.7),
-                0 0 150px rgba(255, 255, 255, 0.4),
-                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
-                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
-        }
-
-        .soul-orb.thinking {
-            animation: rotate 2s infinite linear;
-        }
-
-        @keyframes breathe {
-            0%, 100% { 
-                transform: scale(1);
-            }
-            50% { 
-                transform: scale(1.05);
-            }
-        }
-
-        @keyframes pulse {
-            0%, 100% { 
-                transform: scale(1);
-            }
-            50% { 
-                transform: scale(1.12);
-            }
-        }
-
-        @keyframes vibrate {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            25% { transform: translate(-3px, 3px) rotate(-1deg); }
-            50% { transform: translate(3px, -3px) rotate(1deg); }
-            75% { transform: translate(-3px, -3px) rotate(-0.5deg); }
-            100% { transform: translate(0, 0) rotate(0deg); }
-        }
-
-        @keyframes rotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes auraGlow {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-        }
-
-        @keyframes auraExpand {
-            0%, 100% { 
-                transform: scale(1);
-                opacity: 0.5;
-            }
-            50% { 
-                transform: scale(1.3);
-                opacity: 0.8;
-            }
-        }
-
-        .emotion-indicator {
-            position: absolute;
-            bottom: -40px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 32px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .soul-orb.listening .emotion-indicator.listen { opacity: 1; }
-        .soul-orb.speaking .emotion-indicator.speak { opacity: 1; }
-        .soul-orb.thinking .emotion-indicator.think { opacity: 1; }
-
-        #status {
-            font-size: 18px;
-            font-weight: 300;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            opacity: 0.9;
-            margin-bottom: 20px;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-            animation: statusFade 2s infinite ease-in-out;
-        }
-
-        @keyframes statusFade {
-            0%, 100% { opacity: 0.7; }
-            50% { opacity: 1; }
-        }
-
-        #transcript {
-            font-size: 15px;
-            max-width: 85%;
-            text-align: center;
-            opacity: 0.85;
-            line-height: 1.8;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            max-height: 200px;
-            overflow-y: auto;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-
-        #transcript::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #transcript::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 2px;
-        }
-
-        #transcript::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 2px;
-        }
-
-        .wave {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 100px;
-            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 100'%3E%3Cpath d='M0,50 Q300,0 600,50 T1200,50 L1200,100 L0,100 Z' fill='rgba(255,255,255,0.02)'/%3E%3C/svg%3E");
-            background-size: 1200px 100px;
-            animation: wave 10s linear infinite;
-            opacity: 0.3;
-        }
-
-        @keyframes wave {
-            0% { background-position: 0 0; }
-            100% { background-position: 1200px 0; }
-        }
-
-        .tap-hint {
-            position: absolute;
-            bottom: 30px;
-            font-size: 12px;
-            opacity: 0.4;
-            letter-spacing: 1px;
-        }
+        .soul-orb.listening { animation: pulse 1.2s infinite ease-in-out; box-shadow: 0 0 80px rgba(255,255,255,0.5), 0 0 120px rgba(255,255,255,0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05); }
+        .soul-orb.listening .aura { animation: auraExpand 1.2s infinite ease-in-out; }
+        .soul-orb.speaking { animation: vibrate 0.15s infinite linear; box-shadow: 0 0 100px rgba(255,255,255,0.7), 0 0 150px rgba(255,255,255,0.4), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05); }
+        .soul-orb.thinking { animation: rotate 2s infinite linear; }
+        @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+        @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+        @keyframes vibrate { 0%{transform:translate(0,0) rotate(0)} 25%{transform:translate(-3px,3px) rotate(-1deg)} 50%{transform:translate(3px,-3px) rotate(1deg)} 75%{transform:translate(-3px,-3px) rotate(-0.5deg)} 100%{transform:translate(0,0) rotate(0)} }
+        @keyframes rotate { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        @keyframes auraGlow { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
+        @keyframes auraExpand { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.3);opacity:0.8} }
+        .emotion-indicator { position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); font-size: 32px; opacity: 0; transition: opacity 0.3s; }
+        .soul-orb.listening .emotion-indicator.listen, .soul-orb.speaking .emotion-indicator.speak, .soul-orb.thinking .emotion-indicator.think { opacity: 1; }
+        #status { font-size: 18px; font-weight: 300; letter-spacing: 3px; text-transform: uppercase; opacity: 0.9; margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,255,255,0.5); animation: statusFade 2s infinite ease-in-out; }
+        @keyframes statusFade { 0%,100%{opacity:0.7} 50%{opacity:1} }
+        #transcript { font-size: 15px; max-width: 85%; text-align: center; opacity: 0.85; line-height: 1.8; padding: 20px; background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); max-height: 200px; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        #transcript::-webkit-scrollbar { width: 4px; }
+        #transcript::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 2px; }
+        #transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+        .tap-hint { position: absolute; bottom: 30px; font-size: 12px; opacity: 0.4; letter-spacing: 1px; }
     </style>
 </head>
 <body>
-    <div class="particles" id="particles"></div>
-    <div class="wave"></div>
-    
+    <canvas id="webgl-canvas"></canvas>
+
     <div class="content">
         <div class="soul-container">
             <div class="aura"></div>
             <div id="orb" class="soul-orb">
-                <div class="emotion-indicator listen"></div>
-                <div class="emotion-indicator speak"></div>
-                <div class="emotion-indicator think"></div>
+                <div class="emotion-indicator listen">👂</div>
+                <div class="emotion-indicator speak">🗣️</div>
+                <div class="emotion-indicator think">🤔</div>
             </div>
         </div>
-        
+       
         <div id="status">resonating</div>
         <div id="transcript"></div>
+        <div class="tap-hint">Нажми на сферу, чтобы начать</div>
     </div>
 
-    <script>
-        // Particles
-        const particlesContainer = document.getElementById('particles');
-        for (let i = 0; i < 30; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = Math.random() * 20 + 's';
-            particle.style.animationDuration = (15 + Math.random() * 10) + 's';
-            particlesContainer.appendChild(particle);
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
+
+        const canvas = document.getElementById('webgl-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 5;
+
+        // XDust шейдер для частиц
+        const vertexShader = `
+            attribute float size;
+            attribute vec3 customColor;
+            varying vec3 vColor;
+            void main() {
+                vColor = customColor;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                gl_PointSize = size * (300.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float time;
+            const float PI = 3.141592653589793;
+            varying vec3 vColor;
+
+            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
+                vec3 dir = normalize(p - vec3(0.5, 0.5, 0.0));
+                float d = length(dir);
+                float anim = time * 0.5;
+                if (d > 0.98 && d < 1.02) {
+                    float t = fract(sin(d * PI) * anim + c1.x);
+                    return mix(c1, c2, t);
+                } else {
+                    float t = fract(cos(d * PI) * anim + c2.y);
+                    return mix(c2, c3, t);
+                }
+            }
+
+            void main() {
+                vec3 p = gl_PointCoord.xyx / vec3(2.0); // адаптация под point coord
+                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.6, 0.5, 1.0));
+                float dist = length(gl_PointCoord - vec2(0.5));
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                gl_FragColor = vec4(color * vColor, alpha * 0.8);
+            }
+        `;
+
+        const particleCount = 15000;
+        const positions = new Float32Array(particleCount * 3);
+        const sizes = new Float32Array(particleCount);
+        const colors = new Float32Array(particleCount * 3);
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 10;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+
+            sizes[i] = Math.random() * 3 + 1;
+
+            colors[i * 3] = 1;
+            colors[i * 3 + 1] = 1;
+            colors[i * 3 + 2] = 1;
         }
 
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0 } },
+            vertexShader,
+            fragmentShader,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            material.uniforms.time.value += 0.01;
+            particles.rotation.y += 0.0002; // лёгкое вращение для глубины
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Твой оригинальный JS для голосового чата (без изменений)
         const tg = window.Telegram?.WebApp || null;
         if (tg) {
             tg.expand();
             tg.enableClosingConfirmation();
         }
-
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
-        
+       
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = 'ru-RU';
         recognition.interimResults = false;
         recognition.continuous = false;
-        
+       
         const synth = window.speechSynthesis;
         let isSpeaking = false;
         let isThinking = false;
-
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
                 if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
@@ -351,7 +268,6 @@
                 navigator.vibrate(pattern);
             }
         }
-
         function startListening() {
             if (isSpeaking || isThinking) return;
             try {
@@ -362,31 +278,27 @@
                 vibrate('light');
             } catch {}
         }
-
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
             transcriptDiv.innerHTML = `<strong>Ты:</strong> ${text}`;
             vibrate('medium');
             await sendToBot(text);
         };
-
         recognition.onerror = () => {
             setTimeout(startListening, 1500);
         };
-
         recognition.onend = () => {
             orb.classList.remove('listening');
             if (!isSpeaking && !isThinking) {
                 setTimeout(startListening, 1000);
             }
         };
-
         async function sendToBot(text) {
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
             status.innerText = "thinking";
-            
+           
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
                 const response = await fetch(
@@ -402,10 +314,10 @@
                 );
                 const data = await response.json();
                 const reply = data.reply;
-                
+               
                 transcriptDiv.innerHTML += `<br><br><strong>AI:</strong> ${reply}`;
                 transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
-                
+               
                 isThinking = false;
                 isSpeaking = true;
                 vibrate('heavy');
@@ -419,21 +331,18 @@
                 setTimeout(startListening, 2000);
             }
         }
-
         function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
             status.innerText = "speaking";
-            
-            const cleanText = text
-                .replace(/<[^>]*>/g, '')
-                .replace(/[*_#]/g, '');
-            
+           
+            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+           
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
             utterance.rate = 1.0;
             utterance.pitch = 0.95;
-            
+           
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
@@ -441,17 +350,15 @@
                 vibrate('light');
                 startListening();
             };
-            
+           
             synth.speak(utterance);
         }
-
         orb.addEventListener('click', () => {
             vibrate('medium');
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
         });
-
         window.addEventListener('load', () => {
             setTimeout(() => {
                 vibrate('light');
