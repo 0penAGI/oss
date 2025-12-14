@@ -515,7 +515,6 @@
                 function type() {
                     if (i < text.length) {
                         element.textContent += text.charAt(i);
-                        transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                         i++;
                         setTimeout(type, speed + Math.random() * 15);
                     } else {
