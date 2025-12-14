@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #00ff9d;
+            --glow: 0 0 10px #00ff9d, 0 0 20px #00ff9d;
+            --soul-color: #00f3ff;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* АНИМАЦИЯ ДУШИ */
+        .soul-orb {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--soul-color) 10%, transparent 70%);
+            box-shadow: 0 0 30px var(--soul-color);
+            animation: breathe 4s infinite ease-in-out;
+            margin-bottom: 40px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .soul-orb.listening {
+            box-shadow: 0 0 60px #ff0055;
+            background: radial-gradient(circle, #ff0055 10%, transparent 70%);
+            transform: scale(1.1);
+        }
+
+        .soul-orb.speaking {
+            box-shadow: 0 0 80px #ffffff;
+            background: radial-gradient(circle, #ffffff 20%, transparent 60%);
+            animation: vibrate 0.2s infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.5; }
+        }
+
+        @keyframes vibrate {
+            0% { transform: translate(0, 0) scale(1.1); }
+            20% { transform: translate(-2px, 2px) scale(1.1); }
+            40% { transform: translate(-2px, -2px) scale(1.1); }
+            60% { transform: translate(2px, 2px) scale(1.1); }
+            80% { transform: translate(2px, -2px) scale(1.1); }
+            100% { transform: translate(0, 0) scale(1.1); }
+        }
+
+        #status {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-bottom: 20px;
+            text-align: center;
+            height: 20px;
+        }
+
+        /* КНОПКА МИКРОФОНА */
+        .mic-btn {
+            background: transparent;
+            border: 2px solid var(--text-color);
+            color: var(--text-color);
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 18px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: var(--glow);
+            transition: 0.2s;
+        }
+        .mic-btn:active {
+            background: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        #transcript {
+            margin-top: 20px;
+            padding: 10px;
+            width: 80%;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            border-top: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="orb" class="soul-orb"></div>
+    <div id="status">Ready to resonate...</div>
+    <button id="btn" class="mic-btn">HOLD TO SPEAK</button>
+    <div id="transcript"></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const btn = document.getElementById('btn');
+        const orb = document.getElementById('orb');
+        const status = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
+
+        // Web Speech API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.interimResults = false;
+
+        // Синтез речи
+        const synth = window.speechSynthesis;
+
+        let isRecording = false;
+
+        // --- Управление записью ---
+        btn.addEventListener('touchstart', startListening);
+        btn.addEventListener('mousedown', startListening);
+        
+        btn.addEventListener('touchend', stopListening);
+        btn.addEventListener('mouseup', stopListening);
+
+        function startListening(e) {
+            e.preventDefault();
+            if (isRecording) return;
+            isRecording = true;
+            try {
+                recognition.start();
+                orb.classList.add('listening');
+                status.innerText = "Слушаю душу...";
+                btn.innerText = "LISTENING...";
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function stopListening(e) {
+            e.preventDefault();
+            if (!isRecording) return;
+            isRecording = false;
+            recognition.stop();
+            orb.classList.remove('listening');
+            btn.innerText = "HOLD TO SPEAK";
+            status.innerText = "Обработка...";
+        }
+
+        // --- Обработка результата ---
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript;
+            transcriptDiv.innerText = `Вы: ${text}`;
+            
+            // Отправляем на бэкенд
+            await sendToBot(text);
+        };
+
+        recognition.onerror = (event) => {
+            status.innerText = "Ошибка восприятия: " + event.error;
+        };
+
+        // --- Связь с Python-сервером ---
+        async function sendToBot(text) {
+            status.innerText = "Резонирую...";
+            orb.classList.add('speaking'); // Временно для визуализации
+
+            try {
+                // Получаем user_id из WebApp initData
+                const userId = tg.initDataUnsafe?.user?.id || 0;
+
+                const response = await fetch('/api/voice_chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        user_id: userId,
+                        text: text 
+                    })
+                });
+
+                const data = await response.json();
+                const reply = data.reply;
+
+                transcriptDiv.innerText += `\n\nБот: ${reply}`;
+                speak(reply);
+
+            } catch (e) {
+                status.innerText = "Разрыв связи.";
+                orb.classList.remove('speaking');
+            }
+        }
+
+        // --- Голос бота ---
+        function speak(text) {
+            orb.classList.add('speaking');
+            status.innerText = "Говорю...";
+
+            // Очищаем текст от HTML тегов и markdown для озвучки
+            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'ru-RU';
+            utterance.rate = 1.1; // Чуть быстрее
+            utterance.pitch = 0.9; // Чуть ниже, загадочнее
+
+            utterance.onend = () => {
+                orb.classList.remove('speaking');
+                status.innerText = "Ready to resonate...";
+            };
+
+            synth.speak(utterance);
+        }
+    </script>
+</body>
+</html>
