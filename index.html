@@ -441,8 +441,6 @@
         
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
-        let speechQueue = [];
-        let isSpeakingChunk = false;
 
         async function sendToBot(text) {
             isThinking = true;
@@ -489,15 +487,6 @@
                     await typeWriterEffect(responseContainer, chunk);
                     audioBuffer += chunk;
 
-                    // режем по запятым и предложениям
-                    let parts = audioBuffer.split(/([,.!?])/);
-                    while (parts.length > 2) {
-                        const phrase = parts.shift() + parts.shift();
-                        speechQueue.push(phrase.trim());
-                    }
-                    audioBuffer = parts.join("");
-
-                    playSpeechQueue();
                     transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                 }
 
@@ -505,30 +494,7 @@
                 status.innerText = "speaking";
                 vibrate('heavy');
 
-                if (audioBuffer.trim().length > 0) {
-                    speechQueue.push(audioBuffer.trim());
-                    playSpeechQueue();
-                }
-        function playSpeechQueue() {
-            if (isSpeakingChunk) return;
-            if (speechQueue.length === 0) return;
-
-            isSpeakingChunk = true;
-            const phrase = speechQueue.shift();
-
-            const clean = phrase.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
-            const utter = new SpeechSynthesisUtterance(clean);
-            utter.lang = 'ru-RU';
-            utter.rate = 1.0;
-            utter.pitch = 0.95;
-
-            utter.onend = () => {
-                isSpeakingChunk = false;
-                playSpeechQueue();
-            };
-
-            synth.speak(utter);
-        }
+                speak(audioBuffer);
 
             } catch (e) {
                 console.error(e);
@@ -560,6 +526,28 @@
             });
         }
         
+        function speak(text) {
+            orb.classList.remove('thinking');
+            orb.classList.add('speaking');
+            status.innerText = "speaking";
+           
+            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+           
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'ru-RU';
+            utterance.rate = 1.0;
+            utterance.pitch = 0.95;
+           
+            utterance.onend = () => {
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                status.innerText = "listening";
+                vibrate('light');
+                startListening();
+            };
+           
+            synth.speak(utterance);
+        }
         
         orb.addEventListener('click', () => {
             vibrate('medium');
