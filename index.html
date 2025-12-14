@@ -441,8 +441,6 @@
         
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
-        let speechQueue = [];
-        let isSpeakingChunk = false;
 
         async function sendToBot(text) {
             isThinking = true;
@@ -489,21 +487,14 @@
                     await typeWriterEffect(responseContainer, chunk);
                     audioBuffer += chunk;
 
-                    // пытаемся говорить, если накопилась фраза
-                    processSpeechQueue();
-
                     transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                 }
 
                 responseContainer.classList.remove("typing-cursor");
                 status.innerText = "speaking";
-                // если остался текст — докидываем в очередь
-                if (audioBuffer.trim().length > 0) {
-                    speechQueue.push(audioBuffer);
-                    audioBuffer = "";
-                }
+                vibrate('heavy');
 
-                processSpeechQueue();
+                speak(audioBuffer);
 
             } catch (e) {
                 console.error(e);
@@ -533,35 +524,6 @@
                 }
                 type();
             });
-        }
-
-        function processSpeechQueue() {
-            if (isSpeakingChunk) return;
-
-            // ищем завершённую фразу в буфере
-            let match = audioBuffer.match(/(.+?[.!?])/);
-            if (match) {
-                const sentence = match[1];
-                audioBuffer = audioBuffer.slice(sentence.length);
-                speechQueue.push(sentence);
-            }
-
-            if (speechQueue.length === 0) return;
-
-            const textToSpeak = speechQueue.shift();
-            isSpeakingChunk = true;
-
-            const utterance = new SpeechSynthesisUtterance(textToSpeak);
-            utterance.lang = 'ru-RU';
-            utterance.rate = 1.0;
-            utterance.pitch = 0.95;
-
-            utterance.onend = () => {
-                isSpeakingChunk = false;
-                processSpeechQueue();
-            };
-
-            speechSynthesis.speak(utterance);
         }
         
         function speak(text) {
