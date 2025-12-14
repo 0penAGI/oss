@@ -83,8 +83,8 @@
     <div id="transcript"></div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const tg = window.Telegram?.WebApp || null;
+        if (tg) tg.expand();
 
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
