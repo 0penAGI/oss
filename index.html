@@ -449,7 +449,6 @@
 
             // Подготовка UI с курсором
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
 
             const responseContainer = document.getElementById("current-response");
             audioBuffer = "";
@@ -488,8 +487,6 @@
 
                     // Копим для озвучки
                     audioBuffer += chunk;
-
-                    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                 }
 
                 responseContainer.classList.remove("typing-cursor");
@@ -514,11 +511,16 @@
             return new Promise((resolve) => {
                 let i = 0;
                 const speed = 20;
+                const container = element.parentElement; // #transcript
 
                 function type() {
                     if (i < text.length) {
                         element.textContent += text.charAt(i);
                         i++;
+
+                        // 🔒 магнитная автопрокрутка вниз
+                        container.scrollTop = container.scrollHeight;
+
                         setTimeout(type, speed + Math.random() * 15);
                     } else {
                         resolve();
