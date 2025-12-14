@@ -5,43 +5,110 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            background-color: #ffffff;
-            color: #000000;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
             overflow: hidden;
+            position: relative;
+        }
+
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .soul-container {
+            position: relative;
+            margin-bottom: 50px;
         }
 
         .soul-orb {
             position: relative;
-            width: 160px;
-            height: 160px;
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #000000 0%, #aaaaaa 15%, #333333 40%, #ffffff 70%);
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 255, 255, 0.9) 0%, 
+                rgba(200, 200, 200, 0.6) 20%,
+                rgba(100, 100, 100, 0.4) 40%,
+                rgba(40, 40, 40, 0.8) 70%,
+                rgba(0, 0, 0, 1) 100%
+            );
             box-shadow: 
-                0 0 40px rgba(255, 255, 255, 0.4),
-                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
-                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
-            animation: breathe 5s infinite ease-in-out;
-            margin-bottom: 40px;
+                0 0 60px rgba(255, 255, 255, 0.3),
+                0 0 100px rgba(255, 255, 255, 0.1),
+                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
+                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
+            animation: breathe 4s infinite ease-in-out;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
         .soul-orb::before {
             content: '';
             position: absolute;
-            top: 15%;
-            left: 20%;
-            width: 40%;
-            height: 40%;
+            top: 18%;
+            left: 25%;
+            width: 35%;
+            height: 35%;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(188,188,188,0.8) 0%, transparent 60%);
-            pointer-events: none;
+            background: radial-gradient(circle, 
+                rgba(255, 255, 255, 0.9) 0%, 
+                rgba(255, 255, 255, 0.4) 40%,
+                transparent 70%
+            );
+            filter: blur(8px);
         }
 
         .soul-orb::after {
@@ -49,114 +116,281 @@
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: radial-gradient(circle at 70% 70%, transparent 50%, rgba(0,0,0,0.5) 100%);
-            mix-blend-mode: multiply;
-            pointer-events: none;
+            background: radial-gradient(circle at 70% 70%, 
+                transparent 40%, 
+                rgba(0, 0, 0, 0.6) 80%
+            );
+        }
+
+        .aura {
+            position: absolute;
+            inset: -20px;
+            border-radius: 50%;
+            background: radial-gradient(circle, 
+                transparent 60%, 
+                rgba(255, 255, 255, 0.1) 70%,
+                transparent 100%
+            );
+            animation: auraGlow 3s infinite ease-in-out;
+            opacity: 0.5;
         }
 
         .soul-orb.listening {
-            animation: pulse 1.4s infinite ease-in-out;
+            animation: pulse 1.2s infinite ease-in-out;
             box-shadow: 
-                0 0 60px rgba(188, 188, 188, 0.6),
-                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
-                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
+                0 0 80px rgba(255, 255, 255, 0.5),
+                0 0 120px rgba(255, 255, 255, 0.3),
+                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
+                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
+        }
+
+        .soul-orb.listening .aura {
+            animation: auraExpand 1.2s infinite ease-in-out;
         }
 
         .soul-orb.speaking {
-            animation: vibrate 0.2s infinite linear;
+            animation: vibrate 0.15s infinite linear;
             box-shadow: 
-                0 0 80px rgba(255, 255, 255, 0.8),
-                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
-                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
+                0 0 100px rgba(255, 255, 255, 0.7),
+                0 0 150px rgba(255, 255, 255, 0.4),
+                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
+                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
+        }
+
+        .soul-orb.thinking {
+            animation: rotate 2s infinite linear;
         }
 
         @keyframes breathe {
             0%, 100% { 
-                transform: scale(1); 
-                box-shadow: 0 0 40px rgba(255, 255, 255, 0.4), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
+                transform: scale(1);
             }
             50% { 
-                transform: scale(1.08); 
-                box-shadow: 0 0 70px rgba(255, 255, 255, 0.6), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
+                transform: scale(1.05);
             }
         }
 
         @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
+            0%, 100% { 
+                transform: scale(1);
+            }
+            50% { 
+                transform: scale(1.12);
+            }
         }
 
         @keyframes vibrate {
-            0% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(2px, -2px); }
-            60% { transform: translate(-2px, -2px); }
-            80% { transform: translate(2px, 2px); }
-            100% { transform: translate(0); }
+            0% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(-3px, 3px) rotate(-1deg); }
+            50% { transform: translate(3px, -3px) rotate(1deg); }
+            75% { transform: translate(-3px, -3px) rotate(-0.5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
         }
 
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes auraGlow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes auraExpand {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            50% { 
+                transform: scale(1.3);
+                opacity: 0.8;
+            }
+        }
+
+        .emotion-indicator {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .soul-orb.listening .emotion-indicator.listen { opacity: 1; }
+        .soul-orb.speaking .emotion-indicator.speak { opacity: 1; }
+        .soul-orb.thinking .emotion-indicator.think { opacity: 1; }
+
         #status {
-            font-size: 16px;
-            opacity: 0.8;
-            margin-bottom: 12px;
-            letter-spacing: 1px;
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            animation: statusFade 2s infinite ease-in-out;
+        }
+
+        @keyframes statusFade {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
         }
 
         #transcript {
-            font-size: 14px;
-            max-width: 90%;
+            font-size: 15px;
+            max-width: 85%;
             text-align: center;
-            opacity: 0.7;
-            line-height: 1.6;
-            padding: 0 20px;
+            opacity: 0.85;
+            line-height: 1.8;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        #transcript::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #transcript::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+
+        #transcript::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 100'%3E%3Cpath d='M0,50 Q300,0 600,50 T1200,50 L1200,100 L0,100 Z' fill='rgba(255,255,255,0.02)'/%3E%3C/svg%3E");
+            background-size: 1200px 100px;
+            animation: wave 10s linear infinite;
+            opacity: 0.3;
+        }
+
+        @keyframes wave {
+            0% { background-position: 0 0; }
+            100% { background-position: 1200px 0; }
+        }
+
+        .tap-hint {
+            position: absolute;
+            bottom: 30px;
+            font-size: 12px;
+            opacity: 0.4;
+            letter-spacing: 1px;
         }
     </style>
 </head>
 <body>
-    <div id="orb" class="soul-orb"></div>
-    <div id="status">Starting…</div>
-    <div id="transcript"></div>
+    <div class="particles" id="particles"></div>
+    <div class="wave"></div>
+    
+    <div class="content">
+        <div class="soul-container">
+            <div class="aura"></div>
+            <div id="orb" class="soul-orb">
+                <div class="emotion-indicator listen">👂</div>
+                <div class="emotion-indicator speak">💬</div>
+                <div class="emotion-indicator think">💭</div>
+            </div>
+        </div>
+        
+        <div id="status">resonating</div>
+        <div id="transcript"></div>
+    </div>
+
     <script>
+        // Particles
+        const particlesContainer = document.getElementById('particles');
+        for (let i = 0; i < 30; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 20 + 's';
+            particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
         const tg = window.Telegram?.WebApp || null;
-        if (tg) tg.expand();
+        if (tg) {
+            tg.expand();
+            tg.enableClosingConfirmation();
+        }
+
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
+        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = 'ru-RU';
         recognition.interimResults = false;
         recognition.continuous = false;
+        
         const synth = window.speechSynthesis;
         let isSpeaking = false;
+        let isThinking = false;
+
+        function vibrate(pattern) {
+            if (tg?.HapticFeedback) {
+                if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
+                else if (pattern === 'medium') tg.HapticFeedback.impactOccurred('medium');
+                else if (pattern === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
+            } else if (navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        }
+
         function startListening() {
-            if (isSpeaking) return;
+            if (isSpeaking || isThinking) return;
             try {
                 recognition.start();
                 orb.classList.add('listening');
-                status.innerText = "Listening…";
+                orb.classList.remove('thinking');
+                status.innerText = "слушаю";
+                vibrate('light');
             } catch {}
         }
+
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            transcriptDiv.innerText = `You: ${text}`;
+            transcriptDiv.innerHTML = `<strong>Ты:</strong> ${text}`;
+            vibrate('medium');
             await sendToBot(text);
         };
+
         recognition.onerror = () => {
-            setTimeout(startListening, 1200);
+            setTimeout(startListening, 1500);
         };
+
         recognition.onend = () => {
             orb.classList.remove('listening');
-            if (!isSpeaking) {
-                setTimeout(startListening, 800);
+            if (!isSpeaking && !isThinking) {
+                setTimeout(startListening, 1000);
             }
         };
+
         async function sendToBot(text) {
-            isSpeaking = true;
-            orb.classList.add('speaking');
-            status.innerText = "Thinking…";
+            isThinking = true;
+            orb.classList.remove('listening');
+            orb.classList.add('thinking');
+            status.innerText = "резонирую";
+            
             try {
-                const userId = tg.initDataUnsafe?.user?.id || 0;
+                const userId = tg?.initDataUnsafe?.user?.id || 0;
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                     {
@@ -170,34 +404,61 @@
                 );
                 const data = await response.json();
                 const reply = data.reply;
-                transcriptDiv.innerText += `\n\nAI: ${reply}`;
+                
+                transcriptDiv.innerHTML += `<br><br><strong>Душа:</strong> ${reply}`;
+                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+                
+                isThinking = false;
+                isSpeaking = true;
+                vibrate('heavy');
                 speak(reply);
             } catch {
-                status.innerText = "LostConnection...";
-                orb.classList.remove('speaking');
+                status.innerText = "связь потеряна";
+                orb.classList.remove('thinking');
+                isThinking = false;
                 isSpeaking = false;
-                startListening();
+                vibrate([100, 50, 100]);
+                setTimeout(startListening, 2000);
             }
         }
+
         function speak(text) {
-            status.innerText = "Speaking…";
+            orb.classList.remove('thinking');
+            orb.classList.add('speaking');
+            status.innerText = "говорю";
+            
             const cleanText = text
                 .replace(/<[^>]*>/g, '')
                 .replace(/[*_#]/g, '');
+            
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
-            utterance.rate = 1.05;
+            utterance.rate = 1.0;
             utterance.pitch = 0.95;
+            
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = "Listening…";
+                status.innerText = "слушаю";
+                vibrate('light');
                 startListening();
             };
+            
             synth.speak(utterance);
         }
+
+        orb.addEventListener('click', () => {
+            vibrate('medium');
+            if (!isSpeaking && !isThinking) {
+                startListening();
+            }
+        });
+
         window.addEventListener('load', () => {
-            setTimeout(startListening, 1000);
+            setTimeout(() => {
+                vibrate('light');
+                startListening();
+            }, 1200);
         });
     </script>
 </body>
