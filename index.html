@@ -153,6 +153,21 @@
             letter-spacing: 1px;
             color: rgba(255, 255, 255, 0.6);
         }
+
+        /* Эффект курсора для печати */
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            vertical-align: bottom;
+            animation: blink 1s step-end infinite;
+            color: rgba(255, 255, 255, 0.8);
+            margin-left: 2px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -424,14 +439,25 @@
             }
         };
         
+        // Глобальная переменная для буфера речи
+        let audioBuffer = "";
+
         async function sendToBot(text) {
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
-            status.innerText = "thinking";
-           
+            status.innerText = "processing stream";
+            
+            // Добавляем контейнер для ответа ИИ с курсором
+            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+            
+            const responseContainer = document.getElementById("current-response");
+            audioBuffer = "";
+
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
+                
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                     {
@@ -443,24 +469,60 @@
                         body: JSON.stringify({ user_id: userId, text })
                     }
                 );
-                const data = await response.json();
-                const reply = data.reply;
-               
-                transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> ${reply}`;
-                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
-               
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
                 isThinking = false;
-                isSpeaking = true;
-                vibrate('heavy');
-                speak(reply);
-            } catch {
-                status.innerText = "lost connection";
                 orb.classList.remove('thinking');
+                orb.classList.add('speaking');
+                status.innerText = "receiving data";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+
+                    await typeWriterEffect(responseContainer, chunk);
+                    audioBuffer += chunk;
+
+                    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+                }
+
+                responseContainer.classList.remove("typing-cursor");
+                status.innerText = "speaking";
+                vibrate('heavy');
+
+                speak(audioBuffer);
+
+            } catch (e) {
+                console.error(e);
+                status.innerText = "stream error";
+                orb.classList.remove('thinking');
+                orb.classList.remove('speaking');
                 isThinking = false;
                 isSpeaking = false;
-                vibrate([100, 50, 100]);
                 setTimeout(startListening, 2000);
             }
+        }
+
+        function typeWriterEffect(element, text) {
+            return new Promise((resolve) => {
+                let i = 0;
+                const speed = 20;
+
+                function type() {
+                    if (i < text.length) {
+                        element.textContent += text.charAt(i);
+                        i++;
+                        setTimeout(type, speed + Math.random() * 15);
+                    } else {
+                        resolve();
+                    }
+                }
+                type();
+            });
         }
         
         function speak(text) {
