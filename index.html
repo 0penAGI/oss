@@ -12,10 +12,10 @@
         }
 
         body {
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
-            color: #ffffff;
+            background: linear-gradient(135deg, #ffffff 0%, #1a1a1a 50%, #0a0a0a 100%);
+            color: #0a0a0a;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            display: flex;
+            display: flex;a--
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -246,9 +246,7 @@
             line-height: 1.8;
             padding: 20px;
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 16px;
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
             max-height: 200px;
             overflow-y: auto;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -302,9 +300,9 @@
         <div class="soul-container">
             <div class="aura"></div>
             <div id="orb" class="soul-orb">
-                <div class="emotion-indicator listen">👂</div>
-                <div class="emotion-indicator speak">💬</div>
-                <div class="emotion-indicator think">💭</div>
+                <div class="emotion-indicator listen"></div>
+                <div class="emotion-indicator speak"></div>
+                <div class="emotion-indicator think"></div>
             </div>
         </div>
         
@@ -360,7 +358,7 @@
                 recognition.start();
                 orb.classList.add('listening');
                 orb.classList.remove('thinking');
-                status.innerText = "слушаю";
+                status.innerText = "listen";
                 vibrate('light');
             } catch {}
         }
@@ -387,7 +385,7 @@
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
-            status.innerText = "резонирую";
+            status.innerText = "thinking";
             
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -405,7 +403,7 @@
                 const data = await response.json();
                 const reply = data.reply;
                 
-                transcriptDiv.innerHTML += `<br><br><strong>Душа:</strong> ${reply}`;
+                transcriptDiv.innerHTML += `<br><br><strong>AI:</strong> ${reply}`;
                 transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                 
                 isThinking = false;
@@ -413,7 +411,7 @@
                 vibrate('heavy');
                 speak(reply);
             } catch {
-                status.innerText = "связь потеряна";
+                status.innerText = "Lost Connection";
                 orb.classList.remove('thinking');
                 isThinking = false;
                 isSpeaking = false;
@@ -425,7 +423,7 @@
         function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
-            status.innerText = "говорю";
+            status.innerText = "speaking";
             
             const cleanText = text
                 .replace(/<[^>]*>/g, '')
@@ -439,7 +437,7 @@
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = "слушаю";
+                status.innerText = "listen";
                 vibrate('light');
                 startListening();
             };
