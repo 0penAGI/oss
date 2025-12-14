@@ -40,7 +40,7 @@
         }
         .soul-container {
             position: relative;
-            margin-bottom: 50px;
+            margin-bottom: 30px;
         }
         .soul-orb {
             position: relative;
@@ -110,15 +110,49 @@
         @keyframes rotate { from{transform:rotate(0)} to{transform:rotate(360deg)} }
         @keyframes auraGlow { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
         @keyframes auraExpand { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.3);opacity:0.8} }
-        .emotion-indicator { position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); font-size: 32px; opacity: 0; transition: opacity 0.3s; }
-        .soul-orb.listening .emotion-indicator.listen, .soul-orb.speaking .emotion-indicator.speak, .soul-orb.thinking .emotion-indicator.think { opacity: 1; }
-        #status { font-size: 18px; font-weight: 300; letter-spacing: 3px; text-transform: uppercase; opacity: 0.9; margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,255,255,0.5); animation: statusFade 2s infinite ease-in-out; }
+        
+        #status {
+            font-size: 16px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            margin-bottom: 15px;
+            text-shadow: 0 0 15px rgba(255,255,255,0.5);
+            animation: statusFade 2s infinite ease-in-out;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
         @keyframes statusFade { 0%,100%{opacity:0.7} 50%{opacity:1} }
-        #transcript { font-size: 15px; max-width: 85%; text-align: center; opacity: 0.85; line-height: 1.8; padding: 20px; background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); max-height: 200px; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-        #transcript::-webkit-scrollbar { width: 4px; }
-        #transcript::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 2px; }
+        
+        #transcript {
+            font-size: 15px;
+            max-width: 90%;
+            text-align: center;
+            opacity: 0.9;
+            line-height: 1.6;
+            padding: 15px;
+            max-height: 180px;
+            overflow-y: auto;
+            color: rgba(255, 255, 255, 0.9);
+            background: transparent;
+            backdrop-filter: none;
+            box-shadow: none;
+            border: none;
+        }
+        
+        #transcript::-webkit-scrollbar { width: 3px; }
+        #transcript::-webkit-scrollbar-track { background: transparent; }
         #transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-        .tap-hint { position: absolute; bottom: 30px; font-size: 12px; opacity: 0.4; letter-spacing: 1px; }
+        
+        .tap-hint {
+            position: absolute;
+            bottom: 20px;
+            font-size: 12px;
+            opacity: 0.4;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -127,11 +161,7 @@
     <div class="content">
         <div class="soul-container">
             <div class="aura"></div>
-            <div id="orb" class="soul-orb">
-                <div class="emotion-indicator listen">👂</div>
-                <div class="emotion-indicator speak">🗣️</div>
-                <div class="emotion-indicator think">🤔</div>
-            </div>
+            <div id="orb" class="soul-orb"></div>
         </div>
        
         <div id="status">resonating</div>
@@ -184,7 +214,7 @@
             }
 
             void main() {
-                vec3 p = gl_PointCoord.xyx / vec3(2.0); // адаптация под point coord
+                vec3 p = gl_PointCoord.xyx / vec3(2.0);
                 vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.6, 0.5, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
@@ -229,7 +259,7 @@
         function animate() {
             requestAnimationFrame(animate);
             material.uniforms.time.value += 0.01;
-            particles.rotation.y += 0.0002; // лёгкое вращение для глубины
+            particles.rotation.y += 0.0002;
             renderer.render(scene, camera);
         }
         animate();
@@ -240,12 +270,13 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Твой оригинальный JS для голосового чата (без изменений)
+        // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
         if (tg) {
             tg.expand();
             tg.enableClosingConfirmation();
         }
+        
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
@@ -259,6 +290,7 @@
         const synth = window.speechSynthesis;
         let isSpeaking = false;
         let isThinking = false;
+        
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
                 if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
@@ -268,36 +300,41 @@
                 navigator.vibrate(pattern);
             }
         }
+        
         function startListening() {
             if (isSpeaking || isThinking) return;
             try {
                 recognition.start();
                 orb.classList.add('listening');
                 orb.classList.remove('thinking');
-                status.innerText = "listen";
+                status.innerText = "слушаю";
                 vibrate('light');
             } catch {}
         }
+        
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            transcriptDiv.innerHTML = `<strong>Ты:</strong> ${text}`;
+            transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">Вы:</span> ${text}`;
             vibrate('medium');
             await sendToBot(text);
         };
+        
         recognition.onerror = () => {
             setTimeout(startListening, 1500);
         };
+        
         recognition.onend = () => {
             orb.classList.remove('listening');
             if (!isSpeaking && !isThinking) {
                 setTimeout(startListening, 1000);
             }
         };
+        
         async function sendToBot(text) {
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
-            status.innerText = "thinking";
+            status.innerText = "думаю";
            
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -315,7 +352,7 @@
                 const data = await response.json();
                 const reply = data.reply;
                
-                transcriptDiv.innerHTML += `<br><br><strong>AI:</strong> ${reply}`;
+                transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> ${reply}`;
                 transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
                
                 isThinking = false;
@@ -323,7 +360,7 @@
                 vibrate('heavy');
                 speak(reply);
             } catch {
-                status.innerText = "Lost Connection";
+                status.innerText = "нет связи";
                 orb.classList.remove('thinking');
                 isThinking = false;
                 isSpeaking = false;
@@ -331,10 +368,11 @@
                 setTimeout(startListening, 2000);
             }
         }
+        
         function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
-            status.innerText = "speaking";
+            status.innerText = "говорю";
            
             const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
            
@@ -346,19 +384,21 @@
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = "listen";
+                status.innerText = "слушаю";
                 vibrate('light');
                 startListening();
             };
            
             synth.speak(utterance);
         }
+        
         orb.addEventListener('click', () => {
             vibrate('medium');
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
         });
+        
         window.addEventListener('load', () => {
             setTimeout(() => {
                 vibrate('light');
