@@ -5,17 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        :root {
-            --bg-color: #000000;
-            --text-color: #ffffff;
-            --orb-glow: rgba(255, 255, 255, 0.4);
-            --orb-inner-glow: rgba(255, 255, 255, 0.1);
-            --orb-shadow: rgba(0, 0, 0, 0.8);
-        }
-
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: #000000;
+            color: #ffffff;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
@@ -24,7 +16,6 @@
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            transition: background-color 0.6s ease, color 0.6s ease;
         }
 
         .soul-orb {
@@ -33,10 +24,10 @@
             height: 160px;
             border-radius: 50%;
             background: radial-gradient(circle at 30% 30%, #ffffff 0%, #aaaaaa 15%, #333333 40%, #000000 70%);
-            box-shadow:
-                0 0 40px var(--orb-glow),
-                inset -20px -20px 60px var(--orb-shadow),
-                inset 20px 20px 40px var(--orb-inner-glow);
+            box-shadow: 
+                0 0 40px rgba(255, 255, 255, 0.4),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
             animation: breathe 5s infinite ease-in-out;
             margin-bottom: 40px;
         }
@@ -65,17 +56,29 @@
 
         .soul-orb.listening {
             animation: pulse 1.4s infinite ease-in-out;
-            box-shadow: 0 0 60px var(--orb-glow), inset -20px -20px 60px var(--orb-shadow), inset 20px 20px 40px var(--orb-inner-glow);
+            box-shadow: 
+                0 0 60px rgba(255, 255, 255, 0.6),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
         }
 
         .soul-orb.speaking {
             animation: vibrate 0.2s infinite linear;
-            box-shadow: 0 0 80px var(--orb-glow), inset -20px -20px 60px var(--orb-shadow), inset 20px 20px 40px var(--orb-inner-glow);
+            box-shadow: 
+                0 0 80px rgba(255, 255, 255, 0.8),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
         }
 
         @keyframes breathe {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.08); }
+            0%, 100% { 
+                transform: scale(1); 
+                box-shadow: 0 0 40px rgba(255, 255, 255, 0.4), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
+            }
+            50% { 
+                transform: scale(1.08); 
+                box-shadow: 0 0 70px rgba(255, 255, 255, 0.6), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
+            }
         }
 
         @keyframes pulse {
@@ -106,150 +109,54 @@
             opacity: 0.7;
             line-height: 1.6;
             padding: 0 20px;
-            transition: color 0.6s ease;
         }
     </style>
 </head>
 <body>
     <div id="orb" class="soul-orb"></div>
-    <div id="status">Инициализация…</div>
+    <div id="status">Starting…</div>
     <div id="transcript"></div>
-
     <script>
         const tg = window.Telegram?.WebApp || null;
-        if (tg) {
-            tg.expand();
-            tg.ready();
-        }
-
+        if (tg) tg.expand();
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
-
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = SpeechRecognition ? new SpeechRecognition() : null;
-        
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.interimResults = false;
+        recognition.continuous = false;
         const synth = window.speechSynthesis;
         let isSpeaking = false;
-        let currentLang = 'ru-RU'; // по умолчанию
-
-        // Определяем язык пользователя из Telegram
-        if (tg?.initDataUnsafe?.user?.language_code) {
-            const lang = tg.initDataUnsafe.user.language_code;
-            currentLang = lang === 'en' ? 'en-US' : 
-                         lang === 'uk' ? 'uk-UA' :
-                         lang.startsWith('es') ? 'es-ES' :
-                         lang.startsWith('fr') ? 'fr-FR' :
-                         lang.startsWith('de') ? 'de-DE' :
-                         'ru-RU';
-        }
-
-        if (recognition) {
-            recognition.lang = currentLang;
-            recognition.interimResults = false;
-            recognition.continuous = false;
-        }
-
-        // Темы
-        const themes = {
-            dark: { bg: '#000000', text: '#ffffff', glow: 'rgba(255,255,255,0.4)', innerGlow: 'rgba(255,255,255,0.1)', shadow: 'rgba(0,0,0,0.8)' },
-            light: { bg: '#ffffff', text: '#000000', glow: 'rgba(0,0,0,0.3)', innerGlow: 'rgba(0,0,0,0.05)', shadow: 'rgba(0,0,0,0.6)' },
-            blue: { bg: '#0d1b2a', text: '#e0f2fe', glow: 'rgba(59,130,246,0.6)', innerGlow: 'rgba(59,130,246,0.1)', shadow: 'rgba(0,0,0,0.8)' },
-            pink: { bg: '#2d1b2a', text: '#ffe0f2', glow: 'rgba(236,72,153,0.6)', innerGlow: 'rgba(236,72,153,0.1)', shadow: 'rgba(0,0,0,0.8)' },
-            green: { bg: '#1a2d1b', text: '#e0ffe0', glow: 'rgba(34,197,94,0.6)', innerGlow: 'rgba(34,197,94,0.1)', shadow: 'rgba(0,0,0,0.8)' },
-            purple: { bg: '#1e1a2d', text: '#f0e0ff', glow: 'rgba(168,85,247,0.6)', innerGlow: 'rgba(168,85,247,0.1)', shadow: 'rgba(0,0,0,0.8)' }
-        };
-
-        function applyTheme(themeName) {
-            const t = themes[themeName] || themes.dark;
-            document.documentElement.style.setProperty('--bg-color', t.bg);
-            document.documentElement.style.setProperty('--text-color', t.text);
-            document.documentElement.style.setProperty('--orb-glow', t.glow);
-            document.documentElement.style.setProperty('--orb-inner-glow', t.innerGlow);
-            document.documentElement.style.setProperty('--orb-shadow', t.shadow);
-        }
-
-        // Обработка команд изменения темы
-        function handleThemeCommand(text) {
-            const lower = text.toLowerCase();
-            if (lower.includes('светл') || lower.includes('бел') || lower.includes('light')) {
-                applyTheme('light');
-                return 'Светлая тема активирована';
-            }
-            if (lower.includes('темн') || lower.includes('чёрн') || lower.includes('dark')) {
-                applyTheme('dark');
-                return 'Тёмная тема активирована';
-            }
-            if (lower.includes('син') || lower.includes('blue')) {
-                applyTheme('blue');
-                return 'Синяя тема активирована';
-            }
-            if (lower.includes('розов') || lower.includes('pink')) {
-                applyTheme('pink');
-                return 'Розовая тема активирована';
-            }
-            if (lower.includes('зелен') || lower.includes('green')) {
-                applyTheme('green');
-                return 'Зелёная тема активирована';
-            }
-            if (lower.includes('фиолет') || lower.includes('purple')) {
-                applyTheme('purple');
-                return 'Фиолетовая тема активирована';
-            }
-            return null;
-        }
-
-        function getBestVoice(lang) {
-            const voices = synth.getVoices();
-            const preferred = voices.filter(v => v.lang.startsWith(lang.split('-')[0]));
-            // Приоритет: Google, потом Microsoft, потом любые
-            return preferred.find(v => v.name.includes('Google')) ||
-                   preferred.find(v => v.name.includes('Microsoft')) ||
-                   preferred[0] ||
-                   voices.find(v => v.lang === lang) ||
-                   voices[0];
-        }
-
         function startListening() {
-            if (isSpeaking || !recognition) return;
+            if (isSpeaking) return;
             try {
                 recognition.start();
                 orb.classList.add('listening');
-                status.innerText = currentLang.startsWith('ru') ? "Слушаю…" : "Listening…";
-            } catch (e) {}
+                status.innerText = "Listening…";
+            } catch {}
         }
-
-        if (recognition) {
-            recognition.onresult = async (event) => {
-                const text = event.results[0][0].transcript.trim();
-                transcriptDiv.innerText = `Вы: ${text}`;
-                const themeResponse = handleThemeCommand(text);
-                if (themeResponse) {
-                    await speak(themeResponse);
-                } else {
-                    await sendToBot(text);
-                }
-            };
-
-            recognition.onerror = () => {
-                setTimeout(startListening, 1200);
-            };
-
-            recognition.onend = () => {
-                orb.classList.remove('listening');
-                if (!isSpeaking) {
-                    setTimeout(startListening, 800);
-                }
-            };
-        }
-
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript;
+            transcriptDiv.innerText = `You: ${text}`;
+            await sendToBot(text);
+        };
+        recognition.onerror = () => {
+            setTimeout(startListening, 1200);
+        };
+        recognition.onend = () => {
+            orb.classList.remove('listening');
+            if (!isSpeaking) {
+                setTimeout(startListening, 800);
+            }
+        };
         async function sendToBot(text) {
             isSpeaking = true;
             orb.classList.add('speaking');
-            status.innerText = currentLang.startsWith('ru') ? "Думаю…" : "Thinking…";
-
+            status.innerText = "Thinking…";
             try {
-                const userId = tg?.initDataUnsafe?.user?.id || 0;
+                const userId = tg.initDataUnsafe?.user?.id || 0;
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                     {
@@ -262,58 +169,35 @@
                     }
                 );
                 const data = await response.json();
-                const reply = data.reply || "Не удалось получить ответ";
+                const reply = data.reply;
                 transcriptDiv.innerText += `\n\nAI: ${reply}`;
                 speak(reply);
-            } catch (err) {
-                const errorMsg = currentLang.startsWith('ru') ? "Потеряна связь..." : "Connection lost...";
-                status.innerText = errorMsg;
-                transcriptDiv.innerText += `\n\nAI: ${errorMsg}`;
+            } catch {
+                status.innerText = "LostConnection...";
                 orb.classList.remove('speaking');
                 isSpeaking = false;
                 startListening();
             }
         }
-
         function speak(text) {
-            status.innerText = currentLang.startsWith('ru') ? "Говорю…" : "Speaking…";
-            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#~]/g, '');
-
+            status.innerText = "Speaking…";
+            const cleanText = text
+                .replace(/<[^>]*>/g, '')
+                .replace(/[*_#]/g, '');
             const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = currentLang;
+            utterance.lang = 'ru-RU';
             utterance.rate = 1.05;
             utterance.pitch = 0.95;
-
-            const voice = getBestVoice(currentLang);
-            if (voice) utterance.voice = voice;
-
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = currentLang.startsWith('ru') ? "Слушаю…" : "Listening…";
+                status.innerText = "Listening…";
                 startListening();
             };
-
-            utterance.onerror = () => {
-                orb.classList.remove('speaking');
-                isSpeaking = false;
-                startListening();
-            };
-
             synth.speak(utterance);
         }
-
-        // Загрузка голосов (иногда они подгружаются асинхронно)
-        if (synth.getVoices().length === 0) {
-            synth.addEventListener('voiceschanged', () => {});
-        }
-
         window.addEventListener('load', () => {
-            applyTheme('dark'); // стандартная тёмная
-            setTimeout(() => {
-                if (recognition) startListening();
-                else status.innerText = "Распознавание речи недоступно";
-            }, 1000);
+            setTimeout(startListening, 1000);
         });
     </script>
 </body>
