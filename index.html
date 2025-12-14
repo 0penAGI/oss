@@ -114,7 +114,7 @@
 </head>
 <body>
     <div id="orb" class="soul-orb"></div>
-    <div id="status">Инициализация…</div>
+    <div id="status">Starting…</div>
     <div id="transcript"></div>
     <script>
         const tg = window.Telegram?.WebApp || null;
@@ -134,7 +134,7 @@
             try {
                 recognition.start();
                 orb.classList.add('listening');
-                status.innerText = "Слушаю…";
+                status.innerText = "Listening…";
             } catch {}
         }
         recognition.onresult = async (event) => {
@@ -154,7 +154,7 @@
         async function sendToBot(text) {
             isSpeaking = true;
             orb.classList.add('speaking');
-            status.innerText = "Думаю…";
+            status.innerText = "Thinking…";
             try {
                 const userId = tg.initDataUnsafe?.user?.id || 0;
                 const response = await fetch(
@@ -173,14 +173,14 @@
                 transcriptDiv.innerText += `\n\nAI: ${reply}`;
                 speak(reply);
             } catch {
-                status.innerText = "Потеряно соединение.";
+                status.innerText = "LostConnection...";
                 orb.classList.remove('speaking');
                 isSpeaking = false;
                 startListening();
             }
         }
         function speak(text) {
-            status.innerText = "Говорю…";
+            status.innerText = "Speaking…";
             const cleanText = text
                 .replace(/<[^>]*>/g, '')
                 .replace(/[*_#]/g, '');
@@ -191,7 +191,7 @@
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = "Слушаю…";
+                status.innerText = "Listening…";
                 startListening();
             };
             synth.speak(utterance);
