@@ -102,7 +102,7 @@
         }
         .soul-orb.listening { animation: pulse 1.2s infinite ease-in-out; box-shadow: 0 0 80px rgba(255,255,255,0.5), 0 0 120px rgba(255,255,255,0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05); }
         .soul-orb.listening .aura { animation: auraExpand 1.2s infinite ease-in-out; }
-        .soul-orb.speaking { animation: vibrate 0.15s infinite linear; box-shadow: 0 0 100px rgba(255,255,255,0.7), 0 0 150px rgba(255,255,255,0.4), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05); }
+        .soul-orb.speaking { animation: vibrate 0.08s infinite linear; box-shadow: 0 0 100px rgba(255,255,255,0.7), 0 0 150px rgba(255,255,255,0.4), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05); }
         .soul-orb.thinking { animation: rotate 2s infinite linear; }
         @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
         @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
@@ -330,40 +330,6 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        function animate() {
-            requestAnimationFrame(animate);
-
-            material.uniforms.time.value += 0.01;
-            particles.rotation.y += 0.0002;
-
-            // рендер частиц в новый буфер
-            renderer.setRenderTarget(feedbackRT2);
-            renderer.clear();
-            renderer.render(scene, camera);
-
-            // смешиваем прошлый кадр + новый
-            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
-            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
-
-            renderer.setRenderTarget(null);
-            renderer.render(feedbackScene, feedbackCamera);
-
-            // swap
-            const tmp = feedbackRT1;
-            feedbackRT1 = feedbackRT2;
-            feedbackRT2 = tmp;
-        }
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
-            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-        });
-
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
         if (tg) {
@@ -384,6 +350,20 @@
         const synth = window.speechSynthesis;
         let isSpeaking = false;
         let isThinking = false;
+
+        // === АУДИО-АНАЛИЗ (добавлено) ===
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+
+        const audioData = new Uint8Array(analyser.frequencyBinCount);
+        let micSource = null;
+
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            micSource = audioCtx.createMediaStreamSource(stream);
+            micSource.connect(analyser);
+        });
         
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
@@ -491,6 +471,53 @@
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // === СЧИТЫВАНИЕ ГРОМКОСТИ (добавлено) ===
+            analyser.getByteFrequencyData(audioData);
+            
+            let sum = 0;
+            for (let i = 0; i < audioData.length; i++) sum += audioData[i];
+            const audioLevel = sum / audioData.length / 255;
+            
+            // === ПРИВЯЗКА ВИЗУАЛА К ЗВУКУ (изменено) ===
+            material.uniforms.time.value += 0.01 + audioLevel * 0.06;
+            
+            particles.rotation.y += 0.0002 + audioLevel * 0.012;
+            particles.scale.setScalar(1.0 + audioLevel * 0.35);
+            
+            // фидбек-луп «дышит» от голоса
+            feedbackMaterial.uniforms.decay.value = 0.93 + audioLevel * 0.06;
+            
+            // рендер частиц в новый буфер
+            renderer.setRenderTarget(feedbackRT2);
+            renderer.clear();
+            renderer.render(scene, camera);
+
+            // смешиваем прошлый кадр + новый
+            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+
+            renderer.setRenderTarget(null);
+            renderer.render(feedbackScene, feedbackCamera);
+
+            // swap
+            const tmp = feedbackRT1;
+            feedbackRT1 = feedbackRT2;
+            feedbackRT2 = tmp;
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
         
         window.addEventListener('load', () => {
