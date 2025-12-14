@@ -173,6 +173,8 @@
     <canvas id="webgl-canvas"></canvas>
 
     <div class="content">
+        <video id="cameraFeed" autoplay playsinline muted
+               style="position:absolute; top:10px; right:10px; width:200px; height:150px; z-index:2; border:2px solid rgba(255,255,255,0.5); border-radius:8px;"></video>
         <div class="soul-container">
             <div class="aura"></div>
             <div id="orb" class="soul-orb"></div>
@@ -585,6 +587,21 @@
                 vibrate('light');
                 startListening();
             }, 1200);
+        });
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const video = document.getElementById('cameraFeed');
+                video.srcObject = stream;
+            } catch (err) {
+                console.error('Camera access denied or not available:', err);
+            }
+        }
+
+        // Запуск камеры после загрузки страницы
+        window.addEventListener('load', () => {
+            startCamera();
         });
     </script>
 </body>
