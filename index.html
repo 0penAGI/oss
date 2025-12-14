@@ -382,6 +382,9 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
+        // === Глобальная переменная для последнего описания камеры ===
+        let latestCameraDescription = "";
+
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
         if (tg) {
@@ -472,6 +475,11 @@
 
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
+                // Добавляем описание камеры в скобках, если оно есть
+                let textWithContext = text;
+                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                    textWithContext = text + " (" + latestCameraDescription + ")";
+                }
 
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
@@ -481,7 +489,7 @@
                             'Content-Type': 'application/json',
                             'ngrok-skip-browser-warning': 'true'
                         },
-                        body: JSON.stringify({ user_id: userId, text, gender: userGender })
+                        body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
                     }
                 );
 
@@ -698,6 +706,8 @@
                 gray.delete();
                 faces.delete();
                 msize.delete();
+                // Сохраняем описание в глобальную переменную
+                latestCameraDescription = desc;
                 // Отправляем результат через sendToBot
                 sendToBot(`[Вижу]: ${desc}`);
             } catch (e) {
