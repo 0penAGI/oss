@@ -166,7 +166,7 @@
        
         <div id="status">resonating</div>
         <div id="transcript"></div>
-        <div class="tap-hint">Нажми на сферу, чтобы начать</div>
+        <div class="tap-hint"></div>
     </div>
 
     <script type="module">
@@ -307,14 +307,14 @@
                 recognition.start();
                 orb.classList.add('listening');
                 orb.classList.remove('thinking');
-                status.innerText = "слушаю";
+                status.innerText = "listening";
                 vibrate('light');
             } catch {}
         }
         
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">Вы:</span> ${text}`;
+            transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${text}`;
             vibrate('medium');
             await sendToBot(text);
         };
@@ -334,7 +334,7 @@
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
-            status.innerText = "думаю";
+            status.innerText = "thinking";
            
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -360,7 +360,7 @@
                 vibrate('heavy');
                 speak(reply);
             } catch {
-                status.innerText = "нет связи";
+                status.innerText = "lost connection";
                 orb.classList.remove('thinking');
                 isThinking = false;
                 isSpeaking = false;
@@ -372,7 +372,7 @@
         function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
-            status.innerText = "говорю";
+            status.innerText = "speaking";
            
             const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
            
@@ -384,7 +384,7 @@
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
-                status.innerText = "слушаю";
+                status.innerText = "listening";
                 vibrate('light');
                 startListening();
             };
