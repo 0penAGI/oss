@@ -13,7 +13,7 @@
         }
         body {
             background: #000;
-            color: #fff;
+            color: #000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
@@ -175,8 +175,21 @@
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
 
         const scene = new THREE.Scene();
+
+        // === Feedback RenderTarget initialization ===
+        const rtParams = {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat
+        };
+
+        let feedbackRT1 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
+        let feedbackRT2 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.z = 5;
@@ -221,6 +234,68 @@
             }
         `;
 
+        // === Fullscreen quad for feedback and blur ===
+        const feedbackScene = new THREE.Scene();
+        const feedbackCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const feedbackMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                tOld: { value: null },
+                tNew: { value: null },
+                decay: { value: 0.96 },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+    varying vec2 vUv;
+    uniform sampler2D tOld;
+    uniform sampler2D tNew;
+    uniform float decay;
+    uniform vec2 resolution;
+
+    // hash noise
+    float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    vec2 noiseDir(vec2 uv) {
+        float n = hash(uv * resolution);
+        float a = n * 6.28318530718;
+        return vec2(cos(a), sin(a));
+    }
+
+    vec4 noiseBlur(sampler2D tex, vec2 uv) {
+        vec2 px = 1.0 / resolution;
+        vec2 dir = noiseDir(uv);
+
+        vec4 col = vec4(0.0);
+        col += texture2D(tex, uv) * 0.28;
+        col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
+        col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
+        col += texture2D(tex, uv + dir * px * 2.5) * 0.14;
+        col += texture2D(tex, uv - dir * px * 2.5) * 0.14;
+
+        return col;
+    }
+
+    void main() {
+        vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+        vec4 newCol = texture2D(tNew, vUv);
+        gl_FragColor = max(oldCol * 0.98, newCol);
+    }
+`,
+            transparent: true
+        });
+
+        const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
+        feedbackScene.add(quad);
+
         const particleCount = 15000;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
@@ -257,9 +332,26 @@
 
         function animate() {
             requestAnimationFrame(animate);
+
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
+
+            // рендер частиц в новый буфер
+            renderer.setRenderTarget(feedbackRT2);
+            renderer.clear();
             renderer.render(scene, camera);
+
+            // смешиваем прошлый кадр + новый
+            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+
+            renderer.setRenderTarget(null);
+            renderer.render(feedbackScene, feedbackCamera);
+
+            // swap
+            const tmp = feedbackRT1;
+            feedbackRT1 = feedbackRT2;
+            feedbackRT2 = tmp;
         }
         animate();
 
@@ -267,6 +359,9 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
         // Голосовой чат
