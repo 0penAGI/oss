@@ -398,6 +398,14 @@
         const synth = window.speechSynthesis;
         let isSpeaking = false;
         let isThinking = false;
+
+        // === Gender memory ===
+        let userGender = localStorage.getItem('user_gender') || null;
+
+        function setGender(g) {
+            userGender = g;
+            localStorage.setItem('user_gender', g);
+        }
         
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
@@ -424,6 +432,11 @@
             const text = event.results[0][0].transcript;
             transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${text}`;
             vibrate('medium');
+            // simple voice gender commands
+            if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
+            if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
+            if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
+
             await sendToBot(text);
         };
         
@@ -464,7 +477,7 @@
                             'Content-Type': 'application/json',
                             'ngrok-skip-browser-warning': 'true'
                         },
-                        body: JSON.stringify({ user_id: userId, text })
+                        body: JSON.stringify({ user_id: userId, text, gender: userGender })
                     }
                 );
 
@@ -534,14 +547,21 @@
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
             status.innerText = "speaking";
-           
+
+            // gender-aware voice tuning
+            let rate = 1.0;
+            let pitch = 0.95;
+            if (userGender === 'female') pitch = 1.15;
+            if (userGender === 'male') pitch = 0.9;
+            if (userGender === 'nonbinary') pitch = 1.0;
+
             const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
-           
+
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
-            utterance.rate = 1.0;
-            utterance.pitch = 0.95;
-           
+            utterance.rate = rate;
+            utterance.pitch = pitch;
+
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
@@ -549,7 +569,7 @@
                 vibrate('light');
                 startListening();
             };
-           
+
             synth.speak(utterance);
         }
         
