@@ -7,6 +7,8 @@
 
 **Autonomous conversational AI with emotional intelligence, multi-agent swarm architecture, long-term memory, and real-time voice/web interface.**
 
+- **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
+
 ---
 
 ## 🧠 Core Features
@@ -313,7 +315,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🌐 Connect
 
 - **GitHub**: [https://github.com/0penAGI](https://github.com/0penAGI)
-- **Telegram**: [@gpzerobot](https://t.me/gpzerobot)
+- **Telegram**: [@ZeropenAGI](https://t.me/Zeropenagi)
 - **Twitter**: [@0penAGI](https://twitter.com/0penAGI)
 
 ---
