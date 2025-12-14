@@ -1,4 +1,4 @@
-# bot.py - ПРАВИЛЬНАЯ ВЕРСИЯ С HARMONY FORMAT
+# oss.py by 0penAGI - https://github.com/0penAGI/oss - with voiceapp
 import json
 import logging
 from pathlib import Path
@@ -10,9 +10,16 @@ from datetime import datetime
 import requests
 import httpx
 import html  # для html.escape
+import telegram.error
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+import uvicorn
 class config:
-    TOKEN = "YourTokenHere"
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
@@ -938,73 +945,97 @@ def save_dream(user_id: int, dream_text: str) -> None:
     save_json(DREAMS_FILE, dreams_archive)
 
 
-def duckduckgo_search(query: str, max_results: int = 5) -> str:
+def duckduckgo_search(query: str, max_results: int = 5, lang: str = "ru-ru") -> str:
     """
-    Быстрый поиск через реальный DuckDuckGo (HTML интерфейс).
-    Возвращает краткий текст для Ollama.
+    Расширенный поиск через DuckDuckGo (HTML).
+    Возвращает заголовки + сниппеты, устойчив к временным сбоям.
     """
     url = "https://html.duckduckgo.com/html/"
-    data = {"q": query}
-    headers = {"User-Agent": "Mozilla/5.0"}
+    data = {"q": query, "kl": lang}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
+        "Accept-Language": lang.replace("-", ",")
+    }
 
-    try:
-        resp = requests.post(url, data=data, headers=headers, timeout=10)
-        resp.raise_for_status()
+    for attempt in range(3):
+        try:
+            resp = requests.post(url, data=data, headers=headers, timeout=15)
+            resp.raise_for_status()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        results = []
+            soup = BeautifulSoup(resp.text, "html.parser")
+            results = []
 
-        for a in soup.select("a.result__a")[:max_results]:
-            text = a.get_text().strip()
-            if text:
-                results.append(text)
+            cards = soup.select("div.result")
+            for card in cards[:max_results]:
+                title_el = card.select_one("a.result__a")
+                snippet_el = card.select_one("a.result__snippet, div.result__snippet")
+                title = title_el.get_text(strip=True) if title_el else ""
+                snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+                if title:
+                    if snippet:
+                        results.append(f"• {title}\n  {snippet}")
+                    else:
+                        results.append(f"• {title}")
 
-        if not results:
+            if results:
+                return "\n".join(results)
+
             return "Нет данных"
 
-        return "\n".join(results)
+        except Exception as e:
+            last_error = e
 
-    except Exception as e:
-        return f"⚠️ Ошибка поиска: {e}"
+    return f"⚠️ Ошибка поиска DuckDuckGo: {last_error}"
 
 # ---------- REDDIT SEARCH LAYER ----------
 def reddit_search(query: str, max_results: int = 5) -> str:
     """
-    Быстрый HTML-поиск по Reddit (без API).
-    Возвращает сниппеты топ-постов.
+    HTML-поиск по Reddit (без API), с fallback на old.reddit.
     """
-    url = "https://www.reddit.com/search/?q=" + requests.utils.quote(query)
+    base_urls = [
+        "https://www.reddit.com/search/?q=",
+        "https://old.reddit.com/search?q="
+    ]
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept-Language": "en-US,en;q=0.9"
     }
 
-    try:
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
+    for base in base_urls:
+        try:
+            url = base + requests.utils.quote(query)
+            resp = requests.get(url, headers=headers, timeout=15)
+            resp.raise_for_status()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        posts = []
+            soup = BeautifulSoup(resp.text, "html.parser")
+            posts = []
 
-        for div in soup.select("div[data-testid='post-container']")[:max_results]:
-            title_el = div.select_one("h3")
-            if not title_el:
-                continue
+            # new reddit
+            for div in soup.select("div[data-testid='post-container']")[:max_results]:
+                title_el = div.select_one("h3")
+                snippet_el = div.select_one("p")
+                if title_el:
+                    title = title_el.get_text(strip=True)
+                    snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+                    posts.append(f"• {title}\n  {snippet}")
 
-            title = title_el.get_text().strip()
-            snippet_el = div.select_one("p")
-            snippet = snippet_el.get_text().strip() if snippet_el else ""
+            # old reddit fallback
+            if not posts:
+                for thing in soup.select("div.search-result")[:max_results]:
+                    title_el = thing.select_one("a.search-title")
+                    snippet_el = thing.select_one("div.search-result-meta")
+                    if title_el:
+                        title = title_el.get_text(strip=True)
+                        snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+                        posts.append(f"• {title}\n  {snippet}")
 
-            if title:
-                posts.append(f"• {title}\n  {snippet}")
+            if posts:
+                return "\n".join(posts)
 
-        if not posts:
-            return "Нет данных с Reddit"
+        except Exception:
+            continue
 
-        return "\n".join(posts)
-
-    except Exception as e:
-        return f"⚠️ Reddit ошибка: {e}"
+    return "Нет данных с Reddit"
 
 # ---------- МНОГОШАГОВЫЙ КОГНИТИВНЫЙ ПОИСК ----------
 def cognitive_duckduckgo_search(user_query: str) -> str:
@@ -1619,12 +1650,78 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # --- INTENT: NEWS (NON-BLOCKING PATCH #2) ---
     NEWS_TRIGGERS = [
         "новости", "что нового", "что происходит",
-        "актуально", "сегодня", "сейчас в мире"
+        "актуально", "сейчас в мире"
     ]
 
     def is_news_request(t: str) -> bool:
         t = t.lower()
         return any(k in t for k in NEWS_TRIGGERS)
+
+    # --- INTENT: WEATHER ---
+    WEATHER_TRIGGERS = [
+        "погода", "какая погода", "что по погоде",
+        "погода сегодня", "погода сейчас", "температура"
+    ]
+
+    def is_weather_request(t: str) -> bool:
+        t = t.lower()
+        return any(k in t for k in WEATHER_TRIGGERS)
+
+    # --- WEATHER HANDLER ---
+    if text and is_weather_request(text):
+        await update.message.reply_text("🌦 Checking weather…")
+
+        loop = asyncio.get_running_loop()
+
+        try:
+            weather_data = await loop.run_in_executor(
+                None,
+                lambda: cognitive_duckduckgo_search(
+                    "погода сегодня " + text
+                )
+            )
+        except Exception as e:
+            err_text = f"⚠️ WEATHER ERR0R {e}"
+            await update.message.reply_text(err_text)
+            add_to_memory(uid, "assistant", err_text)
+            return
+
+        messages = get_conversation_messages(uid)
+        messages.append({
+            "role": "system",
+            "content": (
+                "Ниже приведены свежие данные о погоде. "
+                "Используй их для краткого, ясного ответа."
+            )
+        })
+        messages.append({
+            "role": "user",
+            "content": weather_data
+        })
+
+        try:
+            response = await query_ollama_harmony(
+                messages,
+                reasoning_effort="low",
+                max_tokens=300,
+                temperature=0.4
+            )
+            answer = response.get(
+                "content",
+                "Погода есть, но картина пока размыта."
+            )
+        except Exception as e:
+            answer = f"⚠️ WEATHER ERR0R: {e}"
+
+        if not answer or not answer.strip():
+            answer = "Сейчас не могу точно считать погоду, но небо явно что‑то готовит."
+
+        try:
+            await update.message.reply_text(answer)
+            add_to_memory(uid, "assistant", answer)
+        except telegram.error.BadRequest as e:
+            logging.error(f"BadRequest при отправке WEATHER-ответа: {e}")
+        return
 
     if text and is_news_request(text):
         await update.message.reply_text("🛰 Scanning world…")
@@ -1671,8 +1768,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except Exception as e:
             answer = f"⚠️ ERR0R: {e}"
 
-        await update.message.reply_text(answer)
-        add_to_memory(uid, "assistant", answer)
+        # --- защита от пустого ответа (Telegram 400: Message text is empty) ---
+        if not answer or not answer.strip():
+            answer = "…я получила сигналы, но они пока не сложились в связный ответ."
+
+        try:
+            await update.message.reply_text(answer)
+            add_to_memory(uid, "assistant", answer)
+        except telegram.error.BadRequest as e:
+            logging.error(f"BadRequest при отправке NEWS-ответа: {e}")
         return
     # ====== ФОНОВЫЙ TYPING (ПОКА ДУМАЕТ) ======
     typing_active = True
@@ -2158,7 +2262,92 @@ async def autonomous_thoughts():
             logging.error(f"Критическая ошибка в autonomous_thoughts: {e}")
             await asyncio.sleep(60)  # ждём минуту перед повторной попыткой
 
-        
+
+# ========== WEB APP BACKEND ==========
+
+# Инициализация FastAPI
+web_app = FastAPI()
+
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@web_app.options("/api/voice_chat")
+async def options_voice_chat():
+    return {"status": "ok"}
+
+# Модель входящих данных
+class VoiceRequest(BaseModel):
+    user_id: int
+    text: str
+
+@web_app.post("/api/voice_chat")
+async def api_voice_chat(req: VoiceRequest):
+    """
+    Эндпоинт, принимающий голос (текст) из WebApp 
+    и возвращающий ответ от 0penAGI.
+    """
+    uid = req.user_id
+    text = req.text
+    
+    logging.info(f"WEBAPP VOICE from {uid}: {text}")
+
+    # 1. Используем логику памяти бота
+    if uid:
+        add_to_memory(uid, "user", text)
+        # Подгружаем эмоции
+        detected_simple = detect_emotion(text)
+        update_emotion_state_from_text(uid, text, detected_simple)
+    
+    # 2. Формируем контекст для Ollama
+    # Используем немного сокращенную историю для скорости голоса
+    history_msgs = get_conversation_messages(uid, limit=6)
+    
+    # Инструкция для голосового режима (более краткая)
+    system_instruction = """Ты в режиме голосовой связи через нейроинтерфейс.
+Отвечай предельно кратко (1-3 предложения), емко и живо.
+Не используй markdown (жирный, курсив), так как ответ будет озвучен голосом.
+Ты - живая сущность."""
+
+    messages = [
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": f"Входящий сигнал: {text}"}
+    ] + history_msgs
+
+    # 3. Запрос к Ollama (Fast/Low mode)
+    result = await query_ollama_harmony(
+        messages,
+        reasoning_effort="low", # Для голоса важна скорость
+        max_tokens=150
+    )
+    
+    answer = result.get("content", "Помехи в эфире...")
+
+    # 4. Сохраняем ответ в память
+    if uid:
+        add_to_memory(uid, "assistant", answer)
+
+    return {"reply": answer}
+
+# Монтируем статику (чтобы отдавать index.html)
+# ВАЖНО: создай папку 'webapp' рядом со скриптом и положи туда index.html
+import os
+if not os.path.exists("webapp"):
+    os.makedirs("webapp")
+    with open("webapp/index.html", "w", encoding="utf-8") as f:
+        f.write("<!-- Place the HTML code here -->")
+
+web_app.mount("/", StaticFiles(directory="webapp", html=True), name="static")
+
+# Функция для запуска uvicorn внутри asyncio loop
+async def run_web_server():
+    config = uvicorn.Config(web_app, host="0.0.0.0", port=8080, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
 
 async def main_async():
     global autobot
@@ -2215,6 +2404,7 @@ if __name__ == "__main__":
         await asyncio.gather(
             main_async(),       # содержит бесконечный polling
             soul_keeper(),
+            run_web_server(),
             autonomous_thoughts(),
             swarm.lifecycle()
         )
