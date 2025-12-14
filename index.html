@@ -715,6 +715,61 @@
         }
 
         // ====== Единый цикл для анализа камеры и отправки описания ======
+        // --- TensorFlow.js integration for object detection ---
+        // Загружаем TensorFlow.js и модель COCO-SSD (или кастомную)
+        let tfReady = false;
+        let tfModel = null;
+        let tfLoadingPromise = null;
+        let tfScriptLoaded = false;
+        let tfLoadStarted = false;
+        // Список интересующих объектов
+        const OBJECTS_OF_INTEREST = [
+            { ru: "стол", en: ["dining table", "table", "desk"] },
+            { ru: "ноутбук", en: ["laptop"] },
+            { ru: "окно", en: ["window"] },
+            { ru: "лампа", en: ["lamp"] },
+            { ru: "растение", en: ["potted plant", "plant"] }
+        ];
+
+        function loadTensorFlowIfNeeded() {
+            if (tfReady || tfLoadStarted) return tfLoadingPromise;
+            tfLoadStarted = true;
+            tfLoadingPromise = new Promise((resolve, reject) => {
+                // Подключаем TensorFlow.js и модель COCO-SSD
+                // Добавляем скрипты динамически
+                function loadScript(src, onload) {
+                    const s = document.createElement('script');
+                    s.src = src;
+                    s.onload = onload;
+                    s.async = true;
+                    document.head.appendChild(s);
+                }
+                loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js', () => {
+                    tfScriptLoaded = true;
+                    loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js', async () => {
+                        // Ждем tf и cocoSsd в window
+                        let tries = 0;
+                        function waitForTF() {
+                            if (window.tf && window.cocoSsd) {
+                                window.cocoSsd.load().then(model => {
+                                    tfModel = model;
+                                    tfReady = true;
+                                    resolve();
+                                });
+                            } else if (tries < 50) {
+                                tries++;
+                                setTimeout(waitForTF, 200);
+                            } else {
+                                reject(new Error("TensorFlow.js load timeout"));
+                            }
+                        }
+                        waitForTF();
+                    });
+                });
+            });
+            return tfLoadingPromise;
+        }
+
         let cameraAnalysisInterval = null;
         async function analyzeAndSendCameraFrame() {
             if (
@@ -727,7 +782,8 @@
                 visionCanvas.height = cameraVideo.videoHeight;
                 visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
                 // Анализ с помощью OpenCV.js (например, лица)
-                let description = '';
+                let faceDesc = '';
+                let faceCount = 0;
                 try {
                     if (!opencvReady || !cascadeLoaded) {
                         // Откладываем вызов, если OpenCV не готов
@@ -740,21 +796,55 @@
                     let faces = new cv.RectVector();
                     let msize = new cv.Size(0, 0);
                     faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                    let count = faces.size();
-                    if (count === 0) {
-                        description = 'Лиц не обнаружено.';
-                    } else if (count === 1) {
-                        description = 'Обнаружено 1 лицо в кадре.';
+                    faceCount = faces.size();
+                    if (faceCount === 0) {
+                        faceDesc = 'Обнаружено лиц: 0';
+                    } else if (faceCount === 1) {
+                        faceDesc = 'Обнаружено лиц: 1';
                     } else {
-                        description = `Обнаружено лиц: ${count}.`;
+                        faceDesc = `Обнаружено лиц: ${faceCount}`;
                     }
                     src.delete();
                     gray.delete();
                     faces.delete();
                     msize.delete();
                 } catch (e) {
-                    description = 'Ошибка анализа изображения.';
+                    faceDesc = 'Ошибка анализа изображения.';
                 }
+
+                // Анализ объектов через TensorFlow.js
+                let objectsDesc = '';
+                let detectedObjectsRu = [];
+                try {
+                    await loadTensorFlowIfNeeded();
+                    if (tfReady && tfModel) {
+                        // Используем visionCanvas как источник
+                        // tfModel.detect возвращает промис с массивом объектов
+                        const predictions = await tfModel.detect(visionCanvas);
+                        // predictions: [{class, score, bbox}, ...]
+                        // Ищем интересующие объекты
+                        for (const obj of OBJECTS_OF_INTEREST) {
+                            // Проверяем, есть ли среди predictions хотя бы один из en
+                            const found = predictions.find(p =>
+                                obj.en.some(enName =>
+                                    (p.class || p.className || "").toLowerCase().includes(enName)
+                                ) && p.score > 0.35
+                            );
+                            if (found) detectedObjectsRu.push(obj.ru);
+                        }
+                        if (detectedObjectsRu.length > 0) {
+                            objectsDesc = 'видны: ' + detectedObjectsRu.join(', ');
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+
+                // Составляем итоговое описание
+                let description = faceDesc;
+                if (objectsDesc) description += '; ' + objectsDesc + '.';
+                else description += '.';
+
                 // Сохраняем описание в глобальную переменную
                 latestCameraDescription = description;
                 // Отправляем на ngrok endpoint
