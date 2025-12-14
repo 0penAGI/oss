@@ -454,33 +454,6 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
 
-        // === Markov Chain for local text smoothing ===
-        class MarkovChain {
-            constructor(order = 2) {
-                this.order = order;
-                this.chain = new Map();
-            }
-
-            feed(text) {
-                const words = text.split(/\s+/);
-                for (let i = 0; i <= words.length - this.order; i++) {
-                    const key = words.slice(i, i + this.order).join(' ');
-                    const next = words[i + this.order] || '';
-                    if (!this.chain.has(key)) this.chain.set(key, []);
-                    this.chain.get(key).push(next);
-                }
-            }
-
-            predict(context) {
-                const key = context.slice(-this.order).join(' ');
-                const options = this.chain.get(key);
-                if (!options || options.length === 0) return '';
-                return options[Math.floor(Math.random() * options.length)];
-            }
-        }
-
-        const markov = new MarkovChain(2);
-
         async function sendToBot(text) {
             isThinking = true;
             orb.classList.remove('listening');
@@ -520,18 +493,7 @@
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    let chunk = decoder.decode(value, { stream: true });
-
-                    // feed Markov chain with the incoming chunk
-                    markov.feed(chunk);
-
-                    // predict next words to smooth transitions
-                    const words = chunk.split(/\s+/);
-                    const augmentedWords = words.map((w, i) => {
-                        const pred = markov.predict(words.slice(0, i));
-                        return pred ? `${w} ${pred}` : w;
-                    });
-                    chunk = augmentedWords.join(' ');
+                    const chunk = decoder.decode(value, { stream: true });
 
                     // Печатание текста
                     await typeWriterEffect(responseContainer, chunk);
