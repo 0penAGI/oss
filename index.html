@@ -2,296 +2,133 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
     <style>
-        :root {
-            --bg-color: #0a0a0f;
-            --text-color: #e8e8f0;
-            --soul-primary: #6366f1;
-            --soul-secondary: #8b5cf6;
-            --soul-glow: rgba(99, 102, 241, 0.4);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0a0a0f 100%);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
+            margin: 0;
             overflow: hidden;
-            position: relative;
-        }
-
-        .particles {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 0;
-        }
-
-        .particle {
-            position: absolute;
-            width: 2px;
-            height: 2px;
-            background: var(--soul-primary);
-            border-radius: 50%;
-            animation: float linear infinite;
-            opacity: 0;
-        }
-
-        @keyframes float {
-            0% {
-                transform: translateY(100vh) scale(0);
-                opacity: 0;
-            }
-            10% {
-                opacity: 0.5;
-            }
-            90% {
-                opacity: 0.5;
-            }
-            100% {
-                transform: translateY(-100px) scale(1);
-                opacity: 0;
-            }
-        }
-
-        .soul-container {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .soul-orb-wrapper {
-            position: relative;
-            width: 180px;
-            height: 180px;
-            margin-bottom: 40px;
         }
 
         .soul-orb {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, 
-                var(--soul-primary) 0%, 
-                var(--soul-secondary) 40%, 
-                transparent 70%);
-            animation: breathe 4s infinite ease-in-out;
-            filter: blur(1px);
-        }
-
-        .soul-ring {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            position: relative;
             width: 160px;
             height: 160px;
-            border: 2px solid var(--soul-primary);
             border-radius: 50%;
-            opacity: 0.3;
-            animation: rotate 20s linear infinite;
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #aaaaaa 15%, #333333 40%, #000000 70%);
+            box-shadow: 
+                0 0 40px rgba(255, 255, 255, 0.4),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
+            animation: breathe 5s infinite ease-in-out;
+            margin-bottom: 40px;
         }
 
-        .soul-ring::before {
+        .soul-orb::before {
             content: '';
             position: absolute;
-            top: -4px;
-            left: 50%;
-            width: 8px;
-            height: 8px;
-            background: var(--soul-primary);
+            top: 15%;
+            left: 20%;
+            width: 40%;
+            height: 40%;
             border-radius: 50%;
-            box-shadow: 0 0 20px var(--soul-glow);
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
+            pointer-events: none;
         }
 
-        .soul-glow {
+        .soul-orb::after {
+            content: '';
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 180px;
-            height: 180px;
+            inset: 0;
             border-radius: 50%;
-            background: radial-gradient(circle, var(--soul-glow) 0%, transparent 70%);
-            animation: glow 3s infinite ease-in-out;
+            background: radial-gradient(circle at 70% 70%, transparent 50%, rgba(0,0,0,0.5) 100%);
+            mix-blend-mode: multiply;
+            pointer-events: none;
         }
 
-        .soul-orb.listening .soul-orb {
-            animation: pulse 1.2s infinite;
-            filter: blur(0px) brightness(1.3);
+        .soul-orb.listening {
+            animation: pulse 1.4s infinite ease-in-out;
+            box-shadow: 
+                0 0 60px rgba(255, 255, 255, 0.6),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
         }
 
-        .soul-orb.listening .soul-glow {
-            animation: pulse-glow 1.2s infinite;
-        }
-
-        .soul-orb.speaking .soul-orb {
-            animation: vibrate 0.1s infinite, rainbow 2s linear infinite;
-            filter: blur(0px) brightness(1.5);
-        }
-
-        .soul-orb.speaking .soul-ring {
-            border-width: 3px;
-            opacity: 0.8;
-            animation: rotate 2s linear infinite, pulse-ring 0.4s infinite;
+        .soul-orb.speaking {
+            animation: vibrate 0.2s infinite linear;
+            box-shadow: 
+                0 0 80px rgba(255, 255, 255, 0.8),
+                inset -20px -20px 60px rgba(0, 0, 0, 0.8),
+                inset 20px 20px 40px rgba(255, 255, 255, 0.1);
         }
 
         @keyframes breathe {
             0%, 100% { 
-                transform: translate(-50%, -50%) scale(1); 
-                opacity: 0.8; 
+                transform: scale(1); 
+                box-shadow: 0 0 40px rgba(255, 255, 255, 0.4), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
             }
             50% { 
-                transform: translate(-50%, -50%) scale(1.08); 
-                opacity: 0.5; 
+                transform: scale(1.08); 
+                box-shadow: 0 0 70px rgba(255, 255, 255, 0.6), inset -20px -20px 60px rgba(0,0,0,0.8), inset 20px 20px 40px rgba(255,255,255,0.1);
             }
         }
 
         @keyframes pulse {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.15); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-
-        @keyframes pulse-glow {
-            0% { opacity: 0.4; }
-            50% { opacity: 0.8; }
-            100% { opacity: 0.4; }
-        }
-
-        @keyframes pulse-ring {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.05); }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
         }
 
         @keyframes vibrate {
-            0% { transform: translate(-50%, -50%) translate(0, 0); }
-            25% { transform: translate(-50%, -50%) translate(-2px, 2px); }
-            50% { transform: translate(-50%, -50%) translate(2px, -2px); }
-            75% { transform: translate(-50%, -50%) translate(-2px, -2px); }
-            100% { transform: translate(-50%, -50%) translate(0, 0); }
-        }
-
-        @keyframes rainbow {
-            0% { filter: hue-rotate(0deg) brightness(1.5); }
-            100% { filter: hue-rotate(360deg) brightness(1.5); }
-        }
-
-        @keyframes rotate {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-
-        @keyframes glow {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(2px, -2px); }
+            60% { transform: translate(-2px, -2px); }
+            80% { transform: translate(2px, 2px); }
+            100% { transform: translate(0); }
         }
 
         #status {
             font-size: 16px;
-            font-weight: 500;
             opacity: 0.8;
-            margin-bottom: 20px;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
-            color: var(--soul-primary);
-            text-shadow: 0 0 20px var(--soul-glow);
+            margin-bottom: 12px;
+            letter-spacing: 1px;
         }
 
         #transcript {
             font-size: 14px;
-            max-width: 85%;
+            max-width: 90%;
             text-align: center;
             opacity: 0.7;
             line-height: 1.6;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        #transcript::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        #transcript::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        #transcript::-webkit-scrollbar-thumb {
-            background: var(--soul-primary);
-            border-radius: 2px;
+            padding: 0 20px;
         }
     </style>
 </head>
-
 <body>
-
-    <div class="particles" id="particles"></div>
-
-    <div class="soul-container">
-        <div class="soul-orb-wrapper" id="orb">
-            <div class="soul-glow"></div>
-            <div class="soul-orb"></div>
-            <div class="soul-ring"></div>
-        </div>
-        <div id="status">Инициализация…</div>
-        <div id="transcript"></div>
-    </div>
-
+    <div id="orb" class="soul-orb"></div>
+    <div id="status">Инициализация…</div>
+    <div id="transcript"></div>
     <script>
-        // Частицы
-        const particlesContainer = document.getElementById('particles');
-        for (let i = 0; i < 50; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
-            particle.style.animationDelay = Math.random() * 5 + 's';
-            particlesContainer.appendChild(particle);
-        }
-
         const tg = window.Telegram?.WebApp || null;
         if (tg) tg.expand();
-
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
-
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-
         recognition.lang = 'ru-RU';
         recognition.interimResults = false;
         recognition.continuous = false;
-
         const synth = window.speechSynthesis;
-
         let isSpeaking = false;
-
         function startListening() {
             if (isSpeaking) return;
             try {
@@ -300,33 +137,26 @@
                 status.innerText = "Слушаю…";
             } catch {}
         }
-
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            transcriptDiv.innerHTML = `<strong style="color: var(--soul-primary);">Вы:</strong> ${text}`;
+            transcriptDiv.innerText = `Вы: ${text}`;
             await sendToBot(text);
         };
-
         recognition.onerror = () => {
             setTimeout(startListening, 1200);
         };
-
         recognition.onend = () => {
             orb.classList.remove('listening');
             if (!isSpeaking) {
                 setTimeout(startListening, 800);
             }
         };
-
         async function sendToBot(text) {
             isSpeaking = true;
-            orb.classList.remove('listening');
             orb.classList.add('speaking');
             status.innerText = "Думаю…";
-
             try {
                 const userId = tg.initDataUnsafe?.user?.id || 0;
-
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                     {
@@ -338,44 +168,34 @@
                         body: JSON.stringify({ user_id: userId, text })
                     }
                 );
-
                 const data = await response.json();
                 const reply = data.reply;
-
-                transcriptDiv.innerHTML += `<br><br><strong style="color: var(--soul-secondary);">AI:</strong> ${reply}`;
-                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+                transcriptDiv.innerText += `\n\nAI: ${reply}`;
                 speak(reply);
-
             } catch {
-                status.innerText = "Потеряна связь";
+                status.innerText = "Потеряно соединение.";
                 orb.classList.remove('speaking');
                 isSpeaking = false;
                 startListening();
             }
         }
-
         function speak(text) {
             status.innerText = "Говорю…";
-
             const cleanText = text
                 .replace(/<[^>]*>/g, '')
                 .replace(/[*_#]/g, '');
-
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
             utterance.rate = 1.05;
             utterance.pitch = 0.95;
-
             utterance.onend = () => {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
                 status.innerText = "Слушаю…";
                 startListening();
             };
-
             synth.speak(utterance);
         }
-
         window.addEventListener('load', () => {
             setTimeout(startListening, 1000);
         });
