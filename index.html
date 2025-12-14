@@ -384,11 +384,6 @@
         const synth = window.speechSynthesis;
         let isSpeaking = false;
         let isThinking = false;
-
-        // Sentence Buffer
-        let sentenceBuffer = "";
-        let speechQueue = [];
-        let isSpeakingChunk = false;
         
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
@@ -457,7 +452,7 @@
                 isThinking = false;
                 isSpeaking = true;
                 vibrate('heavy');
-                enqueueSpeech(reply);
+                speak(reply);
             } catch {
                 status.innerText = "lost connection";
                 orb.classList.remove('thinking');
@@ -468,64 +463,26 @@
             }
         }
         
-        function enqueueSpeech(text) {
-            const clean = text
-                .replace(/<[^>]*>/g, '')
-                .replace(/[*_#]/g, '');
-
-            sentenceBuffer += clean;
-
-            // режем по предложениям
-            const parts = sentenceBuffer.split(/([.!?\n]+)/);
-
-            sentenceBuffer = "";
-
-            for (let i = 0; i < parts.length; i += 2) {
-                const sentence = (parts[i] || "").trim();
-                const punctuation = parts[i + 1] || "";
-
-                if (sentence && punctuation) {
-                    speechQueue.push(sentence + punctuation);
-                } else {
-                    // хвост без точки — оставляем в буфере
-                    sentenceBuffer = sentence;
-                }
-            }
-
-            processSpeechQueue();
-        }
-
-        function processSpeechQueue() {
-            if (isSpeakingChunk || speechQueue.length === 0) return;
-
-            isSpeakingChunk = true;
-            isSpeaking = true;
-
+        function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
             status.innerText = "speaking";
-
-            const chunk = speechQueue.shift();
-            const utterance = new SpeechSynthesisUtterance(chunk);
-
+           
+            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+           
+            const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
             utterance.rate = 1.0;
             utterance.pitch = 0.95;
-
+           
             utterance.onend = () => {
-                isSpeakingChunk = false;
-
-                if (speechQueue.length > 0) {
-                    processSpeechQueue();
-                } else {
-                    isSpeaking = false;
-                    orb.classList.remove('speaking');
-                    status.innerText = "listening";
-                    vibrate('light');
-                    startListening();
-                }
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                status.innerText = "listening";
+                vibrate('light');
+                startListening();
             };
-
+           
             synth.speak(utterance);
         }
         
