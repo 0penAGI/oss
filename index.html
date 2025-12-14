@@ -172,6 +172,13 @@
 <body>
     <canvas id="webgl-canvas"></canvas>
 
+    <!-- Camera controls and video overlay -->
+    <div id="camera-controls" style="position: absolute; top: 15px; right: 15px; z-index: 10; display: flex; gap: 10px;">
+        <button id="start-camera-btn" style="padding: 7px 16px; border-radius: 7px; border: none; background: #333; color: #fff; font-size: 15px; cursor: pointer; opacity:0.85;">Камера</button>
+        <button id="switch-camera-btn" style="padding: 7px 16px; border-radius: 7px; border: none; background: #333; color: #fff; font-size: 15px; cursor: pointer; opacity:0.85; display:none;">Сменить</button>
+    </div>
+    <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
+
     <div class="content">
         <div class="soul-container">
             <div class="aura"></div>
@@ -586,6 +593,84 @@
                 startListening();
             }, 1200);
         });
+
+        // ===== КАМЕРА =====
+        const startCameraBtn = document.getElementById('start-camera-btn');
+        const switchCameraBtn = document.getElementById('switch-camera-btn');
+        const cameraVideo = document.getElementById('camera-video');
+        let currentCamera = 'user'; // 'user' (front) or 'environment' (back)
+        let stream = null;
+
+        async function startCamera(facingMode = 'user') {
+            try {
+                if (stream) {
+                    // Остановить предыдущий стрим
+                    stream.getTracks().forEach(track => track.stop());
+                }
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode },
+                    audio: false
+                });
+                cameraVideo.srcObject = stream;
+                cameraVideo.style.display = 'block';
+                switchCameraBtn.style.display = 'inline-block';
+            } catch (e) {
+                alert('Не удалось запустить камеру: ' + e.message);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            cameraVideo.srcObject = null;
+            cameraVideo.style.display = 'none';
+            switchCameraBtn.style.display = 'none';
+        }
+
+        startCameraBtn.addEventListener('click', () => {
+            if (cameraVideo.style.display === 'block') {
+                stopCamera();
+                startCameraBtn.textContent = 'Камера';
+            } else {
+                startCamera(currentCamera);
+                startCameraBtn.textContent = 'Закрыть';
+            }
+        });
+
+        switchCameraBtn.addEventListener('click', () => {
+            currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+            startCamera(currentCamera);
+        });
+
+        // ===== Голосовые команды для камеры =====
+        // Встроить в существующую обработку onresult
+        const oldOnResult = recognition.onresult;
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript;
+            // Команды камеры
+            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
+                if (cameraVideo.style.display !== 'block') {
+                    startCamera(currentCamera);
+                    startCameraBtn.textContent = 'Закрыть';
+                }
+            }
+            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
+                if (cameraVideo.style.display === 'block') {
+                    stopCamera();
+                    startCameraBtn.textContent = 'Камера';
+                }
+            }
+            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
+                currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+                startCamera(currentCamera);
+            }
+            // Передать дальше в старый обработчик
+            if (typeof oldOnResult === 'function') {
+                await oldOnResult(event);
+            }
+        };
     </script>
 </body>
 </html>
