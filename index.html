@@ -1,173 +1,192 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<style>
-:root {
-    --bg: #ffffff;
-    --text: #111;
-}
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --soul-color: #000000;
+        }
 
-body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    overflow: hidden;
-}
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
 
-.soul-orb {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #000 25%, transparent 70%);
-    animation: breathe 4s infinite ease-in-out;
-    margin-bottom: 24px;
-}
+        .soul-orb {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #000 20%, transparent 70%);
+            animation: breathe 4s infinite ease-in-out;
+            margin-bottom: 30px;
+        }
 
-.soul-orb.listening { animation: pulse 1.2s infinite; }
-.soul-orb.speaking { animation: vibrate .15s infinite; }
+        .soul-orb.listening {
+            animation: pulse 1.2s infinite;
+        }
 
-@keyframes breathe {
-    0%,100%{transform:scale(1);opacity:.6}
-    50%{transform:scale(1.05);opacity:.3}
-}
-@keyframes pulse {
-    0%{transform:scale(1)}
-    50%{transform:scale(1.12)}
-    100%{transform:scale(1)}
-}
-@keyframes vibrate {
-    0%{transform:translate(0)}
-    25%{transform:translate(-1px,1px)}
-    50%{transform:translate(1px,-1px)}
-    75%{transform:translate(-1px,-1px)}
-    100%{transform:translate(0)}
-}
+        .soul-orb.speaking {
+            animation: vibrate 0.15s infinite;
+        }
 
-#status { font-size:14px; opacity:.6 }
-#transcript {
-    font-size:12px;
-    opacity:.5;
-    max-width:85%;
-    text-align:center;
-    white-space:pre-wrap;
-}
-</style>
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.05); opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes vibrate {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            75% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0, 0); }
+        }
+
+        #status {
+            font-size: 14px;
+            opacity: 0.6;
+            margin-bottom: 10px;
+        }
+
+        #transcript {
+            font-size: 12px;
+            max-width: 80%;
+            text-align: center;
+            opacity: 0.5;
+        }
+    </style>
 </head>
 
 <body>
 
-<div id="orb" class="soul-orb"></div>
-<div id="status">Инициализация…</div>
-<div id="transcript"></div>
+    <div id="orb" class="soul-orb"></div>
+    <div id="status">Инициализация…</div>
+    <div id="transcript"></div>
 
-<script>
-/* ---------- TELEGRAM SAFE ---------- */
-const tg = window.Telegram?.WebApp || null;
-if (tg) tg.expand();
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
 
-/* ---------- ELEMENTS ---------- */
-const orb = document.getElementById("orb");
-const status = document.getElementById("status");
-const transcript = document.getElementById("transcript");
+        const orb = document.getElementById('orb');
+        const status = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
 
-/* ---------- SPEECH ---------- */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const rec = new SR();
-rec.lang = "ru-RU";
-rec.interimResults = false;
-rec.continuous = false;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
 
-const synth = speechSynthesis;
-let speaking = false;
-let listening = false;
+        recognition.lang = 'ru-RU';
+        recognition.interimResults = false;
+        recognition.continuous = false;
 
-/* ---------- LISTEN ---------- */
-function startListening(){
-    if (speaking || listening) return;
-    try {
-        listening = true;
-        rec.start();
-        orb.classList.add("listening");
-        status.textContent = "Listening…";
-    } catch {}
-}
+        const synth = window.speechSynthesis;
 
-rec.onresult = e => {
-    const text = e.results[0][0].transcript;
-    transcript.textContent = "Вы: " + text;
-    respond(text);
-};
+        let isSpeaking = false;
 
-rec.onend = () => {
-    listening = false;
-    orb.classList.remove("listening");
-    if (!speaking) setTimeout(startListening, 900);
-};
+        function startListening() {
+            if (isSpeaking) return;
+            try {
+                recognition.start();
+                orb.classList.add('listening');
+                status.innerText = "Listening…";
+            } catch {}
+        }
 
-rec.onerror = () => {
-    listening = false;
-    setTimeout(startListening, 1500);
-};
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript;
+            transcriptDiv.innerText = `Вы: ${text}`;
+            await sendToBot(text);
+        };
 
-/* ---------- LOCAL BRAIN (Pages-safe) ---------- */
-function localBrain(){
-    const replies = [
-        "Я здесь.",
-        "Я слышу тебя.",
-        "Продолжай.",
-        "Я с тобой.",
-        "Я думаю."
-    ];
-    return replies[Math.floor(Math.random()*replies.length)];
-}
+        recognition.onerror = () => {
+            setTimeout(startListening, 1200);
+        };
 
-/* ---------- RESPOND ---------- */
-function respond(text){
-    speaking = true;
-    orb.classList.add("speaking");
-    status.textContent = "Thinking…";
+        recognition.onend = () => {
+            orb.classList.remove('listening');
+            if (!isSpeaking) {
+                setTimeout(startListening, 800);
+            }
+        };
 
-    setTimeout(()=>{
-        const reply = localBrain(text);
-        transcript.textContent += "\n\nAI: " + reply;
-        speak(reply);
-    }, 600);
-}
+        async function sendToBot(text) {
+            isSpeaking = true;
+            orb.classList.add('speaking');
+            status.innerText = "Thinking…";
 
-/* ---------- SPEAK ---------- */
-function speak(text){
-    status.textContent = "Speaking…";
+            try {
+                const userId = tg.initDataUnsafe?.user?.id || 0;
 
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ru-RU";
-    u.rate = 1.05;
-    u.pitch = .95;
+                const response = await fetch(
+                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify({ user_id: userId, text })
+                    }
+                );
 
-    u.onend = () => {
-        speaking = false;
-        orb.classList.remove("speaking");
-        status.textContent = "Listening…";
-        startListening();
-    };
+                const data = await response.json();
+                const reply = data.reply;
 
-    synth.speak(u);
-}
+                transcriptDiv.innerText += `\n\nAI: ${reply}`;
+                speak(reply);
 
-/* ---------- START ---------- */
-window.addEventListener("load",()=>{
-    setTimeout(startListening, 1200);
-});
-</script>
+            } catch {
+                status.innerText = "Lost connection.";
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                startListening();
+            }
+        }
 
+        function speak(text) {
+            status.innerText = "Speaking…";
+
+            const cleanText = text
+                .replace(/<[^>]*>/g, '')
+                .replace(/[*_#]/g, '');
+
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'ru-RU';
+            utterance.rate = 1.05;
+            utterance.pitch = 0.95;
+
+            utterance.onend = () => {
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                status.innerText = "Listening…";
+                startListening();
+            };
+
+            synth.speak(utterance);
+        }
+
+        // 🚀 автозапуск
+        window.addEventListener('load', () => {
+            setTimeout(startListening, 1000);
+        });
+    </script>
 </body>
 </html>
