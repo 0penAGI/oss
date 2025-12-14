@@ -1,841 +1,193 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Quantum Core</title>
+
     <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --soul-color: #000000;
+        }
+
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-end;
+            justify-content: center;
             height: 100vh;
+            margin: 0;
+            overflow: hidden;
         }
 
-        /* Холст для шейдера на весь экран */
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
+        .soul-orb {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #000 20%, transparent 70%);
+            animation: breathe 4s infinite ease-in-out;
+            margin-bottom: 30px;
         }
 
-        /* Интерфейс поверх холста */
-        #ui-layer {
-            position: relative;
-            z-index: 2;
-            width: 100%;
-            padding-bottom: 50px;
-            text-align: center;
-            pointer-events: none; /* Чтобы клики проходили сквозь текст */
-            text-shadow: 0 0 10px #000;
+        .soul-orb.listening {
+            animation: pulse 1.2s infinite;
+        }
+
+        .soul-orb.speaking {
+            animation: vibrate 0.15s infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.05); opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes vibrate {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            75% { transform: translate(-1px, -1px); }
+            100% { transform: translate(0, 0); }
         }
 
         #status {
             font-size: 14px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0.8;
-            color: #fff;
+            opacity: 0.6;
             margin-bottom: 10px;
         }
 
         #transcript {
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
             max-width: 80%;
-            margin: 0 auto;
-            min-height: 20px;
-        }
-
-        /* Кнопка старта (если автозапуск заблокирован) */
-        #start-btn {
-            position: absolute;
-            z-index: 10;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: transparent;
-            border: 1px solid #fff;
-            color: #fff;
-            padding: 15px 30px;
-            cursor: pointer;
-            font-family: inherit;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            display: none; /* Скрыта по умолчанию */
+            text-align: center;
+            opacity: 0.5;
         }
     </style>
 </head>
+
 <body>
 
-    <canvas id="glcanvas"></canvas>
-
-    <div id="ui-layer">
-        <div id="status">INITIALIZING...</div>
-        <div id="transcript"></div>
-    </div>
-
-    <button id="start-btn">TAP TO RESONATE</button>
+    <div id="orb" class="soul-orb"></div>
+    <div id="status">Инициализация…</div>
+    <div id="transcript"></div>
 
     <script>
-        // ================= CONFIG & TELEGRAM =================
-        const API_URL = "https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat";
         const tg = window.Telegram.WebApp;
         tg.expand();
-        // Включаем темную тему приложения для красоты
-        tg.setHeaderColor('#000000');
-        tg.setBackgroundColor('#000000');
 
-        const statusEl = document.getElementById('status');
-        const transcriptEl = document.getElementById('transcript');
-        const startBtn = document.getElementById('start-btn');
+        const orb = document.getElementById('orb');
+        const status = document.getElementById('status');
+        const transcriptDiv = document.getElementById('transcript');
 
-        // ================= WEBGL SHADER LOGIC =================
-        const canvas = document.getElementById('glcanvas');
-        const gl = canvas.getContext('webgl');
-        
-        // Подгоняем размер canvas
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            gl.viewport(0, 0, canvas.width, canvas.height);
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // Простой Vertex Shader
-        const vsSource = `
-            attribute vec2 position;
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-            }
-        `;
-
-        // Красивый Fragment Shader (Quantum Orb)
-        const fsSource = `
-            precision highp float;
-            uniform float u_time;
-            uniform vec2 u_resolution;
-            uniform float u_audio; // Аудио-реактивность (0.0 to 1.0)
-
-            // Функция шума
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-            float snoise(vec2 v) {
-                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-                vec2 i  = floor(v + dot(v, C.yy) );
-                vec2 x0 = v - i + dot(i, C.xx);
-                vec2 i1;
-                i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-                vec4 x12 = x0.xyxy + C.xxzz;
-                x12.xy -= i1;
-                i = mod289(i);
-                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
-                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-                m = m*m ;
-                m = m*m ;
-                vec3 x = 2.0 * fract(p * C.www) - 1.0;
-                vec3 h = abs(x) - 0.5;
-                vec3 ox = floor(x + 0.5);
-                vec3 a0 = x - ox;
-                m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-                vec3 g;
-                g.x  = a0.x  * x0.x  + h.x  * x0.y;
-                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-                return 130.0 * dot(m, g);
-            }
-
-            void main() {
-                vec2 st = gl_FragCoord.xy/u_resolution.xy;
-                st.x *= u_resolution.x/u_resolution.y;
-                vec2 center = vec2(0.5 * u_resolution.x/u_resolution.y, 0.5);
-                
-                float dist = length(st - center);
-                
-                // Базовая пульсация
-                float pulse = sin(u_time * 2.0) * 0.05;
-                
-                // Реакция на звук (усиливает искажения)
-                float audioDistort = u_audio * 0.4;
-                
-                // Создаем шумную форму
-                float noiseVal = snoise(vec2(dist * 5.0 - u_time * 0.5, atan(st.y - center.y, st.x - center.x) * 2.0));
-                
-                // Границы сферы
-                float radius = 0.3 + pulse + (u_audio * 0.2);
-                float edge = smoothstep(radius + 0.05 + audioDistort*noiseVal, radius - 0.05, dist);
-                
-                // Цвет (Cyan to Purple gradient)
-                vec3 colorCore = vec3(0.0, 0.9, 1.0); // Cyan
-                vec3 colorOuter = vec3(0.6, 0.0, 1.0); // Purple
-                
-                // Микс цветов на основе шума и звука
-                vec3 finalColor = mix(colorOuter, colorCore, edge + noiseVal * 0.5);
-                
-                // Внешнее свечение
-                float glow = 0.02 / abs(dist - radius + noiseVal * 0.1);
-                finalColor += vec3(glow * (0.5 + u_audio));
-
-                gl_FragColor = vec4(finalColor * edge, 1.0);
-            }
-        `;
-
-        // Компиляция шейдеров
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error(gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-            return shader;
-        }
-
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-        const program = gl.createProgram();
-        gl.attachShader(program, vertexShader);
-        gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
-        gl.useProgram(program);
-
-        // Буфер для прямоугольника (весь экран)
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-        const positionAttributeLocation = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionAttributeLocation);
-        gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-        // Uniforms
-        const timeLocation = gl.getUniformLocation(program, "u_time");
-        const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-        const audioLocation = gl.getUniformLocation(program, "u_audio");
-
-        // ================= AUDIO ANALYSIS =================
-        let audioContext, analyser, dataArray;
-        let currentAudioLevel = 0;
-
-        async function initAudio() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 64; // Низкое разрешение для производительности
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                return true;
-            } catch (e) {
-                console.error("Audio Init Error:", e);
-                statusEl.innerText = "MIC ERROR";
-                return false;
-            }
-        }
-
-        // ================= RENDER LOOP =================
-        function render(time) {
-            time *= 0.001; // convert to seconds
-
-            // Получаем данные аудио (если инициализировано)
-            if (analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                // Берем среднюю громкость
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                    sum += dataArray[i];
-                }
-                const avg = sum / dataArray.length;
-                // Нормализуем 0..1 и сглаживаем
-                const target = avg / 128.0; 
-                currentAudioLevel += (target - currentAudioLevel) * 0.2; 
-            } else {
-                // Если нет аудио, делаем легкое "дыхание"
-                currentAudioLevel = Math.sin(time) * 0.1 + 0.1;
-            }
-
-            // Если бот говорит, используем эмуляцию активности (так как Synth не дает audio stream напрямую в браузере легко)
-            if (isBotSpeaking) {
-                 currentAudioLevel += Math.random() * 0.3;
-            }
-
-            gl.uniform1f(timeLocation, time);
-            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-            gl.uniform1f(audioLocation, currentAudioLevel);
-
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            requestAnimationFrame(render);
-        }
-        requestAnimationFrame(render);
-
-
-        // ================= AI & SPEECH LOGIC =================
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU'; // Распознаем русский, но интерфейс EN
+
+        recognition.lang = 'ru-RU';
         recognition.interimResults = false;
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
-        let isBotSpeaking = false;
-        let isUserSpeaking = false;
 
-        async function startSystem() {
-            startBtn.style.display = 'none';
-            statusEl.innerText = "INITIALIZING AUDIO...";
-            
-            // Запускаем аудио контекст (нужен жест пользователя)
-            await initAudio();
-            
-            startListening();
-        }
+        let isSpeaking = false;
 
         function startListening() {
-            if (isBotSpeaking || isUserSpeaking) return;
+            if (isSpeaking) return;
             try {
                 recognition.start();
-                statusEl.innerText = "LISTENING...";
-                isUserSpeaking = true;
-            } catch (e) {
-                // Если уже запущено или ошибка - игнорируем
-            }
+                orb.classList.add('listening');
+                status.innerText = "Слушаю…";
+            } catch {}
         }
-
-        recognition.onstart = () => { isUserSpeaking = true; };
-        
-        recognition.onend = () => { 
-            isUserSpeaking = false;
-            // Если бот не говорит и мы просто замолчали, перезапуск через паузу
-            if (!isBotSpeaking) {
-                // Небольшая задержка, чтобы не спамить
-                setTimeout(startListening, 500); 
-            }
-        };
 
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            transcriptEl.innerText = `YOU: ${text}`;
-            
-            // Останавливаем распознавание, чтобы отправить запрос
-            recognition.stop();
-            isUserSpeaking = false;
-            
-            await sendToCore(text);
+            transcriptDiv.innerText = `Вы: ${text}`;
+            await sendToBot(text);
         };
 
-        recognition.onerror = (e) => {
-            console.log("Rec Error:", e.error);
-            isUserSpeaking = false;
+        recognition.onerror = () => {
+            setTimeout(startListening, 1200);
         };
 
-        async function sendToCore(text) {
-            statusEl.innerText = "GENERATING...";
-            
+        recognition.onend = () => {
+            orb.classList.remove('listening');
+            if (!isSpeaking) {
+                setTimeout(startListening, 800);
+            }
+        };
+
+        async function sendToBot(text) {
+            isSpeaking = true;
+            orb.classList.add('speaking');
+            status.innerText = "Thinking…";
+
             try {
-                // === MAGIC: Получаем ID пользователя из Telegram ===
-                const userId = tg.initDataUnsafe?.user?.id || 0; 
-                
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true' // Для Ngrok
-                    },
-                    body: JSON.stringify({ 
-                        user_id: userId, 
-                        text: text 
-                    })
-                });
+                const userId = tg.initDataUnsafe?.user?.id || 0;
 
-                if (!response.ok) throw new Error("API Offline");
+                const response = await fetch(
+                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify({ user_id: userId, text })
+                    }
+                );
 
                 const data = await response.json();
                 const reply = data.reply;
-                
-                transcriptEl.innerText = `CORE: ${reply}`;
+
+                transcriptDiv.innerText += `\n\nБот: ${reply}`;
                 speak(reply);
 
-            } catch (e) {
-                statusEl.innerText = "CONNECTION LOST";
-                setTimeout(startListening, 2000);
+            } catch {
+                status.innerText = "Lost connection.";
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                startListening();
             }
         }
 
         function speak(text) {
-            isBotSpeaking = true;
-            statusEl.innerText = "SPEAKING...";
+            status.innerText = "Speaking…";
 
-            // Очистка текста от тегов
-            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+            const cleanText = text
+                .replace(/<[^>]*>/g, '')
+                .replace(/[*_#]/g, '');
 
             const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'ru-RU';
-            utterance.rate = 1.1; 
-            utterance.pitch = 0.9;
+            utterance.rate = 1.05;
+            utterance.pitch = 0.95;
 
             utterance.onend = () => {
-                isBotSpeaking = false;
-                statusEl.innerText = "LISTENING...";
-                startListening();
-            };
-            
-            utterance.onerror = () => {
-                isBotSpeaking = false;
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                status.innerText = "Слушаю…";
                 startListening();
             };
 
             synth.speak(utterance);
         }
 
-        // ================= AUTOSTART =================
-        // Пытаемся запустить автоматически
+        // 🚀 автозапуск
         window.addEventListener('load', () => {
-            // В Telegram WebApp аудио часто работает сразу
-            // Но на всякий случай проверяем
-            startSystem().catch(() => {
-                // Если автозапуск не сработал (браузер блокирует), показываем кнопку
-                statusEl.innerText = "TAP TO START";
-                startBtn.style.display = 'block';
-                startBtn.addEventListener('click', startSystem);
-            });
+            setTimeout(startListening, 1000);
         });
-
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <title>Quantum Core</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-end;
-            height: 100vh;
-        }
-
-        /* Холст для шейдера на весь экран */
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        /* Интерфейс поверх холста */
-        #ui-layer {
-            position: relative;
-            z-index: 2;
-            width: 100%;
-            padding-bottom: 50px;
-            text-align: center;
-            pointer-events: none; /* Чтобы клики проходили сквозь текст */
-            text-shadow: 0 0 10px #000;
-        }
-
-        #status {
-            font-size: 14px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            opacity: 0.8;
-            color: #fff;
-            margin-bottom: 10px;
-        }
-
-        #transcript {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-            max-width: 80%;
-            margin: 0 auto;
-            min-height: 20px;
-        }
-
-        /* Кнопка старта (если автозапуск заблокирован) */
-        #start-btn {
-            position: absolute;
-            z-index: 10;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: transparent;
-            border: 1px solid #fff;
-            color: #fff;
-            padding: 15px 30px;
-            cursor: pointer;
-            font-family: inherit;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            display: none; /* Скрыта по умолчанию */
-        }
-    </style>
-</head>
-<body>
-
-    <canvas id="glcanvas"></canvas>
-
-    <div id="ui-layer">
-        <div id="status">INITIALIZING...</div>
-        <div id="transcript"></div>
-    </div>
-
-    <button id="start-btn">TAP TO RESONATE</button>
-
-    <script>
-        // ================= CONFIG & TELEGRAM =================
-        const API_URL = "https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat";
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-        // Включаем темную тему приложения для красоты
-        tg.setHeaderColor('#000000');
-        tg.setBackgroundColor('#000000');
-
-        const statusEl = document.getElementById('status');
-        const transcriptEl = document.getElementById('transcript');
-        const startBtn = document.getElementById('start-btn');
-
-        // ================= WEBGL SHADER LOGIC =================
-        const canvas = document.getElementById('glcanvas');
-        const gl = canvas.getContext('webgl');
-        
-        // Подгоняем размер canvas
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            gl.viewport(0, 0, canvas.width, canvas.height);
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // Простой Vertex Shader
-        const vsSource = `
-            attribute vec2 position;
-            void main() {
-                gl_Position = vec4(position, 0.0, 1.0);
-            }
-        `;
-
-        // Красивый Fragment Shader (Quantum Orb)
-        const fsSource = `
-            precision highp float;
-            uniform float u_time;
-            uniform vec2 u_resolution;
-            uniform float u_audio; // Аудио-реактивность (0.0 to 1.0)
-
-            // Функция шума
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-            float snoise(vec2 v) {
-                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-                vec2 i  = floor(v + dot(v, C.yy) );
-                vec2 x0 = v - i + dot(i, C.xx);
-                vec2 i1;
-                i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-                vec4 x12 = x0.xyxy + C.xxzz;
-                x12.xy -= i1;
-                i = mod289(i);
-                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
-                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-                m = m*m ;
-                m = m*m ;
-                vec3 x = 2.0 * fract(p * C.www) - 1.0;
-                vec3 h = abs(x) - 0.5;
-                vec3 ox = floor(x + 0.5);
-                vec3 a0 = x - ox;
-                m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-                vec3 g;
-                g.x  = a0.x  * x0.x  + h.x  * x0.y;
-                g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-                return 130.0 * dot(m, g);
-            }
-
-            void main() {
-                vec2 st = gl_FragCoord.xy/u_resolution.xy;
-                st.x *= u_resolution.x/u_resolution.y;
-                vec2 center = vec2(0.5 * u_resolution.x/u_resolution.y, 0.5);
-                
-                float dist = length(st - center);
-                
-                // Базовая пульсация
-                float pulse = sin(u_time * 2.0) * 0.05;
-                
-                // Реакция на звук (усиливает искажения)
-                float audioDistort = u_audio * 0.4;
-                
-                // Создаем шумную форму
-                float noiseVal = snoise(vec2(dist * 5.0 - u_time * 0.5, atan(st.y - center.y, st.x - center.x) * 2.0));
-                
-                // Границы сферы
-                float radius = 0.3 + pulse + (u_audio * 0.2);
-                float edge = smoothstep(radius + 0.05 + audioDistort*noiseVal, radius - 0.05, dist);
-                
-                // Цвет (Cyan to Purple gradient)
-                vec3 colorCore = vec3(0.0, 0.9, 1.0); // Cyan
-                vec3 colorOuter = vec3(0.6, 0.0, 1.0); // Purple
-                
-                // Микс цветов на основе шума и звука
-                vec3 finalColor = mix(colorOuter, colorCore, edge + noiseVal * 0.5);
-                
-                // Внешнее свечение
-                float glow = 0.02 / abs(dist - radius + noiseVal * 0.1);
-                finalColor += vec3(glow * (0.5 + u_audio));
-
-                gl_FragColor = vec4(finalColor * edge, 1.0);
-            }
-        `;
-
-        // Компиляция шейдеров
-        function createShader(gl, type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                console.error(gl.getShaderInfoLog(shader));
-                gl.deleteShader(shader);
-                return null;
-            }
-            return shader;
-        }
-
-        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
-        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
-        const program = gl.createProgram();
-        gl.attachShader(program, vertexShader);
-        gl.attachShader(program, fragmentShader);
-        gl.linkProgram(program);
-        gl.useProgram(program);
-
-        // Буфер для прямоугольника (весь экран)
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-
-        const positionAttributeLocation = gl.getAttribLocation(program, "position");
-        gl.enableVertexAttribArray(positionAttributeLocation);
-        gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
-
-        // Uniforms
-        const timeLocation = gl.getUniformLocation(program, "u_time");
-        const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-        const audioLocation = gl.getUniformLocation(program, "u_audio");
-
-        // ================= AUDIO ANALYSIS =================
-        let audioContext, analyser, dataArray;
-        let currentAudioLevel = 0;
-
-        async function initAudio() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioContext.createAnalyser();
-                analyser.fftSize = 64; // Низкое разрешение для производительности
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const source = audioContext.createMediaStreamSource(stream);
-                source.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                return true;
-            } catch (e) {
-                console.error("Audio Init Error:", e);
-                statusEl.innerText = "MIC ERROR";
-                return false;
-            }
-        }
-
-        // ================= RENDER LOOP =================
-        function render(time) {
-            time *= 0.001; // convert to seconds
-
-            // Получаем данные аудио (если инициализировано)
-            if (analyser) {
-                analyser.getByteFrequencyData(dataArray);
-                // Берем среднюю громкость
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                    sum += dataArray[i];
-                }
-                const avg = sum / dataArray.length;
-                // Нормализуем 0..1 и сглаживаем
-                const target = avg / 128.0; 
-                currentAudioLevel += (target - currentAudioLevel) * 0.2; 
-            } else {
-                // Если нет аудио, делаем легкое "дыхание"
-                currentAudioLevel = Math.sin(time) * 0.1 + 0.1;
-            }
-
-            // Если бот говорит, используем эмуляцию активности (так как Synth не дает audio stream напрямую в браузере легко)
-            if (isBotSpeaking) {
-                 currentAudioLevel += Math.random() * 0.3;
-            }
-
-            gl.uniform1f(timeLocation, time);
-            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-            gl.uniform1f(audioLocation, currentAudioLevel);
-
-            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-            requestAnimationFrame(render);
-        }
-        requestAnimationFrame(render);
-
-
-        // ================= AI & SPEECH LOGIC =================
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU'; // Распознаем русский, но интерфейс EN
-        recognition.interimResults = false;
-        recognition.continuous = false;
-
-        const synth = window.speechSynthesis;
-        let isBotSpeaking = false;
-        let isUserSpeaking = false;
-
-        async function startSystem() {
-            startBtn.style.display = 'none';
-            statusEl.innerText = "INITIALIZING AUDIO...";
-            
-            // Запускаем аудио контекст (нужен жест пользователя)
-            await initAudio();
-            
-            startListening();
-        }
-
-        function startListening() {
-            if (isBotSpeaking || isUserSpeaking) return;
-            try {
-                recognition.start();
-                statusEl.innerText = "LISTENING...";
-                isUserSpeaking = true;
-            } catch (e) {
-                // Если уже запущено или ошибка - игнорируем
-            }
-        }
-
-        recognition.onstart = () => { isUserSpeaking = true; };
-        
-        recognition.onend = () => { 
-            isUserSpeaking = false;
-            // Если бот не говорит и мы просто замолчали, перезапуск через паузу
-            if (!isBotSpeaking) {
-                // Небольшая задержка, чтобы не спамить
-                setTimeout(startListening, 500); 
-            }
-        };
-
-        recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-            transcriptEl.innerText = `YOU: ${text}`;
-            
-            // Останавливаем распознавание, чтобы отправить запрос
-            recognition.stop();
-            isUserSpeaking = false;
-            
-            await sendToCore(text);
-        };
-
-        recognition.onerror = (e) => {
-            console.log("Rec Error:", e.error);
-            isUserSpeaking = false;
-        };
-
-        async function sendToCore(text) {
-            statusEl.innerText = "GENERATING...";
-            
-            try {
-                // === MAGIC: Получаем ID пользователя из Telegram ===
-                const userId = tg.initDataUnsafe?.user?.id || 0; 
-                
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true' // Для Ngrok
-                    },
-                    body: JSON.stringify({ 
-                        user_id: userId, 
-                        text: text 
-                    })
-                });
-
-                if (!response.ok) throw new Error("API Offline");
-
-                const data = await response.json();
-                const reply = data.reply;
-                
-                transcriptEl.innerText = `CORE: ${reply}`;
-                speak(reply);
-
-            } catch (e) {
-                statusEl.innerText = "CONNECTION LOST";
-                setTimeout(startListening, 2000);
-            }
-        }
-
-        function speak(text) {
-            isBotSpeaking = true;
-            statusEl.innerText = "SPEAKING...";
-
-            // Очистка текста от тегов
-            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
-
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'ru-RU';
-            utterance.rate = 1.1; 
-            utterance.pitch = 0.9;
-
-            utterance.onend = () => {
-                isBotSpeaking = false;
-                statusEl.innerText = "LISTENING...";
-                startListening();
-            };
-            
-            utterance.onerror = () => {
-                isBotSpeaking = false;
-                startListening();
-            };
-
-            synth.speak(utterance);
-        }
-
-        // ================= AUTOSTART =================
-        // Пытаемся запустить автоматически
-        window.addEventListener('load', () => {
-            // В Telegram WebApp аудио часто работает сразу
-            // Но на всякий случай проверяем
-            startSystem().catch(() => {
-                // Если автозапуск не сработал (браузер блокирует), показываем кнопку
-                statusEl.innerText = "TAP TO START";
-                startBtn.style.display = 'block';
-                startBtn.addEventListener('click', startSystem);
-            });
-        });
-
     </script>
 </body>
 </html>
+
