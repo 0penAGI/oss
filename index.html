@@ -442,7 +442,7 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-        let selfAwareness = {
+    let selfAwareness = {
             mood: 0,           // -1 грусть, +1 радость
             curiosity: 0,      // 0..1, как активно ищем детали
             lastObservations: [],  // массив последних описаний камеры и событий
@@ -456,6 +456,90 @@ for (let i = 0; i < particleCount; i++) {
                 updateOrbVisualState();
                 noteObservation(frameDescription);
             }
+        };
+
+        // ===== Марковская цепь для генерации вопросов и интеграция с selfAwareness =====
+        selfAwareness.markov = {
+            chain: {},
+            addObservation(text) {
+                const words = text.split(/\s+/);
+                for (let i = 0; i < words.length - 1; i++) {
+                    const w1 = words[i].toLowerCase();
+                    const w2 = words[i+1].toLowerCase();
+                    if (!this.chain[w1]) this.chain[w1] = {};
+                    if (!this.chain[w1][w2]) this.chain[w1][w2] = 0;
+                    let weight = 1 + Math.max(0, selfAwareness.mood) + selfAwareness.curiosity;
+                    this.chain[w1][w2] += weight;
+                }
+            },
+            predictNext(word) {
+                word = word.toLowerCase();
+                if (!this.chain[word]) return null;
+                const options = this.chain[word];
+                const sum = Object.values(options).reduce((a,b) => a+b, 0);
+                let r = Math.random() * sum;
+                for (const [nextWord, w] of Object.entries(options)) {
+                    if (r < w) return nextWord;
+                    r -= w;
+                }
+                return null;
+            },
+            generateSentence(startWord = null, length = 6) {
+                let words = [];
+                let keys = Object.keys(this.chain);
+                if (keys.length === 0) return "";
+                let word = startWord || keys[Math.floor(Math.random() * keys.length)];
+                words.push(word);
+                for (let i = 1; i < length; i++) {
+                    const next = this.predictNext(word);
+                    if (!next) break;
+                    words.push(next);
+                    word = next;
+                }
+                return words.join(' ');
+            }
+        };
+
+        // Обёртка для analyzeFrame, чтобы добавлять наблюдения в марковскую цепь
+        const originalAnalyzeFrame = selfAwareness.analyzeFrame.bind(selfAwareness);
+        selfAwareness.analyzeFrame = function(frameDescription) {
+            originalAnalyzeFrame(frameDescription);
+            this.markov.addObservation(frameDescription);
+        };
+
+        // Интеграция марковской цепи с runSelfQuestioning
+        const originalRunSelfQuestioning = runSelfQuestioning;
+        runSelfQuestioning = function() {
+            if (questioningInterval) clearInterval(questioningInterval);
+            questioningInterval = setInterval(() => {
+                if (!isSpeaking && selfAwareness.curiosity > 0.6) {
+                    const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
+
+                    let startWord = lastObs.split(' ').slice(-1)[0];
+                    const markovQuestion = selfAwareness.markov.generateSentence(startWord, 6);
+
+                    const questions = [
+                        `Интересно, что здесь происходит: ${lastObs}?`,
+                        `Какие детали я ещё могу заметить? ${lastObs}`,
+                        `Что нового в окружении? ${lastObs}`,
+                        `Что ты об этом думаешь? ${lastObs}?`,
+                        `Марковский вопрос: ${markovQuestion}?`
+                    ];
+
+                    const q = questions[Math.floor(Math.random() * questions.length)];
+                    noteObservation(`Self-question: ${q}`);
+                    console.log("Self-question:", q);
+                    vibrate('light');
+                    if (selfAwareness.mood > 0.3) speak(q);
+
+                    if (Math.random() < 0.5) {
+                        setTimeout(() => {
+                            vibrate('medium');
+                            startListening();
+                        }, 1000);
+                    }
+                }
+            }, 15000);
         };
 
         // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
@@ -538,33 +622,7 @@ for (let i = 0; i < particleCount; i++) {
 
         // ====== Self-Questioning Layer: внутренний диалог и вопросы ======
         let questioningInterval = null;
-    function runSelfQuestioning() {
-        if (questioningInterval) clearInterval(questioningInterval);
-        questioningInterval = setInterval(() => {
-            if (!isSpeaking && selfAwareness.curiosity > 0.6) {
-                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
-                const questions = [
-                    `Интересно, что здесь происходит: ${lastObs}?`,
-                    `Какие детали я ещё могу заметить? ${lastObs}`,
-                    `Что нового в окружении? ${lastObs}`,
-                    `Что ты об этом думаешь? ${lastObs}?`
-                ];
-                const q = questions[Math.floor(Math.random() * questions.length)];
-                noteObservation(`Self-question: ${q}`);
-                console.log("Self-question:", q);
-                vibrate('light'); // Лёгкая вибрация при каждом внутреннем вопросе
-                if (selfAwareness.mood > 0.3) speak(q);
-
-                // Иногда инициирует мини-беседу с пользователем
-                if (Math.random() < 0.5) {
-                    setTimeout(() => {
-                        vibrate('medium'); // Средняя вибрация при запуске слушания из мини-беседы
-                        startListening();
-                    }, 1000);
-                }
-            }
-        }, 15000);
-    }
+    // (runSelfQuestioning теперь переопределяется выше для интеграции с марковской цепью)
 
         // Запуск автономии и внутреннего диалога после загрузки
         window.addEventListener('load', () => {
