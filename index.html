@@ -354,6 +354,48 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
+        // ======== Liquid Glass Overlay ========
+        const liquidScene = new THREE.Scene();
+        const liquidCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const liquidMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                texture: { value: null }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                uniform vec2 resolution;
+                uniform sampler2D texture;
+                varying vec2 vUv;
+
+                float random(vec2 p) { return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+
+                void main() {
+                    vec2 uv = vUv;
+                    float wave = sin(uv.y * 10.0 + time*2.0) * 0.005;
+                    float ripple = sin(uv.x * 20.0 + time*3.0) * 0.003;
+                    uv += vec2(wave + ripple, wave - ripple);
+
+                    vec4 color = texture2D(texture, uv);
+                    vec3 glass = vec3(0.8,0.9,1.0) * 0.2;
+                    gl_FragColor = vec4(color.rgb * 0.9 + glass, 0.5);
+                }
+            `,
+            transparent: true
+        });
+
+        const liquidQuad = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
+        liquidScene.add(liquidQuad);
+
         function animate() {
             requestAnimationFrame(animate);
 
@@ -372,6 +414,11 @@
             renderer.setRenderTarget(null);
             renderer.render(feedbackScene, feedbackCamera);
 
+            // render liquid glass overlay
+            liquidMaterial.uniforms.texture.value = feedbackRT2.texture;
+            liquidMaterial.uniforms.time.value += 0.01;
+            renderer.render(liquidScene, liquidCamera);
+
             // swap
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
@@ -386,6 +433,7 @@
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+            liquidMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
