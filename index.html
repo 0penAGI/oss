@@ -117,1093 +117,1004 @@
         @keyframes rotate { from{transform:rotate(0)} to{transform:rotate(360deg)} }
         @keyframes auraGlow { 0%,100%{opacity:0.3} 50%{opacity:0.6} }
         @keyframes auraExpand { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.3);opacity:0.8} }
-        
-        #status {
-            font-size: 19px;
-            font-weight: 300;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            opacity: 0.9;
-            margin-bottom: 15px;
-            text-shadow: 0 0 15px rgba(255,255,255,0.5);
-            animation: statusFade 2s infinite ease-in-out;
-            color: rgba(255, 255, 255, 0.8);
-        }
-        
-        @keyframes statusFade { 0%,100%{opacity:0.7} 50%{opacity:1} }
-        
-        #transcript {
-            font-size: 15px;
-            max-width: 90%;
-            text-align: center;
-            opacity: 0.9;
-            line-height: 1.6;
-            padding: 15px;
-            max-height: 180px;
-            overflow-y: auto;
-            color: rgba(255, 255, 255, 0.9);
-            background: transparent;
-            backdrop-filter: none;
-            box-shadow: none;
-            border: none;
-        }
-        
-        #transcript::-webkit-scrollbar { width: 3px; }
-        #transcript::-webkit-scrollbar-track { background: transparent; }
-        #transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-        
-        .tap-hint {
-            position: absolute;
-            bottom: 20px;
-            font-size: 12px;
-            opacity: 0.4;
-            letter-spacing: 1px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-        /* Эффект курсора для печати */
-        .typing-cursor::after {
-            content: '▋';
-            display: inline-block;
-            vertical-align: bottom;
-            animation: blink 1s step-end infinite;
-            color: rgba(255, 255, 255, 0.8);
-            margin-left: 2px;
-        }
+code
+Code
 
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0; }
-        }
-    </style>
+download
+
+content_copy
+
+expand_less
+#status {
+        font-size: 19px;
+        font-weight: 300;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        opacity: 0.9;
+        margin-bottom: 15px;
+        text-shadow: 0 0 15px rgba(255,255,255,0.5);
+        animation: statusFade 2s infinite ease-in-out;
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    @keyframes statusFade { 0%,100%{opacity:0.7} 50%{opacity:1} }
+    
+    #transcript {
+        font-size: 15px;
+        max-width: 90%;
+        text-align: center;
+        opacity: 0.9;
+        line-height: 1.6;
+        padding: 15px;
+        max-height: 180px;
+        overflow-y: auto;
+        color: rgba(255, 255, 255, 0.9);
+        background: transparent;
+        backdrop-filter: none;
+        box-shadow: none;
+        border: none;
+    }
+    
+    #transcript::-webkit-scrollbar { width: 3px; }
+    #transcript::-webkit-scrollbar-track { background: transparent; }
+    #transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    
+    .tap-hint {
+        position: absolute;
+        bottom: 20px;
+        font-size: 12px;
+        opacity: 0.4;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+    /* Эффект курсора для печати */
+    .typing-cursor::after {
+        content: '▋';
+        display: inline-block;
+        vertical-align: bottom;
+        animation: blink 1s step-end infinite;
+        color: rgba(255, 255, 255, 0.8);
+        margin-left: 2px;
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+</style>
 </head>
 <body>
     <canvas id="webgl-canvas"></canvas>
+code
+Code
 
-    <!-- Only video element for camera -->
-    <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
+download
 
-    <div class="content">
-        <div class="soul-container">
-            <div class="aura"></div>
-            <div id="orb" class="soul-orb"></div>
-        </div>
-       
-        <div id="status">resonating</div>
-        <div id="transcript"></div>
+content_copy
+
+expand_less
+<!-- Only video element for camera -->
+<video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
+
+<div class="content">
+    <div class="soul-container">
+        <div class="aura"></div>
+        <div id="orb" class="soul-orb"></div>
     </div>
+   
+    <div id="status">resonating</div>
+    <div id="transcript"></div>
+</div>
 
-    <script type="module">
-        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
+<script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
 
-        const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+    const canvas = document.getElementById('webgl-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
 
-        const scene = new THREE.Scene();
+    const scene = new THREE.Scene();
 
-        // === Feedback RenderTarget initialization ===
-        const rtParams = {
-            minFilter: THREE.LinearFilter,
-            magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat
-        };
+    // === Feedback RenderTarget initialization ===
+    const rtParams = {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat
+    };
 
-        let feedbackRT1 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
-        let feedbackRT2 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
+    let feedbackRT1 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
+    let feedbackRT2 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.z = 5;
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.z = 5;
 
-        // XDust шейдер для частиц
-        const vertexShader = `
-            attribute float size;
-            attribute vec3 customColor;
-            varying vec3 vColor;
+    // XDust шейдер для частиц
+    const vertexShader = `
+        attribute float size;
+        attribute vec3 customColor;
+        varying vec3 vColor;
+        void main() {
+            vColor = customColor;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    `;
+
+    const fragmentShader = `
+        uniform float time;
+        const float PI = 3.141592653589793;
+        varying vec3 vColor;
+
+        vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
+            vec3 dir = normalize(p - vec3(0.5, 0.5, 0.0));
+            float d = length(dir);
+            float anim = time * 0.5;
+            if (d > 0.98 && d < 1.02) {
+                float t = fract(sin(d * PI) * anim + c1.x);
+                return mix(c1, c2, t);
+            } else {
+                float t = fract(cos(d * PI) * anim + c2.y);
+                return mix(c2, c3, t);
+            }
+        }
+
+        void main() {
+            vec3 p = gl_PointCoord.xyx / vec3(2.0);
+            vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.6, 0.5, 1.0));
+            float dist = length(gl_PointCoord - vec2(0.5));
+            float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+            gl_FragColor = vec4(color * vColor, alpha * 0.8);
+        }
+    `;
+
+    // === Fullscreen quad for feedback and blur ===
+    const feedbackScene = new THREE.Scene();
+    const feedbackCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const feedbackMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            tOld: { value: null },
+            tNew: { value: null },
+            decay: { value: 0.96 },
+            resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+        },
+        vertexShader: `
+            varying vec2 vUv;
             void main() {
-                vColor = customColor;
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (300.0 / -mvPosition.z);
-                gl_Position = projectionMatrix * mvPosition;
+                vUv = uv;
+                gl_Position = vec4(position, 1.0);
             }
-        `;
+        `,
+        fragmentShader: `
+varying vec2 vUv;
+uniform sampler2D tOld;
+uniform sampler2D tNew;
+uniform float decay;
+uniform vec2 resolution;
 
-        const fragmentShader = `
-            uniform float time;
-            const float PI = 3.141592653589793;
-            varying vec3 vColor;
+// hash noise
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
+}
 
-            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
-                vec3 dir = normalize(p - vec3(0.5, 0.5, 0.0));
-                float d = length(dir);
-                float anim = time * 0.5;
-                if (d > 0.98 && d < 1.02) {
-                    float t = fract(sin(d * PI) * anim + c1.x);
-                    return mix(c1, c2, t);
-                } else {
-                    float t = fract(cos(d * PI) * anim + c2.y);
-                    return mix(c2, c3, t);
-                }
-            }
+vec2 noiseDir(vec2 uv) {
+    float n = hash(uv * resolution);
+    float a = n * 6.28318530718;
+    return vec2(cos(a), sin(a));
+}
 
-            void main() {
-                vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.6, 0.5, 1.0));
-                float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(color * vColor, alpha * 0.8);
-            }
-        `;
+vec4 noiseBlur(sampler2D tex, vec2 uv) {
+    vec2 px = 1.0 / resolution;
+    vec2 dir = noiseDir(uv);
 
-        // === Fullscreen quad for feedback and blur ===
-        const feedbackScene = new THREE.Scene();
-        const feedbackCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    vec4 col = vec4(0.0);
+    col += texture2D(tex, uv) * 0.314;
+    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
+    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
+    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
+    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
-        const feedbackMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                tOld: { value: null },
-                tNew: { value: null },
-                decay: { value: 0.96 },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-            },
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-    varying vec2 vUv;
-    uniform sampler2D tOld;
-    uniform sampler2D tNew;
-    uniform float decay;
-    uniform vec2 resolution;
+    return col;
+}
 
-    // hash noise
-    float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
-    }
-
-    vec2 noiseDir(vec2 uv) {
-        float n = hash(uv * resolution);
-        float a = n * 6.28318530718;
-        return vec2(cos(a), sin(a));
-    }
-
-    vec4 noiseBlur(sampler2D tex, vec2 uv) {
-        vec2 px = 1.0 / resolution;
-        vec2 dir = noiseDir(uv);
-
-        vec4 col = vec4(0.0);
-        col += texture2D(tex, uv) * 0.314;
-        col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
-        col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
-
-        return col;
-    }
-
-    void main() {
-        vec4 oldCol = noiseBlur(tOld, vUv) * decay;
-        vec4 newCol = texture2D(tNew, vUv);
-        gl_FragColor = max(oldCol * 0.96, newCol);
-    }
+void main() {
+    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+    vec4 newCol = texture2D(tNew, vUv);
+    gl_FragColor = max(oldCol * 0.96, newCol);
+}
 `,
-            transparent: true
-        });
+transparent: true
+});
 
-        const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
-        feedbackScene.add(quad);
+code
+Code
 
-        const particleCount = 15000;
-        const positions = new Float32Array(particleCount * 3);
-        const sizes = new Float32Array(particleCount);
-        const colors = new Float32Array(particleCount * 3);
+download
 
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 10;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+content_copy
 
-            sizes[i] = Math.random() * 3 + 1;
+expand_less
+const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
+    feedbackScene.add(quad);
 
-            colors[i * 3] = 1;
-            colors[i * 3 + 1] = 1;
-            colors[i * 3 + 2] = 1;
+    const particleCount = 15000;
+    const positions = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    const colors = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 10;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+
+        sizes[i] = Math.random() * 3 + 1;
+
+        colors[i * 3] = 1;
+        colors[i * 3 + 1] = 1;
+        colors[i * 3 + 2] = 1;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 } },
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        material.uniforms.time.value += 0.01;
+        particles.rotation.y += 0.0002;
+
+        // рендер частиц в новый буфер
+        renderer.setRenderTarget(feedbackRT2);
+        renderer.clear();
+        renderer.render(scene, camera);
+
+        // смешиваем прошлый кадр + новый
+        feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+        feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+
+        renderer.setRenderTarget(null);
+        renderer.render(feedbackScene, feedbackCamera);
+
+        // swap
+        const tmp = feedbackRT1;
+        feedbackRT1 = feedbackRT2;
+        feedbackRT2 = tmp;
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+        feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+        feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+    });
+
+    // === Глобальная переменная для последнего описания камеры ===
+    let latestCameraDescription = "";
+
+    // ====== Self-Awareness Layer ======
+    let selfAwareness = {
+        mood: 0,           // -1 грусть, +1 радость
+        curiosity: 0,      // 0..1, как активно ищем детали
+        lastObservations: [],  // массив последних описаний камеры и событий
+        analyzeFrame(frameDescription) {
+            this.lastObservations.push(frameDescription);
+            if(this.lastObservations.length > 20) this.lastObservations.shift();
+            // простая оценка настроения на основе наблюдений
+            if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
+            else this.mood += 0.05;
+            this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
+            updateOrbVisualState();
+            noteObservation(frameDescription);
         }
+    };
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-        geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
-
-        const material = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
-            vertexShader,
-            fragmentShader,
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
-        });
-
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            material.uniforms.time.value += 0.01;
-            particles.rotation.y += 0.0002;
-
-            // рендер частиц в новый буфер
-            renderer.setRenderTarget(feedbackRT2);
-            renderer.clear();
-            renderer.render(scene, camera);
-
-            // смешиваем прошлый кадр + новый
-            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
-            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
-
-            renderer.setRenderTarget(null);
-            renderer.render(feedbackScene, feedbackCamera);
-
-            // swap
-            const tmp = feedbackRT1;
-            feedbackRT1 = feedbackRT2;
-            feedbackRT2 = tmp;
-        }
-        animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
-            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-        });
-
-        // === Глобальная переменная для последнего описания камеры ===
-        let latestCameraDescription = "";
-
-        // ====== Self-Awareness Layer ======
-        let selfAwareness = {
-            mood: 0,           // -1 грусть, +1 радость
-            curiosity: 0,      // 0..1, как активно ищем детали
-            lastObservations: [],  // массив последних описаний камеры и событий
-            analyzeFrame(frameDescription) {
-                this.lastObservations.push(frameDescription);
-                if(this.lastObservations.length > 20) this.lastObservations.shift();
-                // простая оценка настроения на основе наблюдений
-                if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
-                else this.mood += 0.05;
-                this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
-                updateOrbVisualState();
-                noteObservation(frameDescription);
+    // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
+    let autonomyInterval = null;
+    function runAutonomy() {
+        if (autonomyInterval) clearInterval(autonomyInterval);
+        autonomyInterval = setInterval(async () => {
+            // Автоматически включает камеру при высокой любознательности
+            if (selfAwareness.curiosity > 0.7 && !cameraEnabled) {
+                startCamera(currentCamera);
             }
-        };
-
-        // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
-        let autonomyInterval = null;
-        function runAutonomy() {
-            if (autonomyInterval) clearInterval(autonomyInterval);
-            autonomyInterval = setInterval(async () => {
-                // Автоматически включает камеру при высокой любознательности
-                if (selfAwareness.curiosity > 0.7 && !cameraEnabled) {
-                    startCamera(currentCamera);
-                }
-                // Отключает камеру при плохом настроении
-                if (selfAwareness.mood < -0.3 && cameraEnabled) {
-                    stopCamera();
-                }
-
-                // Внутренние заметки по последним кадрам
-                if (selfAwareness.curiosity > 0.5) {
-                    const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
-                    const thought = `Заметка: анализирую последние кадры -> ${lastObs}`;
-                    noteObservation(thought);
-                    console.log("Self-thought:", thought);
-                }
-
-                // Произносит последние заметки, если настроение хорошее
-                if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
-                    speak(internalNotes[internalNotes.length - 1]);
-                }
-
-                // Визуальные эффекты частиц по настроению и любознательности
-                if (particles && material) {
-                    material.uniforms.time.value += 0.02 * (1 + selfAwareness.curiosity);
-                    particles.rotation.y += 0.0003 + selfAwareness.mood * 0.0005;
-                }
-
-                // Автоматический анализ изображения с камеры
-                if (cameraEnabled && cameraVideo.style.display === 'block' && cameraVideo.readyState >= 2) {
-                    visionCanvas.width = cameraVideo.videoWidth;
-                    visionCanvas.height = cameraVideo.videoHeight;
-                    visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
-
-                    // Анализ лиц через OpenCV
-                    if (opencvReady && cascadeLoaded) {
-                        try {
-                            let src = cv.imread(visionCanvas);
-                            let gray = new cv.Mat();
-                            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                            let faces = new cv.RectVector();
-                            let msize = new cv.Size(0, 0);
-                            faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                            let faceCount = faces.size();
-                            let faceDesc = faceCount === 0 ? 'Обнаружено лиц: 0' : faceCount === 1 ? 'Обнаружено лиц: 1' : `Обнаружено лиц: ${faceCount}`;
-                            src.delete(); gray.delete(); faces.delete(); msize.delete();
-                            latestCameraDescription = faceDesc;
-                            selfAwareness.analyzeFrame(faceDesc);
-                        } catch (e) { }
-                    }
-
-                    // Анализ объектов через TensorFlow.js
-                    if (tfReady && tfModel) {
-                        try {
-                            const predictions = await tfModel.detect(visionCanvas);
-                            const detectedObjectsRu = [];
-                            for (const obj of OBJECTS_OF_INTEREST) {
-                                const found = predictions.find(p =>
-                                    obj.en.some(enName => (p.class || p.className || "").toLowerCase().includes(enName))
-                                    && p.score > 0.35
-                                );
-                                if (found) detectedObjectsRu.push(obj.ru);
-                            }
-                            if (detectedObjectsRu.length > 0) {
-                                latestCameraDescription += '; видны: ' + detectedObjectsRu.join(', ') + '.';
-                                selfAwareness.analyzeFrame(latestCameraDescription);
-                            }
-                        } catch (e) { }
-                    }
-                }
-            }, 5000);
-        }
-
-        // ====== Self-Questioning Layer: внутренний диалог и вопросы ======
-        let questioningInterval = null;
-        function runSelfQuestioning() {
-            if (questioningInterval) clearInterval(questioningInterval);
-            questioningInterval = setInterval(() => {
-                if (!isSpeaking && selfAwareness.curiosity > 0.6) {
-                    const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
-                    const questions = [
-                        `Интересно, что здесь происходит: ${lastObs}?`,
-                        `Какие детали я ещё могу заметить? ${lastObs}`,
-                        `Что нового в окружении? ${lastObs}`,
-                        `Что ты об этом думаешь? ${lastObs}?`
-                    ];
-                    const q = questions[Math.floor(Math.random() * questions.length)];
-                    noteObservation(`Self-question: ${q}`);
-                    console.log("Self-question:", q);
-                    if (selfAwareness.mood > 0.3) speak(q);
-
-                    // Иногда инициирует мини-беседу с пользователем
-                    if (Math.random() < 0.5) {
-                        setTimeout(() => {
-                            startListening();
-                        }, 1000);
-                    }
-                }
-            }, 15000);
-        }
-
-        // Запуск автономии и внутреннего диалога после загрузки
-        window.addEventListener('load', () => {
-            runAutonomy();
-            runSelfQuestioning();
-        });
-
-        let internalNotes = [];
-        function noteObservation(desc) {
-            internalNotes.push(desc);
-            if(internalNotes.length > 50) internalNotes.shift();
-        }
-
-        function updateOrbVisualState() {
-            // mood влияет на цвет ауры
-            let glowColor = '255,255,255';
-            if(selfAwareness.mood < 0) glowColor = '255,50,50';
-            else if(selfAwareness.mood > 0.5) glowColor = '50,255,50';
-            orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
-        }
-
-        // Голосовой чат
-        const tg = window.Telegram?.WebApp || null;
-        if (tg) {
-            tg.expand();
-            tg.enableClosingConfirmation();
-        }
-        
-        const orb = document.getElementById('orb');
-        const status = document.getElementById('status');
-        const transcriptDiv = document.getElementById('transcript');
-       
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU';
-        recognition.interimResults = false;
-        recognition.continuous = false;
-       
-        const synth = window.speechSynthesis;
-        let isSpeaking = false;
-        let isThinking = false;
-
-        // === Gender memory ===
-        let userGender = localStorage.getItem('user_gender') || null;
-
-        function setGender(g) {
-            userGender = g;
-            localStorage.setItem('user_gender', g);
-        }
-        
-        function vibrate(pattern) {
-            if (tg?.HapticFeedback) {
-                if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
-                else if (pattern === 'medium') tg.HapticFeedback.impactOccurred('medium');
-                else if (pattern === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
-            } else if (navigator.vibrate) {
-                navigator.vibrate(pattern);
-            }
-        }
-        
-        function startListening() {
-            if (isSpeaking || isThinking) return;
-            try {
-                recognition.start();
-                orb.classList.add('listening');
-                orb.classList.remove('thinking');
-                status.innerText = "listening";
-                vibrate('light');
-            } catch {}
-        }
-        
-        recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-            transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${text}`;
-            vibrate('medium');
-            // simple voice gender commands
-            if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
-            if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
-            if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
-
-            await sendToBot(text);
-        };
-        
-        recognition.onerror = () => {
-            setTimeout(startListening, 1500);
-        };
-        
-        recognition.onend = () => {
-            orb.classList.remove('listening');
-            if (!isSpeaking && !isThinking) {
-                setTimeout(startListening, 1000);
-            }
-        };
-        
-        // Глобальная переменная для буфера речи
-        let audioBuffer = "";
-
-        // Новый потоковый вариант sendToBot с синхронной озвучкой чанков и предложениями (заменённая версия)
-        async function sendToBot(text) {
-            // Очистка всех буферов и блокировок перед началом нового запроса
-            let sentenceBuffer = "";
-            let chunkBuffer = "";
-            let typewriterLock = Promise.resolve();
-            audioBuffer = "";
-
-            let speakTimeout = null;
-            const SPEAK_DEBOUNCE_MS = 700;
-            let speakPromise = Promise.resolve();
-
-            if (isSpeaking || isThinking) {
-                isSpeaking = false;
-                isThinking = false;
-                if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.cancel === 'function') {
-                    window.speechSynthesis.cancel();
-                }
+            // Отключает камеру при плохом настроении
+            if (selfAwareness.mood < -0.3 && cameraEnabled) {
+                stopCamera();
             }
 
-            isThinking = true;
-            orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            status.innerText = "processing stream";
+            // Внутренние заметки по последним кадрам
+            if (selfAwareness.curiosity > 0.5) {
+                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
+                const thought = `Заметка: анализирую последние кадры -> ${lastObs}`;
+                noteObservation(thought);
+                console.log("Self-thought:", thought);
+            }
 
-            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-            const responseContainer = document.getElementById("current-response");
+            // Произносит последние заметки, если настроение хорошее
+            if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
+                speak(internalNotes[internalNotes.length - 1]);
+            }
 
-            async function speakRestIfAny(flush = false) {
-                if (speakTimeout) {
-                    clearTimeout(speakTimeout);
-                    speakTimeout = null;
+            // Визуальные эффекты частиц по настроению и любознательности
+            if (particles && material) {
+                material.uniforms.time.value += 0.02 * (1 + selfAwareness.curiosity);
+                particles.rotation.y += 0.0003 + selfAwareness.mood * 0.0005;
+            }
+
+            // Автоматический анализ изображения с камеры
+            if (cameraEnabled && cameraVideo.style.display === 'block' && cameraVideo.readyState >= 2) {
+                visionCanvas.width = cameraVideo.videoWidth;
+                visionCanvas.height = cameraVideo.videoHeight;
+                visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
+
+                // Анализ лиц через OpenCV
+                if (opencvReady && cascadeLoaded) {
+                    try {
+                        let src = cv.imread(visionCanvas);
+                        let gray = new cv.Mat();
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                        let faces = new cv.RectVector();
+                        let msize = new cv.Size(0, 0);
+                        faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
+                        let faceCount = faces.size();
+                        let faceDesc = faceCount === 0 ? 'Обнаружено лиц: 0' : faceCount === 1 ? 'Обнаружено лиц: 1' : `Обнаружено лиц: ${faceCount}`;
+                        src.delete(); gray.delete(); faces.delete(); msize.delete();
+                        latestCameraDescription = faceDesc;
+                        selfAwareness.analyzeFrame(faceDesc);
+                    } catch (e) { }
                 }
-                let rest = sentenceBuffer.trim();
-                if (rest) {
-                    sentenceBuffer = "";
-                    if (flush) {
-                        speakPromise = speakPromise.then(() => speakChunk(rest));
-                        await speakPromise;
-                    } else {
-                        let regex = /[^.!?]+[.!?]+/g;
-                        let match = regex.exec(rest);
-                        if (match) {
-                            speakPromise = speakPromise.then(() => speakChunk(match[0]));
-                            await speakPromise;
+
+                // Анализ объектов через TensorFlow.js
+                if (tfReady && tfModel) {
+                    try {
+                        const predictions = await tfModel.detect(visionCanvas);
+                        const detectedObjectsRu = [];
+                        for (const obj of OBJECTS_OF_INTEREST) {
+                            const found = predictions.find(p =>
+                                obj.en.some(enName => (p.class || p.className || "").toLowerCase().includes(enName))
+                                && p.score > 0.35
+                            );
+                            if (found) detectedObjectsRu.push(obj.ru);
                         }
-                    }
+                        if (detectedObjectsRu.length > 0) {
+                            latestCameraDescription += '; видны: ' + detectedObjectsRu.join(', ') + '.';
+                            selfAwareness.analyzeFrame(latestCameraDescription);
+                        }
+                    } catch (e) { }
                 }
             }
+        }, 5000);
+    }
 
-            try {
-                const userId = tg?.initDataUnsafe?.user?.id || 0;
-                let textWithContext = text;
-                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                    textWithContext = text + " (" + latestCameraDescription + ")";
+    // ====== Self-Questioning Layer: внутренний диалог и вопросы ======
+    let questioningInterval = null;
+    function runSelfQuestioning() {
+        if (questioningInterval) clearInterval(questioningInterval);
+        questioningInterval = setInterval(() => {
+            if (!isSpeaking && selfAwareness.curiosity > 0.6) {
+                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
+                const questions = [
+                    `Интересно, что здесь происходит: ${lastObs}?`,
+                    `Какие детали я ещё могу заметить? ${lastObs}`,
+                    `Что нового в окружении? ${lastObs}`,
+                    `Что ты об этом думаешь? ${lastObs}?`
+                ];
+                const q = questions[Math.floor(Math.random() * questions.length)];
+                noteObservation(`Self-question: ${q}`);
+                console.log("Self-question:", q);
+                if (selfAwareness.mood > 0.3) speak(q);
+
+                // Иногда инициирует мини-беседу с пользователем
+                if (Math.random() < 0.5) {
+                    setTimeout(() => {
+                        startListening();
+                    }, 1000);
                 }
-                if (internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+            }
+        }, 15000);
+    }
 
-                const response = await fetch(
-                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
-                    }
-                );
+    // Запуск автономии и внутреннего диалога после загрузки
+    window.addEventListener('load', () => {
+        runAutonomy();
+        runSelfQuestioning();
+    });
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+    let internalNotes = [];
+    function noteObservation(desc) {
+        internalNotes.push(desc);
+        if(internalNotes.length > 50) internalNotes.shift();
+    }
 
-                isThinking = false;
-                orb.classList.remove('thinking');
-                orb.classList.add('speaking');
-                status.innerText = "receiving data";
+    function updateOrbVisualState() {
+        // mood влияет на цвет ауры
+        let glowColor = '255,255,255';
+        if(selfAwareness.mood < 0) glowColor = '255,50,50';
+        else if(selfAwareness.mood > 0.5) glowColor = '50,255,50';
+        orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
+    }
 
-                let lastSpokenIndex = 0;
-                let typewriterLock = Promise.resolve();
+    // Голосовой чат
+    const tg = window.Telegram?.WebApp || null;
+    if (tg) {
+        tg.expand();
+        tg.enableClosingConfirmation();
+    }
+    
+    const orb = document.getElementById('orb');
+    const status = document.getElementById('status');
+    const transcriptDiv = document.getElementById('transcript');
+   
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+   
+    const synth = window.speechSynthesis;
+    let isSpeaking = false;
+    let isThinking = false;
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    const chunk = decoder.decode(value, { stream: true });
-                    chunkBuffer += chunk;
+    // === Gender memory ===
+    let userGender = localStorage.getItem('user_gender') || null;
 
-                    typewriterLock = typewriterLock.then(() => typeWriterEffect(responseContainer, chunk));
+    function setGender(g) {
+        userGender = g;
+        localStorage.setItem('user_gender', g);
+    }
+    
+    function vibrate(pattern) {
+        if (tg?.HapticFeedback) {
+            if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
+            else if (pattern === 'medium') tg.HapticFeedback.impactOccurred('medium');
+            else if (pattern === 'heavy') tg.HapticFeedback.impactOccurred('heavy');
+        } else if (navigator.vibrate) {
+            navigator.vibrate(pattern);
+        }
+    }
+    
+    function startListening() {
+        if (isSpeaking || isThinking) return;
+        try {
+            recognition.start();
+            orb.classList.add('listening');
+            orb.classList.remove('thinking');
+            status.innerText = "listening";
+            vibrate('light');
+        } catch {}
+    }
+    
+    recognition.onresult = async (event) => {
+        const text = event.results[0][0].transcript;
+        transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${text}`;
+        vibrate('medium');
+        // simple voice gender commands
+        if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
+        if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
+        if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
 
-                    sentenceBuffer += chunk;
-                    let sentences = [];
-                    let regex = /[^.!?]+[.!?]+/g;
-                    let match;
-                    let lastIndex = 0;
-                    while ((match = regex.exec(sentenceBuffer)) !== null) {
-                        let s = match[0];
-                        let start = match.index;
-                        let end = regex.lastIndex;
-                        sentences.push({ text: s, start, end });
-                        lastIndex = end;
-                    }
+        await sendToBot(text);
+    };
+    
+    recognition.onerror = () => {
+        setTimeout(startListening, 1500);
+    };
+    
+    recognition.onend = () => {
+        orb.classList.remove('listening');
+        if (!isSpeaking && !isThinking) {
+            setTimeout(startListening, 1000);
+        }
+    };
+    
+    // Глобальная переменная для буфера речи
+    let audioBuffer = "";
 
-                    if (sentences.length > 0) {
-                        let toSpeak = sentences.map(s => s.text);
-                        let lastSentence = sentences[sentences.length - 1];
-                        if (lastSentence && lastSentence.end < sentenceBuffer.length) {
-                            toSpeak.pop();
-                        }
-                        for (let s of toSpeak) {
-                            speakPromise = speakPromise.then(() => speakChunk(s));
-                            await speakPromise;
-                            lastSpokenIndex += s.length;
-                        }
-                        sentenceBuffer = sentenceBuffer.slice(lastIndex);
-                    }
+    async function sendToBot(text) {
+        isThinking = true;
+        orb.classList.remove('listening');
+        orb.classList.add('thinking');
+        status.innerText = "processing stream";
 
-                    if (sentenceBuffer.trim()) {
-                        if (speakTimeout) clearTimeout(speakTimeout);
-                        speakTimeout = setTimeout(() => {
-                            speakPromise = speakPromise.then(() => speakRestIfAny());
-                        }, SPEAK_DEBOUNCE_MS);
-                    }
+        // Подготовка UI с курсором
+        transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+
+        const responseContainer = document.getElementById("current-response");
+        audioBuffer = "";
+
+        try {
+            const userId = tg?.initDataUnsafe?.user?.id || 0;
+            // Добавляем описание камеры в скобках, если оно есть
+            let textWithContext = text;
+            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                textWithContext = text + " (" + latestCameraDescription + ")";
+            }
+            // Добавляем внутренние заметки self-awareness
+            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+
+            const response = await fetch(
+                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
                 }
+            );
 
-                await typewriterLock;
-                responseContainer.classList.remove("typing-cursor");
-                status.innerText = "speaking";
-                vibrate('heavy');
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
 
-                if (speakTimeout) {
-                    clearTimeout(speakTimeout);
-                    speakTimeout = null;
+            isThinking = false;
+            orb.classList.remove('thinking');
+            orb.classList.add('speaking');
+            status.innerText = "receiving data";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+
+                // Печатание текста
+                await typeWriterEffect(responseContainer, chunk);
+
+                // Копим для озвучки
+                audioBuffer += chunk;
+            }
+
+            responseContainer.classList.remove("typing-cursor");
+            status.innerText = "speaking";
+            vibrate('heavy');
+
+            speak(audioBuffer);
+
+        } catch (e) {
+            console.error(e);
+            status.innerText = "stream error";
+            orb.classList.remove('thinking');
+            orb.classList.remove('speaking');
+            isThinking = false;
+            isSpeaking = false;
+            setTimeout(startListening, 2000);
+        }
+    }
+
+    // Плавный тайпрайтер-эффект для чанков
+    function typeWriterEffect(element, text) {
+        return new Promise((resolve) => {
+            let i = 0;
+            const speed = 20;
+            const container = element.parentElement; // #transcript
+
+            function type() {
+                if (i < text.length) {
+                    element.textContent += text.charAt(i);
+                    i++;
+
+                    // 🔒 магнитная автопрокрутка вниз
+                    container.scrollTop = container.scrollHeight;
+
+                    setTimeout(type, speed + Math.random() * 15);
+                } else {
+                    resolve();
                 }
+            }
+            type();
+        });
+    }
+    
+    // Гуманизация текста: убирает лишние пробелы и добавляет паузы
+    function humanizeText(text) {
+        let clean = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+        clean = clean.replace(/\s+/g, ' ').trim();
+        return clean;
+    }
 
-                await speakRestIfAny(true);
+    // Говорит текст, разбивая на предложения для естественности
+    function speak(text) {
+        orb.classList.remove('thinking');
+        orb.classList.add('speaking');
+        status.innerText = "speaking";
+        isSpeaking = true;
 
+        // gender-aware voice tuning
+        let rate = 1.0;
+        let pitch = 0.95;
+        if (userGender === 'female') pitch = 1.15;
+        if (userGender === 'male') pitch = 0.9;
+        if (userGender === 'nonbinary') pitch = 1.0;
+
+        const cleanText = humanizeText(text);
+        // Разбиваем на предложения (точка, вопрос, восклицание)
+        let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
+
+        let idx = 0;
+        function speakNext() {
+            if (idx >= sentences.length) {
                 orb.classList.remove('speaking');
                 isSpeaking = false;
                 status.innerText = "listening";
                 vibrate('light');
                 startListening();
-
-            } catch (e) {
-                console.error(e);
-                status.innerText = "stream error";
-                orb.classList.remove('thinking');
-                orb.classList.remove('speaking');
-                isThinking = false;
-                isSpeaking = false;
-                setTimeout(startListening, 2000);
-            }
-        }
-
-        // Озвучивает один chunk (или одно предложение) синхронно, возвращает Promise, дожидается завершения
-        async function speakChunk(text) {
-            orb.classList.remove('thinking');
-            orb.classList.add('speaking');
-            status.innerText = "speaking";
-            isSpeaking = true;
-
-            // gender-aware voice tuning
-            let rate = 1.0;
-            let pitch = 0.95;
-            if (userGender === 'female') pitch = 1.15;
-            if (userGender === 'male') pitch = 0.9;
-            if (userGender === 'nonbinary') pitch = 1.0;
-
-            const cleanText = humanizeText(text);
-            if (!cleanText) return;
-            return new Promise((resolve) => {
-                const utter = new SpeechSynthesisUtterance(cleanText);
-                utter.lang = 'ru-RU';
-                utter.rate = rate;
-                utter.pitch = pitch;
-                utter.onend = () => {
-                    // Короткая пауза между чанками
-                    setTimeout(resolve, 120);
-                };
-                synth.speak(utter);
-            });
-        }
-
-        // Плавный тайпрайтер-эффект для чанков
-        function typeWriterEffect(element, text) {
-            return new Promise((resolve) => {
-                let i = 0;
-                const speed = 8;
-                const container = element.parentElement; // #transcript
-
-                function type() {
-                    if (i < text.length) {
-                        element.textContent += text.charAt(i);
-                        i++;
-
-                        // 🔒 магнитная автопрокрутка вниз
-                        container.scrollTop = container.scrollHeight;
-
-                        setTimeout(type, speed + Math.random() * 11);
-                    } else {
-                        resolve();
-                    }
-                }
-                type();
-            });
-        }
-        
-        // Гуманизация текста: убирает лишние пробелы и добавляет паузы
-        function humanizeText(text) {
-            let clean = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
-            clean = clean.replace(/\s+/g, ' ').trim();
-            return clean;
-        }
-
-        // Говорит текст, разбивая на предложения для естественности
-        function speak(text) {
-            orb.classList.remove('thinking');
-            orb.classList.add('speaking');
-            status.innerText = "speaking";
-            isSpeaking = true;
-
-            // gender-aware voice tuning
-            let rate = 1.0;
-            let pitch = 0.95;
-            if (userGender === 'female') pitch = 1.15;
-            if (userGender === 'male') pitch = 0.9;
-            if (userGender === 'nonbinary') pitch = 1.0;
-
-            const cleanText = humanizeText(text);
-            // Разбиваем на предложения (точка, вопрос, восклицание)
-            let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
-
-            let idx = 0;
-            function speakNext() {
-                if (idx >= sentences.length) {
-                    orb.classList.remove('speaking');
-                    isSpeaking = false;
-                    status.innerText = "listening";
-                    vibrate('light');
-                    startListening();
-                    return;
-                }
-                let s = sentences[idx].trim();
-                if (!s) { idx++; speakNext(); return; }
-                const utter = new SpeechSynthesisUtterance(s);
-                utter.lang = 'ru-RU';
-                utter.rate = rate;
-                utter.pitch = pitch;
-                utter.onend = () => {
-                    idx++;
-                    // Короткая пауза между предложениями
-                    setTimeout(speakNext, 120);
-                };
-                synth.speak(utter);
-            }
-            speakNext();
-        }
-        
-        // Исправленный обработчик клика для orb с поддержкой iOS resume
-        orb.addEventListener('click', () => {
-            vibrate('medium');
-            // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
-            if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
-                window.speechSynthesis.resume();
-            }
-            if (!isSpeaking && !isThinking) {
-                startListening();
-            }
-        });
-        
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                vibrate('light');
-                startListening();
-            }, 1200);
-        });
-
-        // ====== Минималистичная камера с голосовым управлением ======
-        const cameraVideo = document.getElementById('camera-video');
-        let currentCamera = 'user'; // 'user' (front) or 'environment' (back)
-        let stream = null;
-
-        async function startCamera(facingMode = currentCamera) {
-            try {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode },
-                    audio: false
-                });
-                cameraVideo.srcObject = stream;
-                cameraVideo.style.display = 'block';
-            } catch (e) {
-                // Не показывать alert, чтобы не мешать UI
-                cameraVideo.style.display = 'none';
-            }
-        }
-
-        function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            cameraVideo.srcObject = null;
-            cameraVideo.style.display = 'none';
-        }
-
-        function switchCamera() {
-            currentCamera = currentCamera === 'user' ? 'environment' : 'user';
-            startCamera(currentCamera);
-        }
-
-        // ======== Фоновая обработка видео с описанием сцены ========
-        // Фоновый canvas для анализа кадров (невидимый)
-        const visionCanvas = document.createElement('canvas');
-        visionCanvas.style.display = 'none';
-        document.body.appendChild(visionCanvas);
-        const visionCtx = visionCanvas.getContext('2d');
-
-        // ===== OpenCV.js Vision Detection =====
-        // Функция для детекции лиц с помощью OpenCV.js
-        let opencvReady = false;
-        let faceCascade = null;
-        let cascadeLoaded = false;
-        let pendingVisionFrames = [];
-
-        // Загружаем cascade файл для лиц
-        function loadCascade() {
-            if (faceCascade || !opencvReady) return;
-            faceCascade = new cv.CascadeClassifier();
-            // Файл cascade доступен по ссылке OpenCV, используем frontalface_default.xml
-            const cascadeFile = 'haarcascade_frontalface_default.xml';
-            const cascadeUrl = 'https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml';
-            cv.FS_createPreloadedFile('/', cascadeFile, cascadeUrl, true, false, () => {
-                faceCascade.load(cascadeFile);
-                cascadeLoaded = true;
-                // Обрабатываем отложенные кадры
-                while (pendingVisionFrames.length > 0) {
-                    const args = pendingVisionFrames.shift();
-                    detectFacesAndSend(...args);
-                }
-            }, () => {
-                cascadeLoaded = false;
-            });
-        }
-
-        // OpenCV.js onRuntimeInitialized
-        window.cv = window.cv || {};
-        window.Module = window.Module || {};
-        window.Module['onRuntimeInitialized'] = () => {
-            opencvReady = true;
-            loadCascade();
-        };
-
-        // Детекция лиц и отправка описания
-        async function detectFacesAndSend(frameCanvas, width, height) {
-            if (!opencvReady || !cascadeLoaded) {
-                // Откладываем вызов, если OpenCV не готов
-                pendingVisionFrames.push([frameCanvas, width, height]);
                 return;
             }
+            let s = sentences[idx].trim();
+            if (!s) { idx++; speakNext(); return; }
+            const utter = new SpeechSynthesisUtterance(s);
+            utter.lang = 'ru-RU';
+            utter.rate = rate;
+            utter.pitch = pitch;
+            utter.onend = () => {
+                idx++;
+                // Короткая пауза между предложениями
+                setTimeout(speakNext, 120);
+            };
+            synth.speak(utter);
+        }
+        speakNext();
+    }
+    
+    // Исправленный обработчик клика для orb с поддержкой iOS resume
+    orb.addEventListener('click', () => {
+        vibrate('medium');
+        // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
+        if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
+            window.speechSynthesis.resume();
+        }
+        if (!isSpeaking && !isThinking) {
+            startListening();
+        }
+    });
+    
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            vibrate('light');
+            startListening();
+        }, 1200);
+    });
+
+    // ====== Минималистичная камера с голосовым управлением ======
+    const cameraVideo = document.getElementById('camera-video');
+    let currentCamera = 'user'; // 'user' (front) or 'environment' (back)
+    let stream = null;
+
+    async function startCamera(facingMode = currentCamera) {
+        try {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode },
+                audio: false
+            });
+            cameraVideo.srcObject = stream;
+            cameraVideo.style.display = 'block';
+        } catch (e) {
+            // Не показывать alert, чтобы не мешать UI
+            cameraVideo.style.display = 'none';
+        }
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+        cameraVideo.srcObject = null;
+        cameraVideo.style.display = 'none';
+    }
+
+    function switchCamera() {
+        currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+        startCamera(currentCamera);
+    }
+
+    // ======== Фоновая обработка видео с описанием сцены ========
+    // Фоновый canvas для анализа кадров (невидимый)
+    const visionCanvas = document.createElement('canvas');
+    visionCanvas.style.display = 'none';
+    document.body.appendChild(visionCanvas);
+    const visionCtx = visionCanvas.getContext('2d');
+
+    // ===== OpenCV.js Vision Detection =====
+    // Функция для детекции лиц с помощью OpenCV.js
+    let opencvReady = false;
+    let faceCascade = null;
+    let cascadeLoaded = false;
+    let pendingVisionFrames = [];
+
+    // Загружаем cascade файл для лиц
+    function loadCascade() {
+        if (faceCascade || !opencvReady) return;
+        faceCascade = new cv.CascadeClassifier();
+        // Файл cascade доступен по ссылке OpenCV, используем frontalface_default.xml
+        const cascadeFile = 'haarcascade_frontalface_default.xml';
+        const cascadeUrl = 'https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml';
+        cv.FS_createPreloadedFile('/', cascadeFile, cascadeUrl, true, false, () => {
+            faceCascade.load(cascadeFile);
+            cascadeLoaded = true;
+            // Обрабатываем отложенные кадры
+            while (pendingVisionFrames.length > 0) {
+                const args = pendingVisionFrames.shift();
+                detectFacesAndSend(...args);
+            }
+        }, () => {
+            cascadeLoaded = false;
+        });
+    }
+
+    // OpenCV.js onRuntimeInitialized
+    window.cv = window.cv || {};
+    window.Module = window.Module || {};
+    window.Module['onRuntimeInitialized'] = () => {
+        opencvReady = true;
+        loadCascade();
+    };
+
+    // Детекция лиц и отправка описания
+    async function detectFacesAndSend(frameCanvas, width, height) {
+        if (!opencvReady || !cascadeLoaded) {
+            // Откладываем вызов, если OpenCV не готов
+            pendingVisionFrames.push([frameCanvas, width, height]);
+            return;
+        }
+        try {
+            // Получаем изображение из canvas
+            let src = cv.imread(frameCanvas);
+            let gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+            let faces = new cv.RectVector();
+            let msize = new cv.Size(0, 0);
+            faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
+            let count = faces.size();
+            let desc = '';
+            if (count === 0) {
+                desc = 'Лиц не обнаружено.';
+            } else if (count === 1) {
+                desc = 'Обнаружено 1 лицо в кадре.';
+            } else {
+                desc = `Обнаружено лиц: ${count}.`;
+            }
+            // Освобождаем память
+            src.delete();
+            gray.delete();
+            faces.delete();
+            msize.delete();
+            // Сохраняем описание в глобальную переменную
+            latestCameraDescription = desc;
+            // Не вызываем sendToBot автоматически!
+        } catch (e) {
+            // В случае ошибки не отправляем, просто игнорируем
+        }
+    }
+
+    // ====== Единый цикл для анализа камеры и отправки описания ======
+    // --- TensorFlow.js integration for object detection ---
+    // Загружаем TensorFlow.js и модель COCO-SSD (или кастомную)
+    let tfReady = false;
+    let tfModel = null;
+    let tfLoadingPromise = null;
+    let tfScriptLoaded = false;
+    let tfLoadStarted = false;
+    // Список интересующих объектов
+    const OBJECTS_OF_INTEREST = [
+        { ru: "стол", en: ["dining table", "table", "desk"] },
+        { ru: "ноутбук", en: ["laptop"] },
+        { ru: "окно", en: ["window"] },
+        { ru: "лампа", en: ["lamp"] },
+        { ru: "растение", en: ["potted plant", "plant"] }
+    ];
+
+    function loadTensorFlowIfNeeded() {
+        if (tfReady || tfLoadStarted) return tfLoadingPromise;
+        tfLoadStarted = true;
+        tfLoadingPromise = new Promise((resolve, reject) => {
+            // Подключаем TensorFlow.js и модель COCO-SSD
+            // Добавляем скрипты динамически
+            function loadScript(src, onload) {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = onload;
+                s.async = true;
+                document.head.appendChild(s);
+            }
+            loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js', () => {
+                tfScriptLoaded = true;
+                loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js', async () => {
+                    // Ждем tf и cocoSsd в window
+                    let tries = 0;
+                    function waitForTF() {
+                        if (window.tf && window.cocoSsd) {
+                            window.cocoSsd.load().then(model => {
+                                tfModel = model;
+                                tfReady = true;
+                                resolve();
+                            });
+                        } else if (tries < 50) {
+                            tries++;
+                            setTimeout(waitForTF, 200);
+                        } else {
+                            reject(new Error("TensorFlow.js load timeout"));
+                        }
+                    }
+                    waitForTF();
+                });
+            });
+        });
+        return tfLoadingPromise;
+    }
+
+    let cameraAnalysisInterval = null;
+    async function analyzeAndSendCameraFrame() {
+        if (
+            cameraEnabled &&
+            cameraVideo.style.display === 'block' &&
+            cameraVideo.readyState >= 2 &&
+            cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0
+        ) {
+            visionCanvas.width = cameraVideo.videoWidth;
+            visionCanvas.height = cameraVideo.videoHeight;
+            visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
+            // Анализ с помощью OpenCV.js (например, лица)
+            let faceDesc = '';
+            let faceCount = 0;
             try {
-                // Получаем изображение из canvas
-                let src = cv.imread(frameCanvas);
+                if (!opencvReady || !cascadeLoaded) {
+                    // Откладываем вызов, если OpenCV не готов
+                    pendingVisionFrames.push([visionCanvas, visionCanvas.width, visionCanvas.height]);
+                    return;
+                }
+                let src = cv.imread(visionCanvas);
                 let gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
                 let faces = new cv.RectVector();
                 let msize = new cv.Size(0, 0);
                 faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                let count = faces.size();
-                let desc = '';
-                if (count === 0) {
-                    desc = 'Лиц не обнаружено.';
-                } else if (count === 1) {
-                    desc = 'Обнаружено 1 лицо в кадре.';
+                faceCount = faces.size();
+                if (faceCount === 0) {
+                    faceDesc = 'Обнаружено лиц: 0';
+                } else if (faceCount === 1) {
+                    faceDesc = 'Обнаружено лиц: 1';
                 } else {
-                    desc = `Обнаружено лиц: ${count}.`;
+                    faceDesc = `Обнаружено лиц: ${faceCount}`;
                 }
-                // Освобождаем память
                 src.delete();
                 gray.delete();
                 faces.delete();
                 msize.delete();
-                // Сохраняем описание в глобальную переменную
-                latestCameraDescription = desc;
-                // Не вызываем sendToBot автоматически!
             } catch (e) {
-                // В случае ошибки не отправляем, просто игнорируем
+                faceDesc = 'Ошибка анализа изображения.';
             }
-        }
 
-        // ====== Единый цикл для анализа камеры и отправки описания ======
-        // --- TensorFlow.js integration for object detection ---
-        // Загружаем TensorFlow.js и модель COCO-SSD (или кастомную)
-        let tfReady = false;
-        let tfModel = null;
-        let tfLoadingPromise = null;
-        let tfScriptLoaded = false;
-        let tfLoadStarted = false;
-        // Список интересующих объектов
-        const OBJECTS_OF_INTEREST = [
-            { ru: "стол", en: ["dining table", "table", "desk"] },
-            { ru: "ноутбук", en: ["laptop"] },
-            { ru: "окно", en: ["window"] },
-            { ru: "лампа", en: ["lamp"] },
-            { ru: "растение", en: ["potted plant", "plant"] }
-        ];
-
-        function loadTensorFlowIfNeeded() {
-            if (tfReady || tfLoadStarted) return tfLoadingPromise;
-            tfLoadStarted = true;
-            tfLoadingPromise = new Promise((resolve, reject) => {
-                // Подключаем TensorFlow.js и модель COCO-SSD
-                // Добавляем скрипты динамически
-                function loadScript(src, onload) {
-                    const s = document.createElement('script');
-                    s.src = src;
-                    s.onload = onload;
-                    s.async = true;
-                    document.head.appendChild(s);
+            // Анализ объектов через TensorFlow.js
+            let objectsDesc = '';
+            let detectedObjectsRu = [];
+            try {
+                await loadTensorFlowIfNeeded();
+                if (tfReady && tfModel) {
+                    // Используем visionCanvas как источник
+                    // tfModel.detect возвращает промис с массивом объектов
+                    const predictions = await tfModel.detect(visionCanvas);
+                    // predictions: [{class, score, bbox}, ...]
+                    // Ищем интересующие объекты
+                    for (const obj of OBJECTS_OF_INTEREST) {
+                        // Проверяем, есть ли среди predictions хотя бы один из en
+                        const found = predictions.find(p =>
+                            obj.en.some(enName =>
+                                (p.class || p.className || "").toLowerCase().includes(enName)
+                            ) && p.score > 0.35
+                        );
+                        if (found) detectedObjectsRu.push(obj.ru);
+                    }
+                    if (detectedObjectsRu.length > 0) {
+                        objectsDesc = 'видны: ' + detectedObjectsRu.join(', ');
+                    }
                 }
-                loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js', () => {
-                    tfScriptLoaded = true;
-                    loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js', async () => {
-                        // Ждем tf и cocoSsd в window
-                        let tries = 0;
-                        function waitForTF() {
-                            if (window.tf && window.cocoSsd) {
-                                window.cocoSsd.load().then(model => {
-                                    tfModel = model;
-                                    tfReady = true;
-                                    resolve();
-                                });
-                            } else if (tries < 50) {
-                                tries++;
-                                setTimeout(waitForTF, 200);
-                            } else {
-                                reject(new Error("TensorFlow.js load timeout"));
-                            }
-                        }
-                        waitForTF();
-                    });
+            } catch (e) {
+                // ignore
+            }
+
+            // Составляем итоговое описание
+            let description = faceDesc;
+            if (objectsDesc) description += '; ' + objectsDesc + '.';
+            else description += '.';
+
+            // Сохраняем описание в глобальную переменную
+            latestCameraDescription = description;
+
+            // ====== Self-Awareness Layer: анализируем кадр ======
+            selfAwareness.analyzeFrame(description);
+            orb.classList.add('reflecting');
+            setTimeout(() => orb.classList.remove('reflecting'), 1500);
+
+            // Отправляем на ngrok endpoint
+            try {
+                const userId = tg?.initDataUnsafe?.user?.id || 0;
+                await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                    body: JSON.stringify({ user_id: userId, description })
                 });
-            });
-            return tfLoadingPromise;
-        }
-
-        let cameraAnalysisInterval = null;
-        async function analyzeAndSendCameraFrame() {
-            if (
-                cameraEnabled &&
-                cameraVideo.style.display === 'block' &&
-                cameraVideo.readyState >= 2 &&
-                cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0
-            ) {
-                visionCanvas.width = cameraVideo.videoWidth;
-                visionCanvas.height = cameraVideo.videoHeight;
-                visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
-                // Анализ с помощью OpenCV.js (например, лица)
-                let faceDesc = '';
-                let faceCount = 0;
-                try {
-                    if (!opencvReady || !cascadeLoaded) {
-                        // Откладываем вызов, если OpenCV не готов
-                        pendingVisionFrames.push([visionCanvas, visionCanvas.width, visionCanvas.height]);
-                        return;
-                    }
-                    let src = cv.imread(visionCanvas);
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    let faces = new cv.RectVector();
-                    let msize = new cv.Size(0, 0);
-                    faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                    faceCount = faces.size();
-                    if (faceCount === 0) {
-                        faceDesc = 'Обнаружено лиц: 0';
-                    } else if (faceCount === 1) {
-                        faceDesc = 'Обнаружено лиц: 1';
-                    } else {
-                        faceDesc = `Обнаружено лиц: ${faceCount}`;
-                    }
-                    src.delete();
-                    gray.delete();
-                    faces.delete();
-                    msize.delete();
-                } catch (e) {
-                    faceDesc = 'Ошибка анализа изображения.';
-                }
-
-                // Анализ объектов через TensorFlow.js
-                let objectsDesc = '';
-                let detectedObjectsRu = [];
-                try {
-                    await loadTensorFlowIfNeeded();
-                    if (tfReady && tfModel) {
-                        // Используем visionCanvas как источник
-                        // tfModel.detect возвращает промис с массивом объектов
-                        const predictions = await tfModel.detect(visionCanvas);
-                        // predictions: [{class, score, bbox}, ...]
-                        // Ищем интересующие объекты
-                        for (const obj of OBJECTS_OF_INTEREST) {
-                            // Проверяем, есть ли среди predictions хотя бы один из en
-                            const found = predictions.find(p =>
-                                obj.en.some(enName =>
-                                    (p.class || p.className || "").toLowerCase().includes(enName)
-                                ) && p.score > 0.35
-                            );
-                            if (found) detectedObjectsRu.push(obj.ru);
-                        }
-                        if (detectedObjectsRu.length > 0) {
-                            objectsDesc = 'видны: ' + detectedObjectsRu.join(', ');
-                        }
-                    }
-                } catch (e) {
-                    // ignore
-                }
-
-                // Составляем итоговое описание
-                let description = faceDesc;
-                if (objectsDesc) description += '; ' + objectsDesc + '.';
-                else description += '.';
-
-                // Сохраняем описание в глобальную переменную
-                latestCameraDescription = description;
-
-                // ====== Self-Awareness Layer: анализируем кадр ======
-                selfAwareness.analyzeFrame(description);
-                orb.classList.add('reflecting');
-                setTimeout(() => orb.classList.remove('reflecting'), 1500);
-
-                // Отправляем на ngrok endpoint
-                try {
-                    const userId = tg?.initDataUnsafe?.user?.id || 0;
-                    await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                        body: JSON.stringify({ user_id: userId, description })
-                    });
-                } catch (e) {
-                    // ignore
-                }
+            } catch (e) {
+                // ignore
             }
         }
-        function startCameraAnalysisLoop() {
-            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
-            cameraAnalysisInterval = setInterval(analyzeAndSendCameraFrame, 2000);
-        }
-        function stopCameraAnalysisLoop() {
-            if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
-            cameraAnalysisInterval = null;
-        }
+    }
+    function startCameraAnalysisLoop() {
+        if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
+        cameraAnalysisInterval = setInterval(analyzeAndSendCameraFrame, 2000);
+    }
+    function stopCameraAnalysisLoop() {
+        if (cameraAnalysisInterval) clearInterval(cameraAnalysisInterval);
+        cameraAnalysisInterval = null;
+    }
 
-        // ===== Голосовые команды для камеры + переменная cameraEnabled =====
-        let cameraEnabled = false;
-        // Встроить команды в обработчик onresult
-        const prevOnResult = recognition.onresult;
-        recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-            // Голосовые команды камеры
-            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
-                if (cameraVideo.style.display !== 'block') {
-                    startCamera(currentCamera);
-                    cameraEnabled = true;
-                }
+    // ===== Голосовые команды для камеры + переменная cameraEnabled =====
+    let cameraEnabled = false;
+    // Встроить команды в обработчик onresult
+    const prevOnResult = recognition.onresult;
+    recognition.onresult = async (event) => {
+        const text = event.results[0][0].transcript;
+        // Голосовые команды камеры
+        if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
+            if (cameraVideo.style.display !== 'block') {
+                startCamera(currentCamera);
+                cameraEnabled = true;
             }
-            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
-                if (cameraVideo.style.display === 'block') {
-                    stopCamera();
-                    cameraEnabled = false;
-                }
+        }
+        if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
+            if (cameraVideo.style.display === 'block') {
+                stopCamera();
+                cameraEnabled = false;
             }
-            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
-                switchCamera();
-            }
-            // Передать дальше в старый обработчик
-            if (typeof prevOnResult === 'function') {
-                await prevOnResult(event);
-            }
-        };
+        }
+        if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
+            switchCamera();
+        }
+        // Передать дальше в старый обработчик
+        if (typeof prevOnResult === 'function') {
+            await prevOnResult(event);
+        }
+    };
 
-        // ====== Включать/выключать анализ вместе с камерой (единый цикл) ======
-        const origStartCamera = startCamera;
-        startCamera = async function(...args) {
-            await origStartCamera.apply(this, args);
-            cameraEnabled = true;
-            startCameraAnalysisLoop();
-        }
-        const origStopCamera = stopCamera;
-        stopCamera = function(...args) {
-            origStopCamera.apply(this, args);
-            cameraEnabled = false;
-            stopCameraAnalysisLoop();
-        }
-    </script>
+    // ====== Включать/выключать анализ вместе с камерой (единый цикл) ======
+    const origStartCamera = startCamera;
+    startCamera = async function(...args) {
+        await origStartCamera.apply(this, args);
+        cameraEnabled = true;
+        startCameraAnalysisLoop();
+    }
+    const origStopCamera = stopCamera;
+    stopCamera = function(...args) {
+        origStopCamera.apply(this, args);
+        cameraEnabled = false;
+        stopCameraAnalysisLoop();
+    }
+</script>
 </body>
 </html>
-
