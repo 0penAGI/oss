@@ -602,6 +602,75 @@ for (let i = 0; i < particleCount; i++) {
         const orb = document.getElementById('orb');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
+
+        // ===== Ambient Nature Sounds =====
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let currentAmbient = null;
+
+        // Простейшие белый шум + фильтры для разных сред
+        function createNoise(type) {
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1; // белый шум
+            }
+
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = 0.1; // начальная громкость
+
+            const filter = audioCtx.createBiquadFilter();
+
+            // Фильтры для разных типов
+            switch(type) {
+                case 'rain':
+                    filter.type = 'highpass';
+                    filter.frequency.value = 1000;
+                    break;
+                case 'ocean':
+                    filter.type = 'lowpass';
+                    filter.frequency.value = 400;
+                    break;
+                case 'forest':
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 800;
+                    break;
+                case 'jungle':
+                    filter.type = 'bandpass';
+                    filter.frequency.value = 1200;
+                    break;
+                default:
+                    filter.type = 'allpass';
+                    break;
+            }
+
+            source.connect(filter).connect(gainNode).connect(audioCtx.destination);
+            return { source, gainNode };
+        }
+
+        // Переключение ambient
+        function playAmbient(type) {
+            if (currentAmbient) {
+                currentAmbient.source.stop();
+            }
+            currentAmbient = createNoise(type);
+            currentAmbient.source.start();
+        }
+
+        // Пример автоматического выбора по настроению
+        function updateAmbientByMood() {
+            if (selfAwareness.mood < 0) playAmbient('rain');
+            else if (selfAwareness.mood > 0.5) playAmbient('forest');
+            else playAmbient('ocean'); // нейтральное
+        }
+
+        // Обновление при изменении mood
+        setInterval(updateAmbientByMood, 10000);
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
