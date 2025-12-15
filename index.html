@@ -251,9 +251,22 @@
 
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(0.05, 0.1, 0.4), vec3(0.0, 0.2, 0.6),vec3(0.0, 0.0, 0.15));
+
+                // deep blue cosmos palette
+                vec3 color = XDust(
+                    p,
+                    vec3(0.05, 0.1, 0.4),
+                    vec3(0.0, 0.3, 0.7),
+                    vec3(0.0, 0.0, 0.15)
+                );
+
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+
+                // cold edge glow
+                float glow = smoothstep(0.5, 0.0, dist);
+                color += vec3(0.2, 0.4, 1.0) * glow * 0.35;
+
                 gl_FragColor = vec4(color * vColor, alpha * 0.8);
             }
         `;
