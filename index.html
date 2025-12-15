@@ -714,10 +714,24 @@ for (let i = 0; i < particleCount; i++) {
             }
         }
 
-        // --- Музыкальный слой с поддержкой жанров ---
+        // --- Музыкальный слой с поддержкой жанров, расширенный ---
         function startMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
+
+            // === Delay эффект: создаём echo-слой ===
+            // DelayNode + echoGain
+            let delayNode = musicCtx.createDelay();
+            delayNode.delayTime.value = 0.28 + Math.random() * 0.11; // варьируем задержку
+            let echoGain = musicCtx.createGain();
+            echoGain.gain.value = 0.18 + Math.random() * 0.10;
+            // Включаем echo цепочку в masterGain
+            masterGain.connect(delayNode);
+            delayNode.connect(echoGain);
+            echoGain.connect(masterGain); // echo возвращается в masterGain (feedback)
+            // Можно подключить echoGain к отдельному bus для большего контроля
+            // masterGain.connect(delayNode).connect(echoGain).connect(masterGain);
+            // (Для сложных эффектов можно подключить echoGain к отдельному слою)
 
             // Реверберация — уже подключена выше (masterGain → convolver → masterLP → musicCtx.destination)
             // Но если IR не был загружен — загрузить его (если надо)
@@ -740,21 +754,21 @@ for (let i = 0; i < particleCount; i++) {
                     break;
                 case 'electro':
                     BPM = 128;
-                    beatPattern = [1,0,1,0]; // 4/4 с дополнительным клэпом
+                    beatPattern = [1,0,1,0];
                     swing = 0;
                     arpeggio = true;
                     reverbSendLevel = 0.1;
                     break;
                 case 'ambient':
                     BPM = 68;
-                    beatPattern = [1,0,0,1,0,0,0,0]; // редкий бит
+                    beatPattern = [1,0,0,1,0,0,0,0];
                     swing = 0;
                     arpeggio = false;
                     reverbSendLevel = 0.7;
                     break;
                 case 'jazz':
                     BPM = 110;
-                    beatPattern = [1,0,1,0,0,1,0,0]; // swing/shuffle
+                    beatPattern = [1,0,1,0,0,1,0,0];
                     swing = 0.18;
                     arpeggio = false;
                     reverbSendLevel = 0.22;
@@ -770,6 +784,7 @@ for (let i = 0; i < particleCount; i++) {
             const scheduleAheadTime = 0.2;
             let nextNoteTime = musicCtx.currentTime + 0.1;
             let step = 0;
+            let lastExtraKickTime = 0;
 
             // --- Прямые/жанровые бочки (kick drum) ---
             function scheduleKick(time, step) {
@@ -804,6 +819,32 @@ for (let i = 0; i < particleCount; i++) {
                 // sampleSource.start(time);
             }
 
+            // --- Случайные дополнительные бочки (extra kick, ghost notes) ---
+            function maybeScheduleRandomKick(time) {
+                // С вероятностью 30% добавим ghost kick между основными ударами
+                if (Math.random() < 0.3) {
+                    const osc = musicCtx.createOscillator();
+                    osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+                    // Немного другой pitch для ghost
+                    osc.frequency.setValueAtTime(65 + Math.random()*10, time);
+                    osc.frequency.linearRampToValueAtTime(45 + Math.random()*12, time + 0.05 + Math.random()*0.03);
+                    const gain = musicCtx.createGain();
+                    // Более тихий и короткий звук
+                    let vol = 0.22 + Math.random()*0.18;
+                    gain.gain.setValueAtTime(vol, time);
+                    gain.gain.linearRampToValueAtTime(0.0, time + 0.05 + Math.random()*0.04);
+                    osc.connect(gain).connect(masterGain);
+                    osc.start(time);
+                    osc.stop(time + 0.08 + Math.random()*0.03);
+                    // --- Место для живых ghost/перкуссионных сэмплов ---
+                    // Пример:
+                    // const sampleSource = musicCtx.createBufferSource();
+                    // sampleSource.buffer = drumSampleBuffers['ghost']; // AudioBuffer ghost sample
+                    // sampleSource.connect(masterGain);
+                    // sampleSource.start(time);
+                }
+            }
+
             // --- Популярные аккорды: Am, Cm, Dm, F (оставляем общими для всех жанров) ---
             const chordDefs = [
                 { name: 'Am', notes: [220.00, 261.63, 329.63] }, // A3, C4, E4
@@ -825,6 +866,8 @@ for (let i = 0; i < particleCount; i++) {
                         case 'jazz': oscType = 'triangle'; break;
                     }
                     osc.type = oscType;
+                    // Дополнительный случайный детюн для аккордов (живость)
+                    osc.detune.value = (Math.random() - 0.5) * 11;
                     osc.frequency.value = freq;
                     const gain = musicCtx.createGain();
                     // Атака и decay по жанру
@@ -854,7 +897,7 @@ for (let i = 0; i < particleCount; i++) {
                 // sampleSource.start(time);
             }
 
-            // --- Слой пиано/синтов/мелодии с адаптацией под жанр ---
+            // --- Слой пиано/синтов/мелодии с вариативностью ---
             function schedulePianoLine(time, chord) {
                 // Мелодические паттерны по жанру
                 let pattern;
@@ -872,7 +915,10 @@ for (let i = 0; i < particleCount; i++) {
                 } else {
                     pattern = [chord.notes[1], chord.notes[2], chord.notes[0] + 12, chord.notes[1]];
                 }
+                // --- Разнообразие мелодий: случайные детюны, временные сдвиги, occasional note skipping ---
                 pattern.forEach((freq, i) => {
+                    // Иногда пропускаем ноту (10% шанс)
+                    if (Math.random() < 0.1) return;
                     const osc = musicCtx.createOscillator();
                     // Тип осциллятора мелодии по жанру
                     let oscType = 'triangle';
@@ -883,21 +929,26 @@ for (let i = 0; i < particleCount; i++) {
                         case 'jazz': oscType = 'square'; break;
                     }
                     osc.type = oscType;
-                    // Детюн для живости
-                    osc.detune.value = (Math.random()-0.5)*18;
-                    let noteTime = time + i*quarter/4;
+                    // Детюн для живости (+ случайный детюн сильнее для electro/ambient)
+                    let detune = (Math.random()-0.5)*18;
+                    if (currentGenre==='electro') detune *= 1.5;
+                    if (currentGenre==='ambient') detune *= 2.2;
+                    osc.detune.value = detune;
+                    // Случайный временной сдвиг (до ±30 мс)
+                    let timeJitter = (Math.random()-0.5)*0.06;
+                    let noteTime = time + i*quarter/4 + timeJitter;
                     // Swing для jazz
                     if (currentGenre==='jazz' && i%2===1) noteTime += swing * quarter/2;
                     // Арпеджио для electro
-                    if (currentGenre==='electro' && arpeggio) noteTime = time + i*quarter/6;
+                    if (currentGenre==='electro' && arpeggio) noteTime = time + i*quarter/6 + timeJitter;
                     // Длина ноты по жанру
                     let noteLen = 0.15;
-                    if (currentGenre==='ambient') noteLen = 0.6;
-                    if (currentGenre==='jazz') noteLen = 0.18;
-                    if (currentGenre==='electro') noteLen = 0.10;
+                    if (currentGenre==='ambient') noteLen = 0.6 + Math.random()*0.2;
+                    if (currentGenre==='jazz') noteLen = 0.18 + Math.random()*0.06;
+                    if (currentGenre==='electro') noteLen = 0.10 + Math.random()*0.04;
                     const gain = musicCtx.createGain();
                     gain.gain.setValueAtTime(0.0, noteTime);
-                    gain.gain.linearRampToValueAtTime(0.13, noteTime + 0.01);
+                    gain.gain.linearRampToValueAtTime(0.13, noteTime + 0.01 + Math.random()*0.01);
                     gain.gain.linearRampToValueAtTime(0.0, noteTime + noteLen);
                     // Для ambient больше реверберации
                     if (currentGenre==='ambient') {
@@ -929,6 +980,11 @@ for (let i = 0; i < particleCount; i++) {
                     }
                     // Бит по жанровому паттерну
                     scheduleKick(scheduledNoteTime, step);
+                    // Иногда дополнительная ghost kick между ударами (сдвиг на 16-32% quarter)
+                    if (Math.random() < 0.4) {
+                        let ghostTime = scheduledNoteTime + (quarter * (0.16 + Math.random()*0.16));
+                        maybeScheduleRandomKick(ghostTime);
+                    }
                     // Аккорд на первый удар такта (раз в длину паттерна)
                     if (step % beatPattern.length === 0) {
                         const chord = chordDefs[chordIdx % chordDefs.length];
