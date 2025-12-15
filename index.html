@@ -600,14 +600,6 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         const orb = document.getElementById('orb');
-        // Разблокировка AudioContext и мгновенный старт ambient при первом клике
-        orb.addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    updateAmbientByMood(); // сразу запускаем ambient
-                });
-            }
-        });
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
 
