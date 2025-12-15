@@ -2214,19 +2214,16 @@ for (let i = 0; i < particleCount; i++) {
 
         // ===== Голосовые команды для камеры + переменная cameraEnabled =====
         let cameraEnabled = false;
-        // Сохраним оригинальный onresult
-        const origOnResult = recognition.onresult;
+        // Встроить команды в обработчик onresult
+        const prevOnResult = recognition.onresult;
         recognition.onresult = async (event) => {
-            let text = event.results[0][0].transcript;
-
+            const text = event.results[0][0].transcript;
             // --- Голосовая команда для включения музыки напрямую (приоритетная обработка) ---
             if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
                 if (!musicPlaying) {
                     if (musicCtx.state === 'suspended') await musicCtx.resume();
                     startMusic();
                 }
-                // Не продолжаем, чтобы не дублировать sendToBot
-                if (typeof origOnResult === 'function') await origOnResult(event);
                 return;
             }
             // Голосовые команды камеры
@@ -2252,33 +2249,9 @@ for (let i = 0; i < particleCount; i++) {
                 triggerAmbient();
             }
 
-            // ======= Обработка команды генерации изображения =======
-            // Команды для генерации изображения
-            const imgCmdRe = /\b(нарисуй|сгенерируй картинку|создай изображение|draw|generate image)\b/i;
-            let isImageCmd = imgCmdRe.test(text);
-            let imgPrompt = text;
-            if (isImageCmd) {
-                // Удаляем команду из текста для prompt
-                imgPrompt = imgPrompt.replace(imgCmdRe, '').replace(/[:,\-]+/, '').trim();
-                // Если prompt пустой, используем оригинальный текст
-                if (!imgPrompt) imgPrompt = text;
-            }
-
-            // simple voice gender commands
-            if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
-            if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
-            if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
-
-            // Всегда вызываем sendToBot (с оригинальным текстом)
-            await sendToBot(text);
-            // Если была команда генерации изображения — запустить генерацию
-            if (isImageCmd) {
-                await generateImageFromText(imgPrompt);
-            }
-
-            // Передать дальше в оригинальный обработчик, если он был (для совместимости)
-            if (typeof origOnResult === 'function') {
-                await origOnResult(event);
+            // Передать дальше в старый обработчик
+            if (typeof prevOnResult === 'function') {
+                await prevOnResult(event);
             }
         };
 
