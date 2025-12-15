@@ -1336,7 +1336,7 @@ for (let i = 0; i < particleCount; i++) {
                 utter.onstart = () => {
                     vibrateSpeaking();
                     // Автозапуск музыки по определённым фразам
-                    if (/включаю музыку/нажимаю шар/|начинаю воспроизведение/i.test(s)) {
+                    if (/включаю музыку|нажимаю шар/i.test(s)) {
                         triggerOrbClick();
                     }
                 };
