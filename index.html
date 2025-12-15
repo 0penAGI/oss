@@ -1703,20 +1703,25 @@ for (let i = 0; i < particleCount; i++) {
                 const chunk = decoder.decode(value, { stream: true });
 
                 // Печатание текста
-                await typeWriterEffect(responseContainer, chunk);
+                typeWriterEffect(responseContainer, chunk);
 
                 // Копим для озвучки
                 audioBuffer += chunk;
 
-                // --- инкрементальная речь: говорим по мере поступления текста ---
-                if (!speechStarted && audioBuffer.length > 24) {
+                if (!speechStarted) {
                     speechStarted = true;
+
+                    // старт речи одновременно с началом печати (вязкое микро‑смещение)
+                    setTimeout(() => {
+                        speak(chunk);
+                        spokenLength = audioBuffer.length;
+                    }, 120);
                 }
 
                 if (speechStarted) {
                     const delta = audioBuffer.slice(spokenLength);
-                    // говорим только если накопилась фраза
-                    if (delta.length > 20 && /[.!?]|,|\n/.test(delta)) {
+                    // более ранний порог — речь дышит вместе с печатью
+                    if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
                         spokenLength = audioBuffer.length;
                         speak(delta);
                     }
