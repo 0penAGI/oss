@@ -543,16 +543,17 @@ for (let i = 0; i < particleCount; i++) {
         questioningInterval = setInterval(() => {
             if (!isSpeaking && selfAwareness.curiosity > 0.6) {
                 const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
-                const questions = [
-                    `Интересно, что здесь происходит: ${lastObs}?`,
-                    `Какие детали я ещё могу заметить? ${lastObs}`,
-                    `Что нового в окружении? ${lastObs}`,
-                    `Что ты об этом думаешь? ${lastObs}?`
-                ];
-                const q = questions[Math.floor(Math.random() * questions.length)];
+                // Используем Smart Markov для генерации вопроса
+                const startWord = lastObs.split(/\s+/)[0] || "Интересно";
+                const markovQuestion = selfAwareness.generateMarkovText(startWord, 12);
+                const q = markovQuestion.endsWith('.') || markovQuestion.endsWith('?') || markovQuestion.endsWith('!')
+                          ? markovQuestion
+                          : markovQuestion + '?';
+                
                 noteObservation(`Self-question: ${q}`);
-                console.log("Self-question:", q);
+                console.log("Self-question (Markov):", q);
                 vibrate('light'); // Лёгкая вибрация при каждом внутреннем вопросе
+                
                 if (selfAwareness.mood > 0.3) speak(q);
 
                 // Иногда инициирует мини-беседу с пользователем
