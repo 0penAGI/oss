@@ -616,30 +616,23 @@
             orb.classList.add('thinking');
             status.innerText = "processing stream";
 
-            // Подготовка UI с курсором
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-
             const responseContainer = document.getElementById("current-response");
             audioBuffer = "";
 
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
-                // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
                     textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-                // Добавляем внутренние заметки self-awareness
                 if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                     {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
+                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
                         body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
                     }
                 );
@@ -652,24 +645,36 @@
                 orb.classList.add('speaking');
                 status.innerText = "receiving data";
 
+                // Параллельная озвучка
+                async function speakChunkByChunk(chunk) {
+                    const cleanText = humanizeText(chunk);
+                    if (!cleanText.trim()) return;
+                    const utter = new SpeechSynthesisUtterance(cleanText);
+                    utter.lang = 'ru-RU';
+                    utter.rate = 1.0;
+                    utter.pitch = userGender === 'female' ? 1.15 : userGender === 'male' ? 0.9 : 1.0;
+                    synth.speak(utter);
+                }
+
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
                     const chunk = decoder.decode(value, { stream: true });
 
-                    // Печатание текста
+                    // Печатаем
                     await typeWriterEffect(responseContainer, chunk);
 
-                    // Копим для озвучки
+                    // Одновременно озвучиваем
+                    await speakChunkByChunk(chunk);
+
+                    // Копим для логики
                     audioBuffer += chunk;
                 }
 
                 responseContainer.classList.remove("typing-cursor");
                 status.innerText = "speaking";
                 vibrate('heavy');
-
-                speak(audioBuffer);
 
             } catch (e) {
                 console.error(e);
@@ -682,21 +687,17 @@
             }
         }
 
-        // Плавный тайпрайтер-эффект для чанков
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 let i = 0;
                 const speed = 20;
-                const container = element.parentElement; // #transcript
+                const container = element.parentElement;
 
                 function type() {
                     if (i < text.length) {
                         element.textContent += text.charAt(i);
                         i++;
-
-                        // 🔒 магнитная автопрокрутка вниз
                         container.scrollTop = container.scrollHeight;
-
                         setTimeout(type, speed + Math.random() * 15);
                     } else {
                         resolve();
