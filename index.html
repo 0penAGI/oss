@@ -612,6 +612,23 @@
 
         // Новый потоковый вариант sendToBot с синхронной озвучкой чанков и предложениями
         async function sendToBot(text) {
+            // Очистка всех буферов и блокировок перед началом нового запроса
+            let sentenceBuffer = "";
+            let chunkBuffer = "";
+            let typewriterLock = Promise.resolve();
+            audioBuffer = "";
+
+            // Проверка блокировок речи/мышления
+            if (isSpeaking || isThinking) {
+                // Принудительно сбрасываем состояния и очищаем буферы
+                isSpeaking = false;
+                isThinking = false;
+                // speechSynthesis.cancel() может быть полезен для прерывания текущей речи
+                if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.cancel === 'function') {
+                    window.speechSynthesis.cancel();
+                }
+            }
+
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
@@ -620,7 +637,7 @@
             // Подготовка UI с курсором
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
             const responseContainer = document.getElementById("current-response");
-            audioBuffer = "";
+            // audioBuffer уже очищен выше
 
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -652,9 +669,6 @@
                 orb.classList.add('speaking');
                 status.innerText = "receiving data";
 
-                let chunkBuffer = "";
-                let sentenceBuffer = "";
-                let typewriterLock = Promise.resolve();
                 let lastSpokenIndex = 0;
                 let lastPrintedIndex = 0;
                 let fullText = "";
