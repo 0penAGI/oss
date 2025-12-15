@@ -178,6 +178,7 @@
 </head>
 <body>
     <canvas id="webgl-canvas"></canvas>
+    <canvas id="orbCanvas"></canvas>
 
     <!-- Only video element for camera -->
     <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
@@ -194,6 +195,17 @@
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
+
+        // ===== Orb WebGL init =====
+        const orbCanvas = document.getElementById("orbCanvas");
+        const gl = orbCanvas.getContext("webgl", { alpha: true });
+
+        function resizeOrb() {
+          orbCanvas.width = window.innerWidth;
+          orbCanvas.height = window.innerHeight;
+        }
+        resizeOrb();
+        window.addEventListener("resize", resizeOrb);
 
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -440,6 +452,115 @@ for (let i = 0; i < particleCount; i++) {
 
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
+
+        // ===== Orb WebGL init =====
+
+        // ===== Orb Shaders =====
+        const orbVertexShaderSrc = `
+attribute vec2 position;
+void main() {
+  gl_Position = vec4(position, 0.0, 1.0);
+}
+`;
+
+const orbFragmentShaderSrc = `
+precision highp float;
+
+uniform float time;
+uniform float mood;
+uniform float curiosity;
+uniform vec2 resolution;
+
+float noise(vec2 p) {
+  return sin(p.x) * sin(p.y);
+}
+
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for(int i = 0; i < 5; i++) {
+    v += a * noise(p);
+    p *= 2.0;
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / resolution.y;
+  float r = length(uv);
+
+  float wobble = fbm(uv * 3.0 + time * 0.25);
+  float radius = 0.35 + wobble * 0.06 + mood * 0.1;
+
+  float body = smoothstep(radius, radius - 0.18, r);
+
+  vec3 calm = vec3(0.2, 0.5, 1.0);
+  vec3 excited = vec3(1.0, 0.3, 0.7);
+  vec3 color = mix(calm, excited, curiosity);
+
+  vec3 liquid = color + wobble * 0.15;
+  liquid *= body;
+
+  float glow = smoothstep(0.6, 0.0, r) * 0.6;
+
+  gl_FragColor = vec4(liquid + glow, body);
+}
+`;
+
+        // ===== Orb Shader Program =====
+        // Get a WebGL context for the orb (create a canvas if needed)
+        let orbCanvas = document.getElementById('orbCanvas');
+        if (!orbCanvas) {
+          orbCanvas = document.createElement('canvas');
+          orbCanvas.id = 'orbCanvas';
+          document.body.appendChild(orbCanvas);
+        }
+        // Orb canvas styles: always overlay scene
+        orbCanvas.style.position = "fixed";
+        orbCanvas.style.top = "0";
+        orbCanvas.style.left = "0";
+        orbCanvas.style.pointerEvents = "none";
+        orbCanvas.style.zIndex = "10";
+        const gl = orbCanvas.getContext("webgl", { alpha: true });
+
+        function compileOrbShader(type, src) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, src);
+          gl.compileShader(shader);
+          return shader;
+        }
+
+        const orbVS = compileOrbShader(gl.VERTEX_SHADER, orbVertexShaderSrc);
+        const orbFS = compileOrbShader(gl.FRAGMENT_SHADER, orbFragmentShaderSrc);
+
+        const orbProgram = gl.createProgram();
+        gl.attachShader(orbProgram, orbVS);
+        gl.attachShader(orbProgram, orbFS);
+        gl.linkProgram(orbProgram);
+        gl.useProgram(orbProgram);
+
+        // fullscreen quad
+        const orbBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, orbBuffer);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array([
+            -1, -1,  1, -1, -1,  1,
+            -1,  1,  1, -1,  1,  1
+          ]),
+          gl.STATIC_DRAW
+        );
+
+        const orbPos = gl.getAttribLocation(orbProgram, "position");
+        gl.enableVertexAttribArray(orbPos);
+        gl.vertexAttribPointer(orbPos, 2, gl.FLOAT, false, 0, 0);
+
+        // uniforms
+        const orbTime = gl.getUniformLocation(orbProgram, "time");
+        const orbMood = gl.getUniformLocation(orbProgram, "mood");
+        const orbCuriosity = gl.getUniformLocation(orbProgram, "curiosity");
+        const orbResolution = gl.getUniformLocation(orbProgram, "resolution");
 
         // ====== Self-Awareness Layer ======
       let selfAwareness = {
@@ -868,24 +989,28 @@ for (let i = 0; i < particleCount; i++) {
             });
         }
 
+        // ===== Orb Render Loop =====
         function updateOrbVisualState() {
-            if (selfAwareness.dreaming) {
-                orb.style.boxShadow =
-                    '0 0 90px rgba(120,120,255,0.6), 0 0 140px rgba(180,180,255,0.35)';
-                return;
-            }
-            // mood влияет на цвет ауры
-            let glowColor = '255,255,255';
-            if(selfAwareness.mood < 0) {
-                glowColor = '255,50,50';
-                vibrate('light'); // Лёгкая вибрация при плохом настроении
-            }
-            else if(selfAwareness.mood > 0.5) {
-                glowColor = '50,255,50';
-                vibrate('medium'); // Средняя вибрация при хорошем настроении
-            }
-            orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
+          if (!gl || !orbProgram) return;
+
+          gl.useProgram(orbProgram);
+          gl.viewport(0, 0, orbCanvas.width, orbCanvas.height);
+
+          gl.uniform1f(orbTime, performance.now() * 0.001);
+          gl.uniform1f(orbMood, selfAwareness.mood);
+          gl.uniform1f(orbCuriosity, selfAwareness.curiosity);
+          gl.uniform2f(orbResolution, orbCanvas.width, orbCanvas.height);
+
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
         }
+
+        function animateOrb() {
+          updateOrbVisualState();
+          requestAnimationFrame(animateOrb);
+        }
+
+        // запуск дыхания Орба
+        animateOrb();
 
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
@@ -2119,3 +2244,4 @@ for (let i = 0; i < particleCount; i++) {
     </script>
 </body>
 </html>
+
