@@ -1030,6 +1030,25 @@ for (let i = 0; i < particleCount; i++) {
             if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
         }, 5000);
 
+        // === Автоматическое переключение жанра музыки по mood и curiosity ===
+        function autoSwitchGenre() {
+            if (!musicPlaying) return;
+
+            let newGenre = currentGenre;
+            if (selfAwareness.mood > 0.5 && selfAwareness.curiosity > 0.5) newGenre = 'pop';
+            else if (selfAwareness.mood < -0.3) newGenre = 'ambient';
+            else if (selfAwareness.curiosity > 0.7) newGenre = 'electro';
+            else newGenre = 'jazz';
+
+            if (newGenre !== currentGenre) {
+                setGenre(newGenre);
+                console.log(`Genre auto-switched to ${newGenre}`);
+            }
+        }
+
+        // Запуск автопереключения каждые 10 секунд
+        setInterval(autoSwitchGenre, 100000);
+
         // Интеграция с orb
         orb.addEventListener('click', () => {
             if (musicCtx.state === 'suspended') musicCtx.resume();
@@ -1336,7 +1355,7 @@ for (let i = 0; i < particleCount; i++) {
                 utter.onstart = () => {
                     vibrateSpeaking();
                     // Автозапуск музыки по определённым фразам
-                    if (/включаю музыку|начинаю воспроизведение/i.test(s)) {
+                    if (/включаю музыку/нажимаю шар/|начинаю воспроизведение/i.test(s)) {
                         triggerOrbClick();
                     }
                 };
