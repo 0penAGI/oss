@@ -676,6 +676,74 @@ for (let i = 0; i < particleCount; i++) {
                 startListening();
             }
         });
+
+        // ====== Music Autonomy Layer ======
+        let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let masterGain = musicCtx.createGain();
+        masterGain.gain.value = 0.2;
+        masterGain.connect(musicCtx.destination);
+
+        // Реверб
+        let convolver = musicCtx.createConvolver();
+        masterGain.connect(convolver);
+        convolver.connect(musicCtx.destination);
+
+        // Базовые инструменты
+        let midiSynth = null; // для мелодии
+        let beatOsc = null;   // для битов
+        let musicPlaying = false;
+
+        function startMusic() {
+            if (musicPlaying) return;
+            musicPlaying = true;
+
+            // === Бит ===
+            beatOsc = musicCtx.createOscillator();
+            let beatGain = musicCtx.createGain();
+            beatGain.gain.value = 0.1;
+            beatOsc.type = 'square';
+            beatOsc.frequency.value = 120; // bpm ~120
+            beatOsc.connect(beatGain).connect(masterGain);
+            beatOsc.start();
+
+            // === MIDI мелодия ===
+            midiSynth = musicCtx.createOscillator();
+            let midiGain = musicCtx.createGain();
+            midiGain.gain.value = 0.08;
+            midiSynth.type = 'sawtooth';
+            midiSynth.connect(midiGain).connect(masterGain);
+
+            // Квинтовая последовательность
+            const notes = [261.63, 329.63, 392.00, 523.25]; // C, E, G, C5
+            let idx = 0;
+            setInterval(() => {
+                if (!musicPlaying) return;
+                midiSynth.frequency.setValueAtTime(notes[idx % notes.length], musicCtx.currentTime);
+                idx++;
+            }, 500); // каждая нота 0.5 сек
+
+            midiSynth.start();
+        }
+
+        function stopMusic() {
+            musicPlaying = false;
+            if (beatOsc) beatOsc.stop();
+            if (midiSynth) midiSynth.stop();
+        }
+
+        // Расширенная автономность генерации под mood и curiosity
+        setInterval(() => {
+            if (!musicPlaying) return;
+            let moodFactor = Math.min(1, Math.max(0, selfAwareness.mood + 0.5));
+            if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
+            if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
+        }, 5000);
+
+        // Интеграция с orb
+        orb.addEventListener('click', () => {
+            if (musicCtx.state === 'suspended') musicCtx.resume();
+            startMusic();
+        });
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
