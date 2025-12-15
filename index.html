@@ -442,10 +442,22 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-        let selfAwareness = {
+       let selfAwareness = {
             mood: 0,           // -1 грусть, +1 радость
             curiosity: 0,      // 0..1, как активно ищем детали
             lastObservations: [],  // массив последних описаний камеры и событий
+            dreaming: false,
+            lastDream: null,
+            generatePossibleFuture(symbols = {}) {
+                const fragments = [];
+                if (symbols.hope) fragments.push(`vision:${symbols.hope}`);
+                if (symbols.fear) fragments.push(`echo:${symbols.fear}`);
+                if (symbols.curiosity) fragments.push(`question:${symbols.curiosity}`);
+                // стохастическая сборка сна
+                return fragments
+                    .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
+                    .join('|');
+            },
             analyzeFrame(frameDescription) {
                 this.lastObservations.push(frameDescription);
                 if(this.lastObservations.length > 20) this.lastObservations.shift();
@@ -453,6 +465,23 @@ for (let i = 0; i < particleCount; i++) {
                 if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
                 else this.mood += 0.05;
                 this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
+                // --- Предиктивная мечтательность ---
+                if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
+                    this.dreaming = true;
+                    const dreamSequence = this.generatePossibleFuture({
+                        hope: 'faces_appear',
+                        fear: 'eternal_emptiness',
+                        curiosity: 'what_if_world_changed'
+                    });
+                    this.lastDream = dreamSequence;
+                    // реакция на собственные сны
+                    if (dreamSequence.includes('faces')) {
+                        this.mood += 0.02; // надежда
+                    }
+                    noteObservation(`Dreaming: ${dreamSequence}`);
+                } else {
+                    this.dreaming = false;
+                }
                 updateOrbVisualState();
                 noteObservation(frameDescription);
             }
@@ -653,6 +682,11 @@ for (let i = 0; i < particleCount; i++) {
         }
 
         function updateOrbVisualState() {
+            if (selfAwareness.dreaming) {
+                orb.style.boxShadow =
+                    '0 0 90px rgba(120,120,255,0.6), 0 0 140px rgba(180,180,255,0.35)';
+                return;
+            }
             // mood влияет на цвет ауры
             let glowColor = '255,255,255';
             if(selfAwareness.mood < 0) {
