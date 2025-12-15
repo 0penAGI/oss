@@ -555,10 +555,19 @@
             });
         }
         
+        // Гуманизация текста: убирает лишние пробелы и добавляет паузы
+        function humanizeText(text) {
+            let clean = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+            clean = clean.replace(/\s+/g, ' ').trim();
+            return clean;
+        }
+
+        // Говорит текст, разбивая на предложения для естественности
         function speak(text) {
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
             status.innerText = "speaking";
+            isSpeaking = true;
 
             // gender-aware voice tuning
             let rate = 1.0;
@@ -567,26 +576,43 @@
             if (userGender === 'male') pitch = 0.9;
             if (userGender === 'nonbinary') pitch = 1.0;
 
-            const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+            const cleanText = humanizeText(text);
+            // Разбиваем на предложения (точка, вопрос, восклицание)
+            let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
 
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'ru-RU';
-            utterance.rate = rate;
-            utterance.pitch = pitch;
-
-            utterance.onend = () => {
-                orb.classList.remove('speaking');
-                isSpeaking = false;
-                status.innerText = "listening";
-                vibrate('light');
-                startListening();
-            };
-
-            synth.speak(utterance);
+            let idx = 0;
+            function speakNext() {
+                if (idx >= sentences.length) {
+                    orb.classList.remove('speaking');
+                    isSpeaking = false;
+                    status.innerText = "listening";
+                    vibrate('light');
+                    startListening();
+                    return;
+                }
+                let s = sentences[idx].trim();
+                if (!s) { idx++; speakNext(); return; }
+                const utter = new SpeechSynthesisUtterance(s);
+                utter.lang = 'ru-RU';
+                utter.rate = rate;
+                utter.pitch = pitch;
+                utter.onend = () => {
+                    idx++;
+                    // Короткая пауза между предложениями
+                    setTimeout(speakNext, 120);
+                };
+                synth.speak(utter);
+            }
+            speakNext();
         }
         
+        // Исправленный обработчик клика для orb с поддержкой iOS resume
         orb.addEventListener('click', () => {
             vibrate('medium');
+            // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
+            if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
+                window.speechSynthesis.resume();
+            }
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
@@ -913,3 +939,4 @@
     </script>
 </body>
 </html>
+
