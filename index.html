@@ -1711,10 +1711,12 @@ for (let i = 0; i < particleCount; i++) {
                 if (!speechStarted) {
                     speechStarted = true;
 
-                    // старт речи одновременно с началом печати (вязкое микро‑смещение)
+                    // считаем первый чанк уже озвученным,
+                    // чтобы он не попал в delta и не сказалcя второй раз
+                    spokenLength = audioBuffer.length;
+
                     setTimeout(() => {
                         speak(chunk);
-                        spokenLength = audioBuffer.length;
                     }, 120);
                 }
 
