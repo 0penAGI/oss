@@ -407,6 +407,22 @@
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
 
+            // === Реакция на голос ===
+            if (orb.classList.contains('speaking')) {
+                const scaleFactor = 1 + Math.sin(material.uniforms.time.value * 10) * 0.3;
+                particles.scale.set(scaleFactor, scaleFactor, scaleFactor);
+
+                // слегка "встряхиваем" позиции частиц
+                const positions = geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += (Math.random() - 0.5) * 0.02;
+                    positions[i + 1] += (Math.random() - 0.5) * 0.02;
+                }
+                geometry.attributes.position.needsUpdate = true;
+            } else {
+                particles.scale.set(1, 1, 1);
+            }
+
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
