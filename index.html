@@ -610,7 +610,7 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
 
-        // Новый потоковый вариант sendToBot с синхронной озвучкой чанков и предложениями
+        // Новый потоковый вариант sendToBot с синхронной озвучкой чанков и предложениями (заменённая версия)
         async function sendToBot(text) {
             // Очистка всех буферов и блокировок перед началом нового запроса
             let sentenceBuffer = "";
@@ -618,18 +618,13 @@
             let typewriterLock = Promise.resolve();
             audioBuffer = "";
 
-            // Таймер для незавершённых предложений
             let speakTimeout = null;
             const SPEAK_DEBOUNCE_MS = 700;
-            // Promise для последовательной озвучки
             let speakPromise = Promise.resolve();
 
-            // Проверка блокировок речи/мышления
             if (isSpeaking || isThinking) {
-                // Принудительно сбрасываем состояния и очищаем буферы
                 isSpeaking = false;
                 isThinking = false;
-                // speechSynthesis.cancel() может быть полезен для прерывания текущей речи
                 if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.cancel === 'function') {
                     window.speechSynthesis.cancel();
                 }
@@ -640,12 +635,9 @@
             orb.classList.add('thinking');
             status.innerText = "processing stream";
 
-            // Подготовка UI с курсором
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
             const responseContainer = document.getElementById("current-response");
-            // audioBuffer уже очищен выше
 
-            // Функция для озвучки остатка предложения по debounce
             async function speakRestIfAny(flush = false) {
                 if (speakTimeout) {
                     clearTimeout(speakTimeout);
@@ -654,20 +646,26 @@
                 let rest = sentenceBuffer.trim();
                 if (rest) {
                     sentenceBuffer = "";
-                    // Гарантируем последовательность озвучки
-                    speakPromise = speakPromise.then(() => speakChunk(rest));
-                    await speakPromise;
+                    if (flush) {
+                        speakPromise = speakPromise.then(() => speakChunk(rest));
+                        await speakPromise;
+                    } else {
+                        let regex = /[^.!?]+[.!?]+/g;
+                        let match = regex.exec(rest);
+                        if (match) {
+                            speakPromise = speakPromise.then(() => speakChunk(match[0]));
+                            await speakPromise;
+                        }
+                    }
                 }
             }
 
             try {
                 const userId = tg?.initDataUnsafe?.user?.id || 0;
-                // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
                     textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-                // Добавляем внутренние заметки self-awareness
                 if (internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
                 const response = await fetch(
@@ -691,28 +689,17 @@
                 status.innerText = "receiving data";
 
                 let lastSpokenIndex = 0;
-                let lastPrintedIndex = 0;
-                let fullText = "";
-                let doneReading = false;
+                let typewriterLock = Promise.resolve();
 
-                // Печать и озвучка по мере поступления чанков
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) {
-                        doneReading = true;
-                        break;
-                    }
+                    if (done) break;
                     const chunk = decoder.decode(value, { stream: true });
                     chunkBuffer += chunk;
-                    fullText += chunk;
 
-                    // Печатание текста (typewriter-эффект по chunk)
-                    // Гарантируем последовательность
                     typewriterLock = typewriterLock.then(() => typeWriterEffect(responseContainer, chunk));
 
-                    // Копим предложения для озвучки
                     sentenceBuffer += chunk;
-                    // Разбиваем sentenceBuffer на предложения
                     let sentences = [];
                     let regex = /[^.!?]+[.!?]+/g;
                     let match;
@@ -724,47 +711,39 @@
                         sentences.push({ text: s, start, end });
                         lastIndex = end;
                     }
-                    // Если есть хотя бы одно полное предложение, озвучиваем их по порядку
+
                     if (sentences.length > 0) {
-                        // Берём все завершённые предложения кроме последнего (оставляем незавершённое в sentenceBuffer)
                         let toSpeak = sentences.map(s => s.text);
-                        // Последний может быть неполным, если не заканчивается на .!? - оставим его в sentenceBuffer
                         let lastSentence = sentences[sentences.length - 1];
                         if (lastSentence && lastSentence.end < sentenceBuffer.length) {
-                            // Последнее предложение не завершено, не озвучиваем его сейчас
                             toSpeak.pop();
                         }
-                        // Озвучиваем каждое завершённое предложение по очереди
                         for (let s of toSpeak) {
-                            // Гарантируем последовательность озвучки
                             speakPromise = speakPromise.then(() => speakChunk(s));
                             await speakPromise;
                             lastSpokenIndex += s.length;
                         }
-                        // Оставляем в sentenceBuffer только незавершённую часть
                         sentenceBuffer = sentenceBuffer.slice(lastIndex);
                     }
-                    // Если есть незавершённое предложение, ставим debounce-таймер на его озвучку
+
                     if (sentenceBuffer.trim()) {
                         if (speakTimeout) clearTimeout(speakTimeout);
                         speakTimeout = setTimeout(() => {
-                            // Гарантируем последовательность озвучки
                             speakPromise = speakPromise.then(() => speakRestIfAny());
                         }, SPEAK_DEBOUNCE_MS);
                     }
                 }
 
-                // Дожидаемся окончания печати
                 await typewriterLock;
                 responseContainer.classList.remove("typing-cursor");
                 status.innerText = "speaking";
                 vibrate('heavy');
 
-                // По завершении чтения: отменяем таймер и озвучиваем остаток
                 if (speakTimeout) {
                     clearTimeout(speakTimeout);
                     speakTimeout = null;
                 }
+
                 await speakRestIfAny(true);
 
                 orb.classList.remove('speaking');
