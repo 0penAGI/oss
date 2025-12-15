@@ -699,84 +699,121 @@ for (let i = 0; i < particleCount; i++) {
         let beatOsc = null;   // для битов
         let musicPlaying = false;
 
+        // --- Музыкальный слой: попсовая ритмика, аккорды, синт/пиано, темп 120 BPM ---
         function startMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
 
-            // Реверберация
-            const convolver = musicCtx.createConvolver();
-            fetch('path_to_ir.wav')
-                .then(r => r.arrayBuffer())
-                .then(d => musicCtx.decodeAudioData(d))
-                .then(buffer => { convolver.buffer = buffer; });
-            // Подключаем masterGain к convolver (уже сделано выше), а convolver к masterLP (уже сделано выше)
-            // convolver.connect(masterLP); // уже подключено глобально
-
-            // Фильтр для битов
-            const lpFilter = musicCtx.createBiquadFilter();
-            lpFilter.type = 'lowpass';
-            lpFilter.frequency.value = 6000;
-            // Подключаем битовый фильтр к masterGain, а masterGain уже идёт через masterLP
-            lpFilter.connect(masterGain);
-
-            // генерация битов
-            const beatsCount = 4;
-            const beatGains = [];
-            for (let i = 0; i < beatsCount; i++) {
-                const osc = musicCtx.createOscillator();
-                osc.type = 'square';
-                osc.frequency.value = 80 + i*20;
-                const gainNode = musicCtx.createGain();
-                gainNode.gain.value = 0.18;
-                osc.connect(gainNode).connect(lpFilter);
-                osc.start();
-                beatGains.push(gainNode);
+            // Реверберация — уже подключена выше (masterGain → convolver → masterLP → musicCtx.destination)
+            // Но если IR не был загружен — загрузить его (если надо)
+            if (!convolver.buffer) {
+                fetch('path_to_ir.wav')
+                    .then(r => r.arrayBuffer())
+                    .then(d => musicCtx.decodeAudioData(d))
+                    .then(buffer => { convolver.buffer = buffer; });
             }
 
-            // === MIDI мелодия ===
-            midiSynth = musicCtx.createOscillator();
-            const midiGain = musicCtx.createGain();
-            midiGain.gain.value = 0.08;
+            // --- Темп и ритм ---
+            const BPM = 120;
+            const quarter = 60 / BPM; // Длительность четверти
+            const scheduleAheadTime = 0.2; // Сколько вперёд планируем
+            let nextNoteTime = musicCtx.currentTime + 0.1;
+            let step = 0;
 
-            const haasDelay = musicCtx.createDelay();
-            haasDelay.delayTime.value = 0.02;
-            midiSynth.connect(midiGain).connect(haasDelay);
-            // Haas эффект идёт на masterGain, который теперь идёт далее через masterLP
-            haasDelay.connect(masterGain);
+            // --- Прямые попсовые бочки (kick drum) ---
+            // Используем короткие синус/квадратные всплески 60–100 Гц, ритм 4/4
+            function scheduleKick(time) {
+                const osc = musicCtx.createOscillator();
+                osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+                osc.frequency.setValueAtTime(80, time);
+                osc.frequency.linearRampToValueAtTime(60, time + 0.06);
+                const gain = musicCtx.createGain();
+                gain.gain.setValueAtTime(1.0, time);
+                gain.gain.linearRampToValueAtTime(0.0, time + 0.08);
+                osc.connect(gain).connect(masterGain);
+                osc.start(time);
+                osc.stop(time + 0.09);
+            }
 
-            const panner = musicCtx.createPanner();
-            panner.panningModel = 'HRTF';
-            panner.distanceModel = 'linear';
-            panner.positionX.setValueAtTime(0, musicCtx.currentTime);
-            panner.positionY.setValueAtTime(0, musicCtx.currentTime);
-            panner.positionZ.setValueAtTime(1, musicCtx.currentTime);
-            // Doppler также идёт на masterGain → masterLP
-            haasDelay.connect(panner).connect(masterGain);
-
-            midiSynth.type = 'sawtooth';
-            midiSynth.start();
-
-            // разнообразные паттерны мелодий
-            const patterns = [
-                [261.63, 329.63, 392.00, 523.25],          // C-E-G-C5
-                [293.66, 349.23, 440.00, 587.33],          // D-F-A-D5
-                [329.63, 415.30, 493.88, 659.26],          // E-G#-B-E5
-                [349.23, 440.00, 523.25, 698.46]           // F-A-C-F5
+            // --- Популярные аккорды: Am, Cm, Dm, F ---
+            // Triads: Am = A3-C4-E4, Cm = C4-Eb4-G4, Dm = D4-F4-A4, F = F4-A4-C5
+            const chordDefs = [
+                { name: 'Am', notes: [220.00, 261.63, 329.63] }, // A3, C4, E4
+                { name: 'Cm', notes: [261.63, 311.13, 392.00] }, // C4, Eb4, G4
+                { name: 'Dm', notes: [293.66, 349.23, 440.00] }, // D4, F4, A4
+                { name: 'F',  notes: [349.23, 440.00, 523.25] }  // F4, A4, C5
             ];
-            let idx = 0;
-            setInterval(() => {
-                const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-                const note = pattern[idx % pattern.length];
-                const detune = (Math.random()-0.5)*50; // живость
-                midiSynth.frequency.setValueAtTime(note, musicCtx.currentTime);
-                midiSynth.detune.setValueAtTime(detune, musicCtx.currentTime);
+            let chordIdx = 0;
 
-                // панорама Doppler
-                panner.positionX.setValueAtTime(Math.sin(Date.now()/1000)*1, musicCtx.currentTime);
-                panner.positionZ.setValueAtTime(1 + Math.cos(Date.now()/1000)*0.5, musicCtx.currentTime);
+            function scheduleChord(time, chord) {
+                // Можно заменить на AudioBufferSource для живых сэмплов (см. ниже)
+                chord.notes.forEach((freq, i) => {
+                    const osc = musicCtx.createOscillator();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    const gain = musicCtx.createGain();
+                    // Быстрая атака и decay для pop звучания
+                    gain.gain.setValueAtTime(0.0, time);
+                    gain.gain.linearRampToValueAtTime(0.32, time + 0.02 + i*0.01);
+                    gain.gain.linearRampToValueAtTime(0.08, time + quarter*0.6);
+                    gain.gain.linearRampToValueAtTime(0.0, time + quarter*0.95);
+                    osc.connect(gain).connect(masterGain);
+                    osc.start(time);
+                    osc.stop(time + quarter*0.99);
+                });
+                // --- Место для живых сэмплов гитары/пиано ---
+                // Пример:
+                // const sampleSource = musicCtx.createBufferSource();
+                // sampleSource.buffer = guitarChordBuffers[chord.name]; // AudioBuffer сэмпла
+                // sampleSource.connect(masterGain);
+                // sampleSource.start(time);
+            }
 
-                idx++;
-            }, 400 + Math.random()*200); // случайная длительность между нотами
+            // --- Слой пиано/синтов (живые линии поверх аккордов) ---
+            function schedulePianoLine(time, chord) {
+                // Живое звучание: sawtooth/triangle, короткие ноты, var detune
+                const pattern = [
+                    chord.notes[1], chord.notes[2], chord.notes[0] + 12, chord.notes[1]
+                ];
+                pattern.forEach((freq, i) => {
+                    const osc = musicCtx.createOscillator();
+                    osc.type = Math.random() > 0.5 ? 'sawtooth' : 'triangle';
+                    osc.frequency.value = freq * (Math.random() > 0.5 ? 2 : 1); // иногда октава выше
+                    osc.detune.value = (Math.random()-0.5)*18;
+                    const gain = musicCtx.createGain();
+                    gain.gain.setValueAtTime(0.0, time + i*quarter/4);
+                    gain.gain.linearRampToValueAtTime(0.13, time + i*quarter/4 + 0.01);
+                    gain.gain.linearRampToValueAtTime(0.0, time + i*quarter/4 + 0.13);
+                    osc.connect(gain).connect(masterGain);
+                    osc.start(time + i*quarter/4);
+                    osc.stop(time + i*quarter/4 + 0.15);
+                });
+                // --- Место для живых сэмплов пиано ---
+                // Пример:
+                // const sampleSource = musicCtx.createBufferSource();
+                // sampleSource.buffer = pianoLineBuffers[chord.name]; // AudioBuffer сэмпла
+                // sampleSource.connect(masterGain);
+                // sampleSource.start(time);
+            }
+
+            // --- Синхронизация всех слоёв ---
+            function scheduler() {
+                while (nextNoteTime < musicCtx.currentTime + scheduleAheadTime) {
+                    // Прямые бочки (kick) на каждую четверть
+                    scheduleKick(nextNoteTime);
+                    // Аккорд на первый удар такта (раз в 4 четверти)
+                    if (step % 4 === 0) {
+                        const chord = chordDefs[chordIdx % chordDefs.length];
+                        scheduleChord(nextNoteTime, chord);
+                        schedulePianoLine(nextNoteTime, chord);
+                        chordIdx++;
+                    }
+                    nextNoteTime += quarter;
+                    step++;
+                }
+                if (musicPlaying) setTimeout(scheduler, 50);
+            }
+            scheduler();
         }
 
         function stopMusic() {
