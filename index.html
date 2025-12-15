@@ -1658,6 +1658,9 @@ for (let i = 0; i < particleCount; i++) {
 
         const responseContainer = document.getElementById("current-response");
         audioBuffer = "";
+        // --- sDelay-driven speech sync ---
+        let speechStarted = false;
+        const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
         try {
             const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -1702,6 +1705,14 @@ for (let i = 0; i < particleCount; i++) {
 
                 // Копим для озвучки
                 audioBuffer += chunk;
+
+                // --- старт речи синхронно с печатью через sDelay ---
+                if (!speechStarted && audioBuffer.length > 24) {
+                    speechStarted = true;
+                    setTimeout(() => {
+                        speak(audioBuffer);
+                    }, speechDelayMs);
+                }
             }
 
             responseContainer.classList.remove("typing-cursor");
@@ -1710,7 +1721,10 @@ for (let i = 0; i < particleCount; i++) {
             if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
             else if (navigator.vibrate) navigator.vibrate([60]);
 
-            speak(audioBuffer);
+            // если речь уже запущена — не дублируем
+            if (!speechStarted) {
+                speak(audioBuffer);
+            }
 
         } catch (e) {
             console.error(e);
@@ -1729,7 +1743,10 @@ for (let i = 0; i < particleCount; i++) {
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 let i = 0;
-                const speed = 20;
+                // sDelay как вязкая среда времени для печати
+                const baseSpeed = 14;
+                const viscous = 1 + Math.sin(performance.now() * 0.001) * 0.35;
+                const speed = baseSpeed * viscous;
                 const container = element.parentElement; // #transcript
 
                 function type() {
