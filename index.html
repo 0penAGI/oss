@@ -354,64 +354,6 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        // === Dust Glow Particles Layer ===
-        // Добавляем отдельный слой "пыли" вокруг орба для глубины и атмосферы
-        const dustParticleCount = 800;
-        const dustPositions = new Float32Array(dustParticleCount * 3);
-        const dustSizes = new Float32Array(dustParticleCount);
-        const dustColors = new Float32Array(dustParticleCount * 3);
-        for (let i = 0; i < dustParticleCount; i++) {
-            // Распределяем частицы в сферическом облаке вокруг центра (орба)
-            const radius = 1.2 + Math.random() * 1.8; // радиус облака пыли
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            dustPositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-            dustPositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-            dustPositions[i * 3 + 2] = radius * Math.cos(phi);
-            dustSizes[i] = 7 + Math.random() * 15;
-            // Цвета: мягкие пастельные оттенки
-            const pastel = 0.7 + Math.random() * 0.3;
-            dustColors[i * 3] = pastel * (0.8 + Math.random() * 0.2);
-            dustColors[i * 3 + 1] = pastel * (0.7 + Math.random() * 0.3);
-            dustColors[i * 3 + 2] = pastel * (0.9 + Math.random() * 0.1);
-        }
-        const dustGeometry = new THREE.BufferGeometry();
-        dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
-        dustGeometry.setAttribute('size', new THREE.BufferAttribute(dustSizes, 1));
-        dustGeometry.setAttribute('customColor', new THREE.BufferAttribute(dustColors, 3));
-
-        const dustMaterial = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
-            vertexShader: `
-                attribute float size;
-                attribute vec3 customColor;
-                varying vec3 vColor;
-                void main() {
-                    vColor = customColor;
-                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                    gl_PointSize = size * (180.0 / -mvPosition.z);
-                    gl_Position = projectionMatrix * mvPosition;
-                }
-            `,
-            fragmentShader: `
-                uniform float time;
-                varying vec3 vColor;
-                void main() {
-                    float dist = length(gl_PointCoord - vec2(0.5));
-                    float alpha = 0.13 * (1.0 - smoothstep(0.0, 0.5, dist));
-                    // Лёгкая анимация мерцания
-                    float flicker = 0.7 + 0.3 * sin(time * 0.7 + vColor.r * 8.0 + gl_FragCoord.x * 0.01);
-                    gl_FragColor = vec4(vColor * flicker, alpha);
-                }
-            `,
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
-        });
-        const dustParticles = new THREE.Points(dustGeometry, dustMaterial);
-        scene.add(dustParticles);
-
-
         // === Liquid Glass Layer ===
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
@@ -459,21 +401,11 @@
         feedbackScene.add(liquidMesh);
 
         // Update animate() to include liquid layer
-        // === Переопределяем animate для поддержки слоя пыли ===
         function animate() {
             requestAnimationFrame(animate);
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
-
-            // --- Dust particles animation ---
-            dustMaterial.uniforms.time.value += 0.012;
-            dustParticles.rotation.y += 0.00013;
-            dustParticles.rotation.x += 0.00007;
-            // Лёгкое "дыхание" облака пыли
-            const t = performance.now() * 0.0002;
-            dustParticles.position.x = Math.sin(t) * 0.07;
-            dustParticles.position.y = Math.cos(t * 0.8) * 0.07;
 
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
