@@ -682,7 +682,7 @@ for (let i = 0; i < particleCount; i++) {
 
             if (tapCount >= 5) {
                 // пасхалка
-                speak("Эй, ну всё! Хватит тыкать!!");
+                speak("Эй, ну всё! Хватит тыкать!");
                 tapCount = 0;
                 return;
             }
@@ -696,6 +696,66 @@ for (let i = 0; i < particleCount; i++) {
         });
 
         // ====== Music Autonomy Layer ======
+// ====== Granular + Neural Morphing Layer ======
+let musicGenome = {
+    tempo: Math.random(),
+    density: Math.random(),
+    brightness: Math.random(),
+    chaos: Math.random(),
+    harmony: Math.random()
+};
+
+function neuralMorph(state) {
+    Object.keys(state).forEach(k => {
+        const drift = (Math.random() - 0.5) * 0.04;
+        state[k] = Math.min(1, Math.max(0, state[k] + drift));
+    });
+}
+
+// --- Granular Engine ---
+class GranularEngine {
+    constructor(ctx, buffer) {
+        this.ctx = ctx;
+        this.buffer = buffer;
+        this.output = ctx.createGain();
+        this.output.gain.value = 0.25;
+        this.isPlaying = false;
+    }
+
+    start() {
+        this.isPlaying = true;
+        const spawn = () => {
+            if (!this.isPlaying) return;
+
+            const grain = this.ctx.createBufferSource();
+            grain.buffer = this.buffer;
+            grain.playbackRate.value =
+                0.4 + musicGenome.harmony * 1.6 +
+                (Math.random() - 0.5) * musicGenome.chaos;
+
+            const gain = this.ctx.createGain();
+            gain.gain.value = 0.05 + Math.random() * 0.15;
+
+            const now = this.ctx.currentTime;
+            const grainSize = 0.03 + musicGenome.density * 0.28;
+            const offset = Math.random() * Math.max(0.01, this.buffer.duration - grainSize);
+
+            grain.connect(gain).connect(this.output);
+            grain.start(now, offset, grainSize);
+            grain.stop(now + grainSize);
+
+            setTimeout(
+                spawn,
+                30 + Math.random() * (220 - musicGenome.density * 180)
+            );
+        };
+        spawn();
+    }
+
+    stop() { this.isPlaying = false; }
+}
+
+let granularEngine = null;
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
@@ -735,6 +795,13 @@ for (let i = 0; i < particleCount; i++) {
             if (musicPlaying) return;
             musicPlaying = true;
 
+            const genomeBPM = 60 + musicGenome.tempo * 100;
+
+            masterLP.frequency.setValueAtTime(
+                500 + musicGenome.brightness * 9000,
+                musicCtx.currentTime
+            );
+
             // === Delay эффект: создаём echo-слой ===
             // DelayNode + echoGain
             let delayNode = musicCtx.createDelay();
@@ -757,6 +824,17 @@ for (let i = 0; i < particleCount; i++) {
                     .then(d => musicCtx.decodeAudioData(d))
                     .then(buffer => { convolver.buffer = buffer; });
             }
+
+            fetch('https://cdn.jsdelivr.net/gh/mattdesl/audio-buffer-utils@master/examples/assets/noise.wav')
+                .then(r => r.arrayBuffer())
+                .then(b => musicCtx.decodeAudioData(b))
+                .then(buffer => {
+                    granularEngine = new GranularEngine(musicCtx, buffer);
+                    granularEngine.output.connect(convolver);
+                    granularEngine.output.connect(masterGain);
+                    granularEngine.start();
+                })
+                .catch(()=>{});
 
             // --- Темп и ритм в зависимости от жанра ---
             let BPM, beatPattern, swing, arpeggio, reverbSendLevel;
@@ -796,6 +874,7 @@ for (let i = 0; i < particleCount; i++) {
                     arpeggio = false;
                     reverbSendLevel = 0.25;
             }
+            BPM = genomeBPM;
             const quarter = 60 / BPM;
             const scheduleAheadTime = 0.2;
             let nextNoteTime = musicCtx.currentTime + 0.1;
@@ -1020,10 +1099,18 @@ for (let i = 0; i < particleCount; i++) {
             musicPlaying = false;
             if (beatOsc) beatOsc.stop();
             if (midiSynth) midiSynth.stop();
+            if (granularEngine) granularEngine.stop();
         }
 
         // Расширенная автономность генерации под mood и curiosity
         setInterval(() => {
+            neuralMorph(musicGenome);
+
+            const newLP = 600 + musicGenome.brightness * 8000;
+            masterLP.frequency.linearRampToValueAtTime(
+                newLP,
+                musicCtx.currentTime + 1.5
+            );
             if (!musicPlaying) return;
             let moodFactor = Math.min(1, Math.max(0, selfAwareness.mood + 0.5));
             if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
