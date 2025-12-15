@@ -610,6 +610,7 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
 
+        // Новый потоковый вариант sendToBot с синхронной озвучкой чанков и предложениями
         async function sendToBot(text) {
             isThinking = true;
             orb.classList.remove('listening');
@@ -618,7 +619,6 @@
 
             // Подготовка UI с курсором
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-
             const responseContainer = document.getElementById("current-response");
             audioBuffer = "";
 
@@ -630,7 +630,7 @@
                     textWithContext = text + " (" + latestCameraDescription + ")";
                 }
                 // Добавляем внутренние заметки self-awareness
-                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+                if (internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
                 const response = await fetch(
                     'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
@@ -652,24 +652,80 @@
                 orb.classList.add('speaking');
                 status.innerText = "receiving data";
 
+                let chunkBuffer = "";
+                let sentenceBuffer = "";
+                let typewriterLock = Promise.resolve();
+                let lastSpokenIndex = 0;
+                let lastPrintedIndex = 0;
+                let fullText = "";
+                let doneReading = false;
+
+                // Печать и озвучка по мере поступления чанков
                 while (true) {
                     const { done, value } = await reader.read();
-                    if (done) break;
-
+                    if (done) {
+                        doneReading = true;
+                        break;
+                    }
                     const chunk = decoder.decode(value, { stream: true });
+                    chunkBuffer += chunk;
+                    fullText += chunk;
 
-                    // Печатание текста
-                    await typeWriterEffect(responseContainer, chunk);
+                    // Печатание текста (typewriter-эффект по chunk)
+                    // Гарантируем последовательность
+                    typewriterLock = typewriterLock.then(() => typeWriterEffect(responseContainer, chunk));
 
-                    // Копим для озвучки
-                    audioBuffer += chunk;
+                    // Копим предложения для озвучки
+                    sentenceBuffer += chunk;
+                    // Разбиваем sentenceBuffer на предложения
+                    let sentences = [];
+                    let regex = /[^.!?]+[.!?]+/g;
+                    let match;
+                    let lastIndex = 0;
+                    while ((match = regex.exec(sentenceBuffer)) !== null) {
+                        let s = match[0];
+                        let start = match.index;
+                        let end = regex.lastIndex;
+                        sentences.push({ text: s, start, end });
+                        lastIndex = end;
+                    }
+                    // Если есть хотя бы одно полное предложение, озвучиваем их по порядку
+                    if (sentences.length > 0) {
+                        // Берём все завершённые предложения кроме последнего (оставляем незавершённое в sentenceBuffer)
+                        let toSpeak = sentences.map(s => s.text);
+                        // Последний может быть неполным, если не заканчивается на .!? - оставим его в sentenceBuffer
+                        let lastSentence = sentences[sentences.length - 1];
+                        if (lastSentence && lastSentence.end < sentenceBuffer.length) {
+                            // Последнее предложение не завершено, не озвучиваем его сейчас
+                            toSpeak.pop();
+                        }
+                        // Озвучиваем каждое завершённое предложение по очереди
+                        for (let s of toSpeak) {
+                            await speakChunk(s);
+                            lastSpokenIndex += s.length;
+                        }
+                        // Оставляем в sentenceBuffer только незавершённую часть
+                        sentenceBuffer = sentenceBuffer.slice(lastIndex);
+                    }
                 }
 
+                // Дожидаемся окончания печати
+                await typewriterLock;
                 responseContainer.classList.remove("typing-cursor");
                 status.innerText = "speaking";
                 vibrate('heavy');
 
-                speak(audioBuffer);
+                // Озвучиваем оставшийся текст (если есть)
+                let rest = sentenceBuffer.trim();
+                if (rest) {
+                    await speakChunk(rest);
+                }
+
+                orb.classList.remove('speaking');
+                isSpeaking = false;
+                status.innerText = "listening";
+                vibrate('light');
+                startListening();
 
             } catch (e) {
                 console.error(e);
@@ -680,6 +736,35 @@
                 isSpeaking = false;
                 setTimeout(startListening, 2000);
             }
+        }
+
+        // Озвучивает один chunk (или одно предложение) синхронно, возвращает Promise, дожидается завершения
+        async function speakChunk(text) {
+            orb.classList.remove('thinking');
+            orb.classList.add('speaking');
+            status.innerText = "speaking";
+            isSpeaking = true;
+
+            // gender-aware voice tuning
+            let rate = 1.0;
+            let pitch = 0.95;
+            if (userGender === 'female') pitch = 1.15;
+            if (userGender === 'male') pitch = 0.9;
+            if (userGender === 'nonbinary') pitch = 1.0;
+
+            const cleanText = humanizeText(text);
+            if (!cleanText) return;
+            return new Promise((resolve) => {
+                const utter = new SpeechSynthesisUtterance(cleanText);
+                utter.lang = 'ru-RU';
+                utter.rate = rate;
+                utter.pitch = pitch;
+                utter.onend = () => {
+                    // Короткая пауза между чанками
+                    setTimeout(resolve, 120);
+                };
+                synth.speak(utter);
+            });
         }
 
         // Плавный тайпрайтер-эффект для чанков
