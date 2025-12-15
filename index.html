@@ -1287,6 +1287,15 @@ for (let i = 0; i < particleCount; i++) {
         }
 
         // Говорит текст, разбивая на предложения для естественности
+        function triggerOrbClick() {
+            const clickEvent = new MouseEvent('click', {
+                view: window,
+                bubbles: true,
+                cancelable: true
+            });
+            orb.dispatchEvent(clickEvent);
+        }
+
         function speak(text) {
             stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
             orb.classList.remove('thinking');
@@ -1327,9 +1336,8 @@ for (let i = 0; i < particleCount; i++) {
                 utter.onstart = () => {
                     vibrateSpeaking();
                     // Автозапуск музыки по определённым фразам
-                    if (/включаю музыку|начинаю музыку/i.test(s)) {
-                        if (musicCtx.state === 'suspended') musicCtx.resume();
-                        startMusic();
+                    if (/включаю музыку|начинаю воспроизведение/i.test(s)) {
+                        triggerOrbClick();
                     }
                 };
                 utter.onend = () => {
