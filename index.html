@@ -571,6 +571,7 @@
             localStorage.setItem('user_gender', g);
         }
         
+
         function vibrate(pattern) {
             if (tg?.HapticFeedback) {
                 if (pattern === 'light') tg.HapticFeedback.impactOccurred('light');
@@ -580,7 +581,30 @@
                 navigator.vibrate(pattern);
             }
         }
-        
+
+        // --- Listening vibration "breathing" ---
+        let listeningVibrationInterval = null;
+
+        function startListeningVibration() {
+            stopListeningVibration();
+            if (tg?.HapticFeedback) {
+                listeningVibrationInterval = setInterval(() => {
+                    tg.HapticFeedback.impactOccurred('light');
+                }, 800 + Math.random() * 100);
+            } else if (navigator.vibrate) {
+                listeningVibrationInterval = setInterval(() => {
+                    navigator.vibrate([20, 100]);
+                }, 800 + Math.random() * 100);
+            }
+        }
+
+        function stopListeningVibration() {
+            if (listeningVibrationInterval) {
+                clearInterval(listeningVibrationInterval);
+                listeningVibrationInterval = null;
+            }
+        }
+
         function startListening() {
             if (isSpeaking || isThinking) return;
             try {
@@ -588,7 +612,8 @@
                 orb.classList.add('listening');
                 orb.classList.remove('thinking');
                 status.innerText = "listening";
-                vibrate('light');
+                startListeningVibration(); // включаем лёгкое дыхание
+                stopThinkingVibration();    // убеждаемся, что thinking vibration отключена
             } catch {}
         }
         
@@ -668,6 +693,7 @@
     }
 
     async function sendToBot(text) {
+        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
         isThinking = true;
         orb.classList.remove('listening');
         orb.classList.add('thinking');
@@ -779,6 +805,7 @@
 
         // Говорит текст, разбивая на предложения для естественности
         function speak(text) {
+            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
             status.innerText = "speaking";
