@@ -354,6 +354,53 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
+        // === Liquid Glass Layer ===
+        const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
+
+        const liquidVertexShader = `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+            }
+        `;
+
+        const liquidFragmentShader = `
+            uniform float time;
+            uniform sampler2D tBackground;
+            uniform vec2 resolution;
+            varying vec2 vUv;
+
+            void main() {
+                float waveX = sin(vUv.y * 10.0 + time * 1.5) * 0.005;
+                float waveY = cos(vUv.x * 12.0 + time * 1.2) * 0.005;
+                vec2 uv = vUv + vec2(waveX, waveY);
+
+                vec4 bgColor = texture2D(tBackground, uv);
+
+                // subtle glass highlights
+                vec3 light = vec3(1.0) * pow(1.0 - length(vUv - 0.5), 2.0);
+                bgColor.rgb += light * 0.1;
+
+                gl_FragColor = vec4(bgColor.rgb, 0.35);
+            }
+        `;
+
+        const liquidMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                tBackground: { value: feedbackRT2.texture },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            },
+            vertexShader: liquidVertexShader,
+            fragmentShader: liquidFragmentShader,
+            transparent: true
+        });
+
+        const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
+        feedbackScene.add(liquidMesh);
+
+        // Update animate() to include liquid layer
         function animate() {
             requestAnimationFrame(animate);
 
@@ -370,6 +417,8 @@
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
             renderer.setRenderTarget(null);
+            // animate the liquid glass layer
+            liquidMaterial.uniforms.time.value += 0.01;
             renderer.render(feedbackScene, feedbackCamera);
 
             // swap
