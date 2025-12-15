@@ -458,6 +458,73 @@ for (let i = 0; i < particleCount; i++) {
             }
         };
 
+        // ===== Memory Palace / Graph-based Emergent Memory =====
+        const memoryPalace = {
+            nodes: new Map(),
+
+            addNode(node) {
+                this.nodes.set(node.id, {
+                    ...node,
+                    activation: 0,
+                    lastAccess: performance.now()
+                });
+            },
+
+            connect(a, b, weight = 1) {
+                if (!this.nodes.has(a) || !this.nodes.has(b)) return;
+                this.nodes.get(a).connections ||= [];
+                this.nodes.get(b).connections ||= [];
+                this.nodes.get(a).connections.push({ id: b, weight });
+                this.nodes.get(b).connections.push({ id: a, weight });
+            },
+
+            stimulate(input = {}) {
+                const { emotion = 0.5, context = [] } = input;
+
+                // 1. первичная активация по эмоции и контексту
+                this.nodes.forEach(node => {
+                    let eMatch = node.emotion ? Math.abs(node.emotion - emotion) < 0.25 : false;
+                    let cMatch = context.includes(node.type);
+                    if (eMatch || cMatch) {
+                        node.activation += 1;
+                    }
+                });
+
+                // 2. распространение активации по связям (wave)
+                this.nodes.forEach(node => {
+                    if (node.activation > 0 && node.connections) {
+                        node.connections.forEach(link => {
+                            const target = this.nodes.get(link.id);
+                            if (target) {
+                                target.activation += node.activation * 0.3 * link.weight;
+                            }
+                        });
+                    }
+                });
+
+                // 3. затухание и выбор резонансных узлов
+                const resonant = [];
+                this.nodes.forEach(node => {
+                    node.activation *= 0.92;
+                    if (node.activation > 1.2) {
+                        node.lastAccess = performance.now();
+                        resonant.push(node);
+                    }
+                });
+
+                return resonant;
+            },
+
+            // Эмергентный паттерн: узлы с высокой связностью + активацией
+            findPattern(threshold = 1) {
+                return [...this.nodes.values()].filter(n =>
+                    n.activation > threshold &&
+                    n.connections &&
+                    n.connections.length >= 2
+                );
+            }
+        };
+
         // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
         let autonomyInterval = null;
         function runAutonomy() {
@@ -576,6 +643,13 @@ for (let i = 0; i < particleCount; i++) {
         function noteObservation(desc) {
             internalNotes.push(desc);
             if(internalNotes.length > 50) internalNotes.shift();
+            // --- Memory Palace: add each observation as a node
+            memoryPalace.addNode({
+                id: crypto.randomUUID(),
+                type: 'observation',
+                emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
+                connections: []
+            });
         }
 
         function updateOrbVisualState() {
@@ -1141,6 +1215,12 @@ for (let i = 0; i < particleCount; i++) {
         // Расширенная автономность генерации под mood и curiosity
         setInterval(() => {
             neuralMorph(musicGenome);
+
+            // --- Memory Palace: stimulate and get emergent memories ---
+            const emergentMemories = memoryPalace.stimulate({
+                emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
+                context: [typeof currentMode !== 'undefined' ? currentMode : '', typeof currentGenre !== 'undefined' ? currentGenre : '']
+            });
 
             const newLP = 600 + musicGenome.brightness * 8000;
             masterLP.frequency.linearRampToValueAtTime(
