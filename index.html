@@ -600,6 +600,14 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         const orb = document.getElementById('orb');
+        // Разблокировка AudioContext и мгновенный старт ambient при первом клике
+        orb.addEventListener('click', () => {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    updateAmbientByMood(); // сразу запускаем ambient
+                });
+            }
+        });
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
 
@@ -607,7 +615,7 @@ for (let i = 0; i < particleCount; i++) {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let currentAmbient = null;
 
-        // Простейшие белый шум + фильтры для разных сред
+        // Простейшие белый шум + фильтры для разных сред (расширенные звуки)
         function createNoise(type) {
             const bufferSize = 2 * audioCtx.sampleRate;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -622,31 +630,20 @@ for (let i = 0; i < particleCount; i++) {
             source.loop = true;
 
             const gainNode = audioCtx.createGain();
-            gainNode.gain.value = 0.1; // начальная громкость
+            gainNode.gain.value = 0.1; // по умолчанию
 
             const filter = audioCtx.createBiquadFilter();
 
-            // Фильтры для разных типов
+            // Фильтры для разных типов (расширенный набор)
             switch(type) {
-                case 'rain':
-                    filter.type = 'highpass';
-                    filter.frequency.value = 1000;
-                    break;
-                case 'ocean':
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 400;
-                    break;
-                case 'forest':
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 800;
-                    break;
-                case 'jungle':
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 1200;
-                    break;
-                default:
-                    filter.type = 'allpass';
-                    break;
+                case 'rain': filter.type='highpass'; filter.frequency.value=1000; gainNode.gain.value=0.15; break;
+                case 'ocean': filter.type='lowpass'; filter.frequency.value=400; gainNode.gain.value=0.12; break;
+                case 'forest': filter.type='bandpass'; filter.frequency.value=800; gainNode.gain.value=0.1; break;
+                case 'jungle': filter.type='bandpass'; filter.frequency.value=1200; gainNode.gain.value=0.13; break;
+                case 'wind': filter.type='highpass'; filter.frequency.value=600; gainNode.gain.value=0.08; break;
+                case 'night': filter.type='lowpass'; filter.frequency.value=500; gainNode.gain.value=0.07; break;
+                case 'river': filter.type='bandpass'; filter.frequency.value=700; gainNode.gain.value=0.11; break;
+                default: filter.type='allpass'; gainNode.gain.value=0.1; break;
             }
 
             source.connect(filter).connect(gainNode).connect(audioCtx.destination);
@@ -662,11 +659,11 @@ for (let i = 0; i < particleCount; i++) {
             currentAmbient.source.start();
         }
 
-        // Пример автоматического выбора по настроению
+        // Случайный выбор разнообразных ambient-звуков
         function updateAmbientByMood() {
-            if (selfAwareness.mood < 0) playAmbient('rain');
-            else if (selfAwareness.mood > 0.5) playAmbient('forest');
-            else playAmbient('ocean'); // нейтральное
+            const types = ['rain','ocean','forest','jungle','wind','night','river'];
+            const idx = Math.floor(Math.random() * types.length);
+            playAmbient(types[idx]);
         }
 
         // Обновление при изменении mood
