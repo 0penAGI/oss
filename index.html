@@ -370,6 +370,8 @@ for (let i = 0; i < particleCount; i++) {
             uniform float time;
             uniform sampler2D tBackground;
             uniform vec2 resolution;
+            uniform float mood;
+            uniform float curiosity;
             varying vec2 vUv;
 
             float hash(float n) {
@@ -384,21 +386,30 @@ for (let i = 0; i < particleCount; i++) {
             }
 
             // fractal smooth delay — breathing, non-jittery
-            float sDelay(float t, float amount, float speed) {
+            float sDelay(float t, float baseAmount, float baseSpeed, float mood, float curiosity) {
+                // mood: -1..1  → вязкость времени
+                // curiosity: 0..1 → степень нелинейности
+
+                float emotionalViscosity = mix(0.4, 1.8, clamp(-mood * 0.5 + 0.5, 0.0, 1.0));
+                float curiosityChaos = mix(0.6, 1.4, curiosity);
+
+                float amount = baseAmount * emotionalViscosity;
+                float speed  = baseSpeed  * curiosityChaos;
+
                 float n1 = noise(t * speed);
                 float n2 = noise(t * speed * 0.37 + 10.0);
                 float n3 = noise(t * speed * 0.11 + 42.0);
 
                 float n = n1 * 0.6 + n2 * 0.3 + n3 * 0.1;
 
-                // ease-in-out curve for liquid feel
+                // временная память — мягкая инерция
                 n = n * n * (3.0 - 2.0 * n);
 
                 return t - n * amount;
             }
 
             void main() {
-                float t = sDelay(time, 1.1, 0.18);
+                float t = sDelay(time, 1.1, 0.18, mood, curiosity);
                 t += sin(time * 0.12) * 0.15; // slow global breathing
 
                 float waveX =
@@ -429,7 +440,9 @@ for (let i = 0; i < particleCount; i++) {
             uniforms: {
                 time: { value: 0 },
                 tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                mood: { value: 0 },
+                curiosity: { value: 0 }
             },
             vertexShader: liquidVertexShader,
             fragmentShader: liquidFragmentShader,
@@ -458,6 +471,8 @@ for (let i = 0; i < particleCount; i++) {
             renderer.setRenderTarget(null);
             // animate the liquid glass layer
             liquidMaterial.uniforms.time.value += 0.01;
+            liquidMaterial.uniforms.mood.value = selfAwareness?.mood ?? 0;
+            liquidMaterial.uniforms.curiosity.value = selfAwareness?.curiosity ?? 0;
             renderer.render(feedbackScene, feedbackCamera);
 
             // swap
