@@ -1283,6 +1283,21 @@ for (let i = 0; i < particleCount; i++) {
             if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
                 switchCamera();
             }
+
+            // Голосовые команды для ambient
+            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
+            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume().then(() => {
+                        updateAmbientByMood();
+                        if (!ambientInterval) ambientInterval = setInterval(updateAmbientByMood, 10000);
+                    });
+                } else {
+                    updateAmbientByMood();
+                    if (!ambientInterval) ambientInterval = setInterval(updateAmbientByMood, 10000);
+                }
+            }
+
             // Передать дальше в старый обработчик
             if (typeof prevOnResult === 'function') {
                 await prevOnResult(event);
