@@ -1671,6 +1671,58 @@ for (let i = 0; i < particleCount; i++) {
             cameraEnabled = false;
             stopCameraAnalysisLoop();
         }
+        // ====== Shake Joke Layer ======
+        let shakeThreshold = 15;
+        let lastX, lastY, lastZ;
+        let lastTime = 0;
+        let jokeCooldown = false;
+
+        window.addEventListener('devicemotion', (event) => {
+            const acc = event.accelerationIncludingGravity;
+            const curTime = Date.now();
+            if ((curTime - lastTime) > 100) {
+                const deltaTime = curTime - lastTime;
+                lastTime = curTime;
+                const deltaX = acc.x - (lastX || 0);
+                const deltaY = acc.y - (lastY || 0);
+                const deltaZ = acc.z - (lastZ || 0);
+                const speed = Math.abs(deltaX + deltaY + deltaZ) / deltaTime * 10000;
+                if (speed > shakeThreshold) {
+                    triggerShakeJoke();
+                    // Можно добавить визуальный эффект для orb
+                    orb.classList.add('vibrating');
+                    setTimeout(() => orb.classList.remove('vibrating'), 300);
+                }
+                lastX = acc.x;
+                lastY = acc.y;
+                lastZ = acc.z;
+            }
+        });
+
+        async function triggerShakeJoke() {
+            if (jokeCooldown) return;
+            jokeCooldown = true;
+            setTimeout(() => { jokeCooldown = false; }, 3000); // cooldown 3s
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENAI_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-5-mini",
+                        messages: [{ role: "user", content: "Расскажи короткую смешную шутку" }]
+                    })
+                });
+                const data = await response.json();
+                const joke = data.choices[0].message.content;
+                speak(joke); // использовать существующую функцию TTS
+            } catch(e) {
+                console.error("Ошибка генерации шутки:", e);
+            }
+        }
     </script>
 </body>
 </html>
