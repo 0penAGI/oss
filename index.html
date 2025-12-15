@@ -699,56 +699,6 @@ for (let i = 0; i < particleCount; i++) {
             playAmbient(types[idx]);
         }
 
-        // ===== Classical MIDI Generator =====
-        let classicalInterval = null;
-        let classicalOscillators = [];
-
-        function startClassicalMode() {
-            stopClassicalMode(); // очищаем старые ноты
-
-            const baseFreq = 220; // A3
-            const fifth = baseFreq * Math.pow(2, 7/12); // квинта
-            const oct = baseFreq * 2;
-
-            let sequence = [baseFreq, fifth, oct, baseFreq*2, fifth*2, oct*2]; // квинтовая последовательность
-            let idx = 0;
-
-            classicalInterval = setInterval(() => {
-                const osc = audioCtx.createOscillator();
-                osc.type = 'sine';
-                osc.frequency.value = sequence[idx % sequence.length];
-
-                const gainNode = audioCtx.createGain();
-                gainNode.gain.value = 0.05;
-
-                osc.connect(gainNode).connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.4); // длительность ноты
-
-                classicalOscillators.push(osc);
-                idx++;
-            }, 500); // ритм нот
-        }
-
-        function stopClassicalMode() {
-            if (classicalInterval) clearInterval(classicalInterval);
-            classicalInterval = null;
-            classicalOscillators.forEach(o => { try{o.stop();} catch{} });
-            classicalOscillators = [];
-        }
-
-        // Изменяем функцию updateAmbientByMood для включения классики
-        const originalUpdateAmbient = updateAmbientByMood;
-        updateAmbientByMood = function() {
-            if (selfAwareness.mood > 0.7) {
-                startClassicalMode();
-                return;
-            } else {
-                stopClassicalMode();
-            }
-            originalUpdateAmbient();
-        };
-
         // Обновление при изменении mood
         setInterval(updateAmbientByMood, 10000);
        
