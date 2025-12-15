@@ -942,12 +942,44 @@ class GranularEngine {
 
             // --- Популярные аккорды: Am, Cm, Dm, F (оставляем общими для всех жанров) ---
             const chordDefs = [
-                { name: 'Am', notes: [220.00, 261.63, 329.63] }, // A3, C4, E4
-                { name: 'Cm', notes: [261.63, 311.13, 392.00] }, // C4, Eb4, G4
-                { name: 'Dm', notes: [293.66, 349.23, 440.00] }, // D4, F4, A4
-                { name: 'F',  notes: [349.23, 440.00, 523.25] }  // F4, A4, C5
+                // Минорные
+                { name: 'Am', notes: [220.00, 261.63, 329.63] },
+                { name: 'Em', notes: [164.81, 196.00, 246.94] },
+                { name: 'Dm', notes: [293.66, 349.23, 440.00] },
+                { name: 'Cm', notes: [261.63, 311.13, 392.00] },
+
+                // Мажорные
+                { name: 'C',  notes: [261.63, 329.63, 392.00] },
+                { name: 'G',  notes: [196.00, 246.94, 392.00] },
+                { name: 'F',  notes: [349.23, 440.00, 523.25] },
+                { name: 'D',  notes: [293.66, 369.99, 440.00] },
+
+                // Септаккорды (джаз / соул)
+                { name: 'Am7', notes: [220.00, 261.63, 329.63, 392.00] },
+                { name: 'Dm7', notes: [293.66, 349.23, 440.00, 523.25] },
+                { name: 'G7',  notes: [196.00, 246.94, 293.66, 392.00] },
+                { name: 'Cmaj7', notes: [261.63, 329.63, 392.00, 493.88] },
+
+                // Атмосферные / эмбиент
+                { name: 'Asus2', notes: [220.00, 246.94, 329.63] },
+                { name: 'Dsus2', notes: [293.66, 329.63, 440.00] },
+                { name: 'Csus4', notes: [261.63, 349.23, 392.00] }
             ];
+
             let chordIdx = 0;
+
+            // --- Автоматическое "меление" (smearing) аккордов ---
+            function mellowChord(chord) {
+                return {
+                    name: chord.name,
+                    notes: chord.notes.map(n => {
+                        // случайное микросмещение + октавные тени
+                        let drift = (Math.random() - 0.5) * 4;
+                        let octave = Math.random() < 0.25 ? 12 : 0;
+                        return n * Math.pow(2, octave / 12) + drift;
+                    })
+                };
+            }
 
             function scheduleChord(time, chord) {
                 chord.notes.forEach((freq, i) => {
@@ -1083,8 +1115,12 @@ class GranularEngine {
                     // Аккорд на первый удар такта (раз в длину паттерна)
                     if (step % beatPattern.length === 0) {
                         const chord = chordDefs[chordIdx % chordDefs.length];
-                        scheduleChord(scheduledNoteTime, chord);
-                        schedulePianoLine(scheduledNoteTime, chord);
+                        const activeChord =
+                            (currentGenre === 'ambient' || musicGenome.harmony > 0.6)
+                                ? mellowChord(chord)
+                                : chord;
+                        scheduleChord(scheduledNoteTime, activeChord);
+                        schedulePianoLine(scheduledNoteTime, activeChord);
                         chordIdx++;
                     }
                     nextNoteTime += quarter;
