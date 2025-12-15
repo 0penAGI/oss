@@ -178,7 +178,6 @@
 </head>
 <body>
     <canvas id="webgl-canvas"></canvas>
-    <canvas id="orbCanvas"></canvas>
 
     <!-- Only video element for camera -->
     <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
@@ -195,17 +194,6 @@
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
-
-        // ===== Orb WebGL init =====
-        const orbCanvas = document.getElementById("orbCanvas");
-        const gl = orbCanvas.getContext("webgl", { alpha: true });
-
-        function resizeOrb() {
-          orbCanvas.width = window.innerWidth;
-          orbCanvas.height = window.innerHeight;
-        }
-        resizeOrb();
-        window.addEventListener("resize", resizeOrb);
 
         const canvas = document.getElementById('webgl-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
