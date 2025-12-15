@@ -48,46 +48,56 @@
             width: 200px;
             height: 200px;
             border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%,
+            background: radial-gradient(circle at 30% 30%,
                 rgba(255, 255, 255, 0.9) 0%,
-                rgba(200, 200, 200, 0.6) 20%,
-                rgba(100, 100, 100, 0.4) 40%,
-                rgba(40, 40, 40, 0.8) 70%,
-                rgba(0, 0, 0, 1) 100%
-            );
+                rgba(180, 180, 255, 0.4) 30%,
+                rgba(100, 80, 200, 0.3) 60%,
+                rgba(0, 0, 40, 0.9) 100%);
             box-shadow:
-                0 0 60px rgba(255, 255, 255, 0.3),
-                0 0 100px rgba(255, 255, 255, 0.1),
-                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
-                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
-            animation: breathe 4s infinite ease-in-out;
+                0 0 50px rgba(180,180,255,0.5),
+                0 0 120px rgba(100,80,220,0.25),
+                inset -30px -30px 80px rgba(0,0,60,0.8),
+                inset 30px 30px 60px rgba(255,255,255,0.05);
+            animation: breathe 4s infinite ease-in-out, swirl 6s infinite linear;
             cursor: pointer;
             transition: all 0.3s ease;
         }
+
         .soul-orb::before {
             content: '';
             position: absolute;
             top: 18%;
             left: 25%;
-            width: 35%;
-            height: 35%;
+            width: 40%;
+            height: 40%;
             border-radius: 50%;
             background: radial-gradient(circle,
-                rgba(255, 255, 255, 0.9) 0%,
-                rgba(255, 255, 255, 0.4) 40%,
-                transparent 70%
-            );
-            filter: blur(8px);
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(255, 255, 255, 0.5) 40%,
+                transparent 80%);
+            filter: blur(12px);
         }
+
         .soul-orb::after {
             content: '';
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: radial-gradient(circle at 70% 70%,
-                transparent 40%,
-                rgba(0, 0, 0, 0.6) 80%
-            );
+            background: radial-gradient(circle at 65% 65%,
+                rgba(50, 20, 120, 0.2) 20%,
+                rgba(0,0,40,0.7) 80%);
+            filter: blur(8px);
+            mix-blend-mode: screen;
+        }
+
+        @keyframes breathe {
+            0%,100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        @keyframes swirl {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .aura {
             position: absolute;
