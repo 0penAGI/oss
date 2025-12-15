@@ -618,12 +618,61 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
 
+    // --- Haptic feedback: Vibration patterns for thinking/speaking ---
+    let thinkingVibrationInterval = null;
+    let speakingVibrationInterval = null;
+
+    function startThinkingVibration() {
+        stopThinkingVibration();
+        if (tg?.HapticFeedback) {
+            thinkingVibrationInterval = setInterval(() => {
+                tg.HapticFeedback.impactOccurred('light');
+            }, 500);
+        } else if (navigator.vibrate) {
+            thinkingVibrationInterval = setInterval(() => {
+                navigator.vibrate([30, 170]);
+            }, 500);
+        }
+    }
+
+    function stopThinkingVibration() {
+        if (thinkingVibrationInterval) {
+            clearInterval(thinkingVibrationInterval);
+            thinkingVibrationInterval = null;
+        }
+    }
+
+    function vibrateSpeaking() {
+        stopThinkingVibration();
+        stopSpeakingVibration();
+        if (tg?.HapticFeedback) {
+            // Chaotic: random impacts (light, medium, heavy)
+            speakingVibrationInterval = setInterval(() => {
+                const levels = ['light', 'medium', 'heavy'];
+                tg.HapticFeedback.impactOccurred(levels[Math.floor(Math.random() * levels.length)]);
+            }, 80 + Math.random() * 80);
+        } else if (navigator.vibrate) {
+            speakingVibrationInterval = setInterval(() => {
+                // Random short pulses
+                const patterns = [[15, 20, 10], [30, 10], [10, 25, 15, 5]];
+                navigator.vibrate(patterns[Math.floor(Math.random() * patterns.length)]);
+            }, 80 + Math.random() * 80);
+        }
+    }
+
+    function stopSpeakingVibration() {
+        if (speakingVibrationInterval) {
+            clearInterval(speakingVibrationInterval);
+            speakingVibrationInterval = null;
+        }
+    }
+
     async function sendToBot(text) {
         isThinking = true;
         orb.classList.remove('listening');
         orb.classList.add('thinking');
         status.innerText = "processing stream";
-        vibrate('light'); // Haptic feedback for processing stream
+        startThinkingVibration();
 
         // Подготовка UI с курсором
         transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
@@ -658,9 +707,10 @@
 
             isThinking = false;
             orb.classList.remove('thinking');
+            stopThinkingVibration();
             orb.classList.add('speaking');
             status.innerText = "receiving data";
-            vibrate('medium'); // Haptic feedback for speaking state
+            vibrateSpeaking();
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -677,7 +727,9 @@
 
             responseContainer.classList.remove("typing-cursor");
             status.innerText = "speaking";
-            vibrate('heavy');
+            // One strong vibration at the end of receiving
+            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+            else if (navigator.vibrate) navigator.vibrate([60]);
 
             speak(audioBuffer);
 
@@ -688,6 +740,8 @@
             orb.classList.remove('speaking');
             isThinking = false;
             isSpeaking = false;
+            stopThinkingVibration();
+            stopSpeakingVibration();
             setTimeout(startListening, 2000);
         }
     }
@@ -729,6 +783,8 @@
             orb.classList.add('speaking');
             status.innerText = "speaking";
             isSpeaking = true;
+            stopThinkingVibration();
+            vibrateSpeaking();
 
             // gender-aware voice tuning
             let rate = 1.0;
@@ -747,6 +803,7 @@
                     orb.classList.remove('speaking');
                     isSpeaking = false;
                     status.innerText = "listening";
+                    stopSpeakingVibration();
                     vibrate('light');
                     startListening();
                     return;
@@ -757,7 +814,11 @@
                 utter.lang = 'ru-RU';
                 utter.rate = rate;
                 utter.pitch = pitch;
+                utter.onstart = () => {
+                    vibrateSpeaking();
+                };
                 utter.onend = () => {
+                    stopSpeakingVibration();
                     idx++;
                     // Короткая пауза между предложениями
                     setTimeout(speakNext, 120);
