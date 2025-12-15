@@ -1086,23 +1086,26 @@ for (let i = 0; i < particleCount; i++) {
             speakNext();
         }
         
-        // Исправленный обработчик клика для orb с поддержкой iOS resume
+        // Убираем автозапуск на load
+        // window.addEventListener('load', () => {
+        //     setTimeout(() => {
+        //         vibrate('light');
+        //         startListening();
+        //     }, 1200);
+        // });
+
+        // Клик по orb запускает ИИ
         orb.addEventListener('click', () => {
             vibrate('medium');
-            // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
             if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
                 window.speechSynthesis.resume();
             }
             if (!isSpeaking && !isThinking) {
-                startListening();
+                startListening(); // запуск только по клику
             }
-        });
-        
-        window.addEventListener('load', () => {
-            setTimeout(() => {
-                vibrate('light');
-                startListening();
-            }, 1200);
         });
 
         // ====== Минималистичная камера с голосовым управлением ======
