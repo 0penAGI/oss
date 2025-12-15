@@ -600,41 +600,27 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         const orb = document.getElementById('orb');
-        // Разблокировка AudioContext и мгновенный старт ambient при первом клике
-        orb.addEventListener('click', () => {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    updateAmbientByMood(); // сразу запускаем ambient
-                });
-            }
-        });
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
 
-        // ===== Ambient Nature Sounds =====
+        // ===== Ambient Nature Sounds (только по клику) =====
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let currentAmbient = null;
+        let ambientInterval = null;
 
-        // Простейшие белый шум + фильтры для разных сред (расширенные звуки)
         function createNoise(type) {
             const bufferSize = 2 * audioCtx.sampleRate;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
-
             for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1; // белый шум
+                data[i] = Math.random() * 2 - 1;
             }
-
             const source = audioCtx.createBufferSource();
             source.buffer = buffer;
             source.loop = true;
-
             const gainNode = audioCtx.createGain();
-            gainNode.gain.value = 0.1; // по умолчанию
-
+            gainNode.gain.value = 0.1;
             const filter = audioCtx.createBiquadFilter();
-
-            // Фильтры для разных типов (расширенный набор)
             switch(type) {
                 case 'rain': filter.type='highpass'; filter.frequency.value=1000; gainNode.gain.value=0.15; break;
                 case 'ocean': filter.type='lowpass'; filter.frequency.value=400; gainNode.gain.value=0.12; break;
@@ -645,12 +631,10 @@ for (let i = 0; i < particleCount; i++) {
                 case 'river': filter.type='bandpass'; filter.frequency.value=700; gainNode.gain.value=0.11; break;
                 default: filter.type='allpass'; gainNode.gain.value=0.1; break;
             }
-
             source.connect(filter).connect(gainNode).connect(audioCtx.destination);
             return { source, gainNode };
         }
 
-        // Переключение ambient
         function playAmbient(type) {
             if (currentAmbient) {
                 currentAmbient.source.stop();
@@ -659,15 +643,36 @@ for (let i = 0; i < particleCount; i++) {
             currentAmbient.source.start();
         }
 
-        // Случайный выбор разнообразных ambient-звуков
         function updateAmbientByMood() {
             const types = ['rain','ocean','forest','jungle','wind','night','river'];
             const idx = Math.floor(Math.random() * types.length);
             playAmbient(types[idx]);
         }
 
-        // Обновление при изменении mood
-        setInterval(updateAmbientByMood, 10000);
+        // Запуск ambient по клику на orb
+        orb.addEventListener('click', () => {
+            vibrate('medium');
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => {
+                    updateAmbientByMood(); // запускаем ambient по команде
+                    if (!ambientInterval) {
+                        ambientInterval = setInterval(updateAmbientByMood, 10000);
+                    }
+                });
+            } else {
+                updateAmbientByMood();
+                if (!ambientInterval) {
+                    ambientInterval = setInterval(updateAmbientByMood, 10000);
+                }
+            }
+
+            if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
+                window.speechSynthesis.resume();
+            }
+            if (!isSpeaking && !isThinking) {
+                startListening();
+            }
+        });
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
@@ -971,17 +976,7 @@ for (let i = 0; i < particleCount; i++) {
             speakNext();
         }
         
-        // Исправленный обработчик клика для orb с поддержкой iOS resume
-        orb.addEventListener('click', () => {
-            vibrate('medium');
-            // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
-            if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
-                window.speechSynthesis.resume();
-            }
-            if (!isSpeaking && !isThinking) {
-                startListening();
-            }
-        });
+        // ambient обработчик теперь реализован выше
         
         window.addEventListener('load', () => {
             setTimeout(() => {
