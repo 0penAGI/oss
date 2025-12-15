@@ -681,12 +681,18 @@ for (let i = 0; i < particleCount; i++) {
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
-        masterGain.connect(musicCtx.destination);
+        // === Общий lowpass фильтр для всего микса ===
+        let masterLP = musicCtx.createBiquadFilter();
+        masterLP.type = 'lowpass';
+        masterLP.frequency.value = 6000; // верхняя граница HF
+        masterGain.connect(masterLP);
+        masterLP.connect(musicCtx.destination);
 
         // Реверб
         let convolver = musicCtx.createConvolver();
         masterGain.connect(convolver);
-        convolver.connect(musicCtx.destination);
+        // Реверб также идёт через masterLP
+        convolver.connect(masterLP);
 
         // Базовые инструменты
         let midiSynth = null; // для мелодии
@@ -703,12 +709,14 @@ for (let i = 0; i < particleCount; i++) {
                 .then(r => r.arrayBuffer())
                 .then(d => musicCtx.decodeAudioData(d))
                 .then(buffer => { convolver.buffer = buffer; });
-            convolver.connect(masterGain);
+            // Подключаем masterGain к convolver (уже сделано выше), а convolver к masterLP (уже сделано выше)
+            // convolver.connect(masterLP); // уже подключено глобально
 
             // Фильтр для битов
             const lpFilter = musicCtx.createBiquadFilter();
             lpFilter.type = 'lowpass';
             lpFilter.frequency.value = 6000;
+            // Подключаем битовый фильтр к masterGain, а masterGain уже идёт через masterLP
             lpFilter.connect(masterGain);
 
             // генерация битов
@@ -719,7 +727,7 @@ for (let i = 0; i < particleCount; i++) {
                 osc.type = 'square';
                 osc.frequency.value = 80 + i*20;
                 const gainNode = musicCtx.createGain();
-                gainNode.gain.value = 0.08;
+                gainNode.gain.value = 0.18;
                 osc.connect(gainNode).connect(lpFilter);
                 osc.start();
                 beatGains.push(gainNode);
@@ -733,6 +741,7 @@ for (let i = 0; i < particleCount; i++) {
             const haasDelay = musicCtx.createDelay();
             haasDelay.delayTime.value = 0.02;
             midiSynth.connect(midiGain).connect(haasDelay);
+            // Haas эффект идёт на masterGain, который теперь идёт далее через masterLP
             haasDelay.connect(masterGain);
 
             const panner = musicCtx.createPanner();
@@ -741,6 +750,7 @@ for (let i = 0; i < particleCount; i++) {
             panner.positionX.setValueAtTime(0, musicCtx.currentTime);
             panner.positionY.setValueAtTime(0, musicCtx.currentTime);
             panner.positionZ.setValueAtTime(1, musicCtx.currentTime);
+            // Doppler также идёт на masterGain → masterLP
             haasDelay.connect(panner).connect(masterGain);
 
             midiSynth.type = 'sawtooth';
