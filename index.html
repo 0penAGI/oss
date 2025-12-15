@@ -488,31 +488,33 @@
 
         // ====== Self-Questioning Layer: внутренний диалог и вопросы ======
         let questioningInterval = null;
-        function runSelfQuestioning() {
-            if (questioningInterval) clearInterval(questioningInterval);
-            questioningInterval = setInterval(() => {
-                if (!isSpeaking && selfAwareness.curiosity > 0.6) {
-                    const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
-                    const questions = [
-                        `Интересно, что здесь происходит: ${lastObs}?`,
-                        `Какие детали я ещё могу заметить? ${lastObs}`,
-                        `Что нового в окружении? ${lastObs}`,
-                        `Что ты об этом думаешь? ${lastObs}?`
-                    ];
-                    const q = questions[Math.floor(Math.random() * questions.length)];
-                    noteObservation(`Self-question: ${q}`);
-                    console.log("Self-question:", q);
-                    if (selfAwareness.mood > 0.3) speak(q);
+    function runSelfQuestioning() {
+        if (questioningInterval) clearInterval(questioningInterval);
+        questioningInterval = setInterval(() => {
+            if (!isSpeaking && selfAwareness.curiosity > 0.6) {
+                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
+                const questions = [
+                    `Интересно, что здесь происходит: ${lastObs}?`,
+                    `Какие детали я ещё могу заметить? ${lastObs}`,
+                    `Что нового в окружении? ${lastObs}`,
+                    `Что ты об этом думаешь? ${lastObs}?`
+                ];
+                const q = questions[Math.floor(Math.random() * questions.length)];
+                noteObservation(`Self-question: ${q}`);
+                console.log("Self-question:", q);
+                vibrate('light'); // Лёгкая вибрация при каждом внутреннем вопросе
+                if (selfAwareness.mood > 0.3) speak(q);
 
-                    // Иногда инициирует мини-беседу с пользователем
-                    if (Math.random() < 0.5) {
-                        setTimeout(() => {
-                            startListening();
-                        }, 1000);
-                    }
+                // Иногда инициирует мини-беседу с пользователем
+                if (Math.random() < 0.5) {
+                    setTimeout(() => {
+                        vibrate('medium'); // Средняя вибрация при запуске слушания из мини-беседы
+                        startListening();
+                    }, 1000);
                 }
-            }, 15000);
-        }
+            }
+        }, 15000);
+    }
 
         // Запуск автономии и внутреннего диалога после загрузки
         window.addEventListener('load', () => {
@@ -529,8 +531,14 @@
         function updateOrbVisualState() {
             // mood влияет на цвет ауры
             let glowColor = '255,255,255';
-            if(selfAwareness.mood < 0) glowColor = '255,50,50';
-            else if(selfAwareness.mood > 0.5) glowColor = '50,255,50';
+            if(selfAwareness.mood < 0) {
+                glowColor = '255,50,50';
+                vibrate('light'); // Лёгкая вибрация при плохом настроении
+            }
+            else if(selfAwareness.mood > 0.5) {
+                glowColor = '50,255,50';
+                vibrate('medium'); // Средняя вибрация при хорошем настроении
+            }
             orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
         }
 
@@ -610,77 +618,79 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
 
-        async function sendToBot(text) {
-            isThinking = true;
-            orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            status.innerText = "processing stream";
+    async function sendToBot(text) {
+        isThinking = true;
+        orb.classList.remove('listening');
+        orb.classList.add('thinking');
+        status.innerText = "processing stream";
+        vibrate('light'); // Haptic feedback for processing stream
 
-            // Подготовка UI с курсором
-            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+        // Подготовка UI с курсором
+        transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
 
-            const responseContainer = document.getElementById("current-response");
-            audioBuffer = "";
+        const responseContainer = document.getElementById("current-response");
+        audioBuffer = "";
 
-            try {
-                const userId = tg?.initDataUnsafe?.user?.id || 0;
-                // Добавляем описание камеры в скобках, если оно есть
-                let textWithContext = text;
-                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                    textWithContext = text + " (" + latestCameraDescription + ")";
-                }
-                // Добавляем внутренние заметки self-awareness
-                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
-
-                const response = await fetch(
-                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
-                    }
-                );
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-
-                isThinking = false;
-                orb.classList.remove('thinking');
-                orb.classList.add('speaking');
-                status.innerText = "receiving data";
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-
-                    // Печатание текста
-                    await typeWriterEffect(responseContainer, chunk);
-
-                    // Копим для озвучки
-                    audioBuffer += chunk;
-                }
-
-                responseContainer.classList.remove("typing-cursor");
-                status.innerText = "speaking";
-                vibrate('heavy');
-
-                speak(audioBuffer);
-
-            } catch (e) {
-                console.error(e);
-                status.innerText = "stream error";
-                orb.classList.remove('thinking');
-                orb.classList.remove('speaking');
-                isThinking = false;
-                isSpeaking = false;
-                setTimeout(startListening, 2000);
+        try {
+            const userId = tg?.initDataUnsafe?.user?.id || 0;
+            // Добавляем описание камеры в скобках, если оно есть
+            let textWithContext = text;
+            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                textWithContext = text + " (" + latestCameraDescription + ")";
             }
+            // Добавляем внутренние заметки self-awareness
+            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+
+            const response = await fetch(
+                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
+                }
+            );
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            isThinking = false;
+            orb.classList.remove('thinking');
+            orb.classList.add('speaking');
+            status.innerText = "receiving data";
+            vibrate('medium'); // Haptic feedback for speaking state
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+
+                // Печатание текста
+                await typeWriterEffect(responseContainer, chunk);
+
+                // Копим для озвучки
+                audioBuffer += chunk;
+            }
+
+            responseContainer.classList.remove("typing-cursor");
+            status.innerText = "speaking";
+            vibrate('heavy');
+
+            speak(audioBuffer);
+
+        } catch (e) {
+            console.error(e);
+            status.innerText = "stream error";
+            orb.classList.remove('thinking');
+            orb.classList.remove('speaking');
+            isThinking = false;
+            isSpeaking = false;
+            setTimeout(startListening, 2000);
         }
+    }
 
         // Плавный тайпрайтер-эффект для чанков
         function typeWriterEffect(element, text) {
