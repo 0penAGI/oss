@@ -233,25 +233,23 @@
 
         const fragmentShader = `
             uniform float time;
+            uniform float evolutionSeed;
+            uniform float moodFactor;
+            uniform float curiosityFactor;
             const float PI = 3.141592653589793;
             varying vec3 vColor;
 
-            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
+            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3, float seed) {
                 vec3 dir = normalize(p - vec3(0.5, 0.5, 0.0));
                 float d = length(dir);
-                float anim = time * 0.5;
-                if (d > 0.98 && d < 1.02) {
-                    float t = fract(sin(d * PI) * anim + c1.x);
-                    return mix(c1, c2, t);
-                } else {
-                    float t = fract(cos(d * PI) * anim + c2.y);
-                    return mix(c2, c3, t);
-                }
+                float anim = time * 0.5 + seed;
+                float t = fract(sin(d*3.1415 + anim));
+                return mix(c1, c3, t);
             }
 
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.3, 0.5, 1.0));
+                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.3, 0.5, 1.0), evolutionSeed);
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
                 gl_FragColor = vec4(color * vColor, alpha * 0.8);
@@ -344,7 +342,12 @@ for (let i = 0; i < particleCount; i++) {
         geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
 
         const material = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
+            uniforms: {
+                time: { value: 0 },
+                evolutionSeed: { value: Math.random() },
+                moodFactor: { value: 0.5 },
+                curiosityFactor: { value: 0.5 }
+            },
             vertexShader,
             fragmentShader,
             transparent: true,
@@ -406,7 +409,11 @@ for (let i = 0; i < particleCount; i++) {
             requestAnimationFrame(animate);
 
             material.uniforms.time.value += 0.01;
-            particles.rotation.y += 0.0002;
+            // Эволюция и обучение шейдера
+            material.uniforms.evolutionSeed.value += 0.001;
+            material.uniforms.moodFactor.value = (selfAwareness.mood + 1) / 2;
+            material.uniforms.curiosityFactor.value = selfAwareness.curiosity;
+            particles.rotation.y += 0.0002 + 0.0005 * material.uniforms.curiosityFactor.value;
 
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
