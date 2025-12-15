@@ -465,6 +465,21 @@ for (let i = 0; i < particleCount; i++) {
                 if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
                 else this.mood += 0.05;
                 this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
+                // --- Cross-Modal обучение ---
+                if (typeof faceCount === 'number' && faceCount > 0 && musicPlaying) {
+                  const moodBefore = this.mood;
+
+                  // социальный резонанс
+                  this.mood += 0.01 * Math.min(faceCount, 5);
+
+                  const moodAfter = this.mood;
+
+                  modalConnections.learn(
+                    `faces:${faceCount}`,
+                    `genre:${currentGenre}`,
+                    moodAfter - moodBefore
+                  );
+                }
                 // --- Предиктивная мечтательность ---
                 if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
                     this.dreaming = true;
@@ -552,6 +567,45 @@ for (let i = 0; i < particleCount; i++) {
                     n.connections.length >= 2
                 );
             }
+        };
+
+        // ===== Cross-Modal Learning: визуал ↔ музыка ↔ речь =====
+        const modalConnections = {
+          learn(visualEvent, audioEvent, moodShift) {
+            memoryPalace.addNode({
+              id: crypto.randomUUID(),
+              type: 'crossmodal',
+              visual: visualEvent,
+              audio: audioEvent,
+              moodDelta: moodShift,
+              emotion: (selfAwareness.mood + 1) / 2,
+              timestamp: performance.now()
+            });
+
+            const lastVisual = [...memoryPalace.nodes.values()]
+              .filter(n => n.type === 'observation')
+              .slice(-1)[0];
+
+            const lastAudio = [...memoryPalace.nodes.values()]
+              .filter(n => n.type === 'music')
+              .slice(-1)[0];
+
+            if (lastVisual && lastAudio) {
+              memoryPalace.connect(
+                lastVisual.id,
+                lastAudio.id,
+                Math.abs(moodShift) + 0.1
+              );
+            }
+          },
+
+          recall(stimulus) {
+            const resonant = memoryPalace.stimulate({
+              emotion: (selfAwareness.mood + 1) / 2,
+              context: [stimulus]
+            });
+            return resonant.filter(n => n.type === 'crossmodal');
+          }
         };
 
         // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
@@ -674,10 +728,13 @@ for (let i = 0; i < particleCount; i++) {
             if(internalNotes.length > 50) internalNotes.shift();
             // --- Memory Palace: add each observation as a node
             memoryPalace.addNode({
-                id: crypto.randomUUID(),
-                type: 'observation',
-                emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
-                connections: []
+              id: crypto.randomUUID(),
+              type: 'observation',
+              emotion: (typeof selfAwareness?.mood === 'number'
+                        ? (selfAwareness.mood + 1) / 2
+                        : 0.5),
+              timestamp: performance.now(),
+              connections: []
             });
         }
 
@@ -902,6 +959,14 @@ for (let i = 0; i < particleCount; i++) {
         function startMusic() {
             if (musicPlaying) return;
             musicPlaying = true;
+            // --- Memory Palace: фиксируем музыку как событие ---
+            memoryPalace.addNode({
+              id: crypto.randomUUID(),
+              type: 'music',
+              genre: currentGenre,
+              emotion: (selfAwareness.mood + 1) / 2,
+              timestamp: performance.now()
+            });
 
             const genomeBPM = 60 + musicGenome.tempo * 100;
 
