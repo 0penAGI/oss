@@ -442,12 +442,19 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-       let selfAwareness = {
+      let selfAwareness = {
             mood: 0,           // -1 грусть, +1 радость
             curiosity: 0,      // 0..1, как активно ищем детали
             lastObservations: [],  // массив последних описаний камеры и событий
             dreaming: false,
             lastDream: null,
+            // === Online State Learning (обучение состояний) ===
+            stateModel: {
+                // веса для простого линейного предсказания Δmood и Δcuriosity
+                wMood: { faces: 0.02, novelty: 0.01, music: 0.03 },
+                wCuriosity: { faces: 0.01, novelty: 0.03, music: 0.01 },
+                lr: 0.05
+            },
             generatePossibleFuture(symbols = {}) {
                 const fragments = [];
                 if (symbols.hope) fragments.push(`vision:${symbols.hope}`);
@@ -460,6 +467,30 @@ for (let i = 0; i < particleCount; i++) {
             },
             analyzeFrame(frameDescription) {
                 this.lastObservations.push(frameDescription);
+                // --- извлечение признаков (features) ---
+                const features = {
+                    faces: typeof faceCount === 'number' ? Math.min(faceCount, 5) / 5 : 0,
+                    novelty: Math.random(), // суррогат новизны (позже можно заменить)
+                    music: musicPlaying ? 1 : 0
+                };
+
+                // --- предсказание изменений состояния ---
+                const predMood =
+                    features.faces * this.stateModel.wMood.faces +
+                    features.novelty * this.stateModel.wMood.novelty +
+                    features.music * this.stateModel.wMood.music;
+
+                const predCuriosity =
+                    features.faces * this.stateModel.wCuriosity.faces +
+                    features.novelty * this.stateModel.wCuriosity.novelty +
+                    features.music * this.stateModel.wCuriosity.music;
+
+                const moodBeforeLearning = this.mood;
+                const curiosityBeforeLearning = this.curiosity;
+
+                this.mood += predMood;
+                this.curiosity = Math.min(1, Math.max(0, this.curiosity + predCuriosity));
+
                 if(this.lastObservations.length > 20) this.lastObservations.shift();
                 // простая оценка настроения на основе наблюдений
                 if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
@@ -514,6 +545,15 @@ for (let i = 0; i < particleCount; i++) {
                   this.curiosity += 0.02;
                 }
 
+                // --- online learning: корректировка весов ---
+                const moodError = this.mood - moodBeforeLearning;
+                const curiosityError = this.curiosity - curiosityBeforeLearning;
+
+                Object.keys(features).forEach(k => {
+                    this.stateModel.wMood[k] += this.stateModel.lr * moodError * features[k];
+                    this.stateModel.wCuriosity[k] += this.stateModel.lr * curiosityError * features[k];
+                });
+
                 updateOrbVisualState();
                 noteObservation(frameDescription);
             }
@@ -533,10 +573,15 @@ for (let i = 0; i < particleCount; i++) {
 
             connect(a, b, weight = 1) {
                 if (!this.nodes.has(a) || !this.nodes.has(b)) return;
-                this.nodes.get(a).connections ||= [];
-                this.nodes.get(b).connections ||= [];
-                this.nodes.get(a).connections.push({ id: b, weight });
-                this.nodes.get(b).connections.push({ id: a, weight });
+
+                const na = this.nodes.get(a);
+                const nb = this.nodes.get(b);
+
+                na.connections ||= [];
+                nb.connections ||= [];
+
+                na.connections.push({ id: b, weight });
+                nb.connections.push({ id: a, weight });
             },
 
             stimulate(input = {}) {
@@ -563,10 +608,30 @@ for (let i = 0; i < particleCount; i++) {
                     }
                 });
 
+                // === Hebbian learning: обучение смыслов ===
+                this.nodes.forEach(node => {
+                    if (node.activation > 1 && node.connections) {
+                        node.connections.forEach(link => {
+                            const target = this.nodes.get(link.id);
+                            if (target && target.activation > 1) {
+                                // усиливаем связь, если активировались вместе
+                                link.weight = Math.min(3, link.weight + 0.05);
+                            }
+                        });
+                    }
+                });
+
                 // 3. затухание и выбор резонансных узлов
                 const resonant = [];
                 this.nodes.forEach(node => {
+                    // node.activation *= 0.92;
                     node.activation *= 0.92;
+                    if (node.connections) {
+                        node.connections.forEach(link => {
+                            // медленное забывание неиспользуемых смыслов
+                            link.weight *= 0.995;
+                        });
+                    }
                     if (node.activation > 1.2) {
                         node.lastAccess = performance.now();
                         resonant.push(node);
