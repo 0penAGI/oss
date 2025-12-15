@@ -666,10 +666,26 @@ for (let i = 0; i < particleCount; i++) {
             }
         }
 
-        // Клик на orb теперь просто вызывает triggerAmbient
+        // === Пасхалка: реакция на частые нажатия на orb ===
+        // счётчик тапов и таймер
+        let tapCount = 0;
+        let tapTimer = null;
+
         orb.addEventListener('click', () => {
             vibrate('medium');
             triggerAmbient();
+
+            // отслеживание частых тапов
+            tapCount++;
+            if (tapTimer) clearTimeout(tapTimer);
+            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // сброс через 3 сек
+
+            if (tapCount >= 5) {
+                // пасхалка
+                speak("Эй, мне больно, не надо!");
+                tapCount = 0;
+                return;
+            }
 
             if (typeof window.speechSynthesis?.resume === 'function') {
                 window.speechSynthesis.resume();
