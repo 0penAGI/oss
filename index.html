@@ -616,13 +616,14 @@ for (let i = 0; i < particleCount; i++) {
         let currentAmbient = null;
 
         // Простейшие белый шум + фильтры для разных сред (расширенные звуки)
+        // Расширено: битовый ритм, эволюция, фильтр lowpass 12кГц, реверберация
         function createNoise(type) {
             const bufferSize = 2 * audioCtx.sampleRate;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
 
             for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1; // белый шум
+                data[i] = Math.random() * 2 - 1;
             }
 
             const source = audioCtx.createBufferSource();
@@ -630,30 +631,62 @@ for (let i = 0; i < particleCount; i++) {
             source.loop = true;
 
             const gainNode = audioCtx.createGain();
-            gainNode.gain.value = 0.1; // по умолчанию
+            gainNode.gain.value = 0.1;
 
+            // Lowpass фильтр на 12кГц для любого типа
             const filter = audioCtx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 12000;
 
-            // Фильтры для разных типов (расширенный набор)
+            // Реверберация (простая)
+            const reverb = audioCtx.createConvolver();
+            const irBuffer = audioCtx.createBuffer(2, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+                const channelData = irBuffer.getChannelData(ch);
+                for (let i = 0; i < irBuffer.length; i++) {
+                    channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irBuffer.length, 2);
+                }
+            }
+            reverb.buffer = irBuffer;
+
+            // Эволюция: LFO модулирует громкость (медленно)
+            const lfo = audioCtx.createOscillator();
+            lfo.frequency.value = 0.1 + Math.random() * 0.2;
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 0.05;
+            lfo.connect(lfoGain);
+            lfoGain.connect(gainNode.gain);
+            lfo.start();
+
+            // Битовый ритм (LFO на громкость уже создаёт эффект "дыхания"/битов)
+            // Дополнительно можно наложить периодическое "пульсирование" через автоматизацию (по желанию)
+
+            // Дополнительные фильтры/усиления по типу
             switch(type) {
-                case 'rain': filter.type='highpass'; filter.frequency.value=1000; gainNode.gain.value=0.15; break;
-                case 'ocean': filter.type='lowpass'; filter.frequency.value=400; gainNode.gain.value=0.12; break;
-                case 'forest': filter.type='bandpass'; filter.frequency.value=800; gainNode.gain.value=0.1; break;
-                case 'jungle': filter.type='bandpass'; filter.frequency.value=1200; gainNode.gain.value=0.13; break;
-                case 'wind': filter.type='highpass'; filter.frequency.value=600; gainNode.gain.value=0.08; break;
-                case 'night': filter.type='lowpass'; filter.frequency.value=500; gainNode.gain.value=0.07; break;
-                case 'river': filter.type='bandpass'; filter.frequency.value=700; gainNode.gain.value=0.11; break;
-                default: filter.type='allpass'; gainNode.gain.value=0.1; break;
+                case 'rain': filter.frequency.value=10000; gainNode.gain.value=0.15; break;
+                case 'ocean': filter.frequency.value=4000; gainNode.gain.value=0.12; break;
+                case 'forest': filter.frequency.value=8000; gainNode.gain.value=0.1; break;
+                case 'jungle': filter.frequency.value=9000; gainNode.gain.value=0.13; break;
+                case 'wind': filter.frequency.value=6000; gainNode.gain.value=0.08; break;
+                case 'night': filter.frequency.value=5000; gainNode.gain.value=0.07; break;
+                case 'river': filter.frequency.value=7000; gainNode.gain.value=0.11; break;
+                default: filter.frequency.value=12000; gainNode.gain.value=0.1; break;
             }
 
-            source.connect(filter).connect(gainNode).connect(audioCtx.destination);
-            return { source, gainNode };
+            // Цепочка: source → filter → reverb → gain → destination
+            source.connect(filter).connect(reverb).connect(gainNode).connect(audioCtx.destination);
+
+            return { source, gainNode, filter, reverb, lfo, lfoGain };
         }
 
         // Переключение ambient
         function playAmbient(type) {
             if (currentAmbient) {
                 currentAmbient.source.stop();
+                // Останавливаем LFO если есть
+                if (currentAmbient.lfo) {
+                    try { currentAmbient.lfo.stop(); } catch {}
+                }
             }
             currentAmbient = createNoise(type);
             currentAmbient.source.start();
