@@ -1595,6 +1595,7 @@ for (let i = 0; i < particleCount; i++) {
         
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
+        let spokenLength = 0; // сколько символов уже отдано в речь
 
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
     let thinkingVibrationInterval = null;
@@ -1658,6 +1659,7 @@ for (let i = 0; i < particleCount; i++) {
 
         const responseContainer = document.getElementById("current-response");
         audioBuffer = "";
+        spokenLength = 0;
         // --- sDelay-driven speech sync ---
         let speechStarted = false;
         const speechDelayMs = 420; // базовая задержка «вязкого времени»
@@ -1706,12 +1708,18 @@ for (let i = 0; i < particleCount; i++) {
                 // Копим для озвучки
                 audioBuffer += chunk;
 
-                // --- старт речи синхронно с печатью через sDelay ---
+                // --- инкрементальная речь: говорим по мере поступления текста ---
                 if (!speechStarted && audioBuffer.length > 24) {
                     speechStarted = true;
-                    setTimeout(() => {
-                        speak(audioBuffer);
-                    }, speechDelayMs);
+                }
+
+                if (speechStarted) {
+                    const delta = audioBuffer.slice(spokenLength);
+                    // говорим только если накопилась фраза
+                    if (delta.length > 20 && /[.!?]|,|\n/.test(delta)) {
+                        spokenLength = audioBuffer.length;
+                        speak(delta);
+                    }
                 }
             }
 
@@ -1721,9 +1729,10 @@ for (let i = 0; i < particleCount; i++) {
             if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
             else if (navigator.vibrate) navigator.vibrate([60]);
 
-            // если речь уже запущена — не дублируем
-            if (!speechStarted) {
-                speak(audioBuffer);
+            // договариваем хвост, если он остался
+            const tail = audioBuffer.slice(spokenLength);
+            if (tail.trim().length > 0) {
+                speak(tail);
             }
 
         } catch (e) {
@@ -1784,6 +1793,8 @@ for (let i = 0; i < particleCount; i++) {
         }
 
         function speak(text) {
+            // не прерываем текущую речь — добавляем в очередь
+            if (!text || !text.trim()) return;
             stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
             orb.classList.remove('thinking');
             orb.classList.add('speaking');
