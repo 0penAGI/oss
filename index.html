@@ -697,18 +697,39 @@ for (let i = 0; i < particleCount; i++) {
             if (musicPlaying) return;
             musicPlaying = true;
 
+            // Реверб
+            const convolver = musicCtx.createConvolver();
+            convolver.connect(masterGain);
+
             // === Бит ===
-            beatOsc = musicCtx.createOscillator();
-            let beatGain = musicCtx.createGain();
-            beatGain.gain.value = 0.1;
-            beatOsc.type = 'square';
-            beatOsc.frequency.value = 120; // bpm ~120
-            beatOsc.connect(beatGain).connect(masterGain);
-            beatOsc.start();
+            const beatsCount = 4;
+            const beatGains = [];
+            const beatOscs = [];
+            for (let i = 0; i < beatsCount; i++) {
+                const osc = musicCtx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.value = 80 + i*20; // разные частоты для каждого бита
+                const gainNode = musicCtx.createGain();
+                gainNode.gain.value = 0.08;
+                osc.connect(gainNode).connect(masterGain);
+                osc.start();
+                beatOscs.push(osc);
+                beatGains.push(gainNode);
+            }
+
+            // Lowpass filter для битов
+            const lpFilter = musicCtx.createBiquadFilter();
+            lpFilter.type = 'lowpass';
+            lpFilter.frequency.value = 12000;
+            beatGains.forEach(g => {
+                g.disconnect();
+                g.connect(lpFilter);
+            });
+            lpFilter.connect(masterGain);
 
             // === MIDI мелодия ===
             midiSynth = musicCtx.createOscillator();
-            let midiGain = musicCtx.createGain();
+            const midiGain = musicCtx.createGain();
             midiGain.gain.value = 0.08;
             midiSynth.type = 'sawtooth';
             midiSynth.connect(midiGain).connect(masterGain);
