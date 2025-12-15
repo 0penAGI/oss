@@ -48,37 +48,36 @@
             width: 200px;
             height: 200px;
             border-radius: 50%;
-            background: radial-gradient(circle at 35% 35%,
+            background: radial-gradient(circle at 30% 30%,
                 rgba(255, 255, 255, 0.9) 0%,
-                rgba(200, 200, 200, 0.6) 20%,
-                rgba(100, 100, 100, 0.4) 40%,
-                rgba(40, 40, 40, 0.8) 70%,
-                rgba(0, 0, 0, 1) 100%
-            );
+                rgba(180, 180, 255, 0.4) 30%,
+                rgba(100, 80, 200, 0.3) 60%,
+                rgba(0, 0, 40, 0.9) 100%);
             box-shadow:
-                0 0 60px rgba(255, 255, 255, 0.3),
-                0 0 100px rgba(255, 255, 255, 0.1),
-                inset -30px -30px 80px rgba(0, 0, 0, 0.9),
-                inset 30px 30px 60px rgba(255, 255, 255, 0.05);
+                0 0 50px rgba(180,180,255,0.5),
+                0 0 120px rgba(100,80,220,0.25),
+                inset -30px -30px 80px rgba(0,0,60,0.8),
+                inset 30px 30px 60px rgba(255,255,255,0.05);
             animation: breathe 4s infinite ease-in-out, swirl 6s infinite linear;
             cursor: pointer;
             transition: all 0.3s ease;
         }
+
         .soul-orb::before {
             content: '';
             position: absolute;
             top: 18%;
             left: 25%;
-            width: 35%;
-            height: 35%;
+            width: 40%;
+            height: 40%;
             border-radius: 50%;
             background: radial-gradient(circle,
-                rgba(255, 255, 255, 0.9) 0%,
-                rgba(255, 255, 255, 0.4) 40%,
-                transparent 70%
-            );
-            filter: blur(8px);
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(255, 255, 255, 0.5) 40%,
+                transparent 80%);
+            filter: blur(12px);
         }
+
         .soul-orb::after {
             content: '';
             position: absolute;
@@ -89,6 +88,11 @@
                 rgba(0,0,40,0.7) 80%);
             filter: blur(8px);
             mix-blend-mode: screen;
+        }
+
+        @keyframes breathe {
+            0%,100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
         }
 
         @keyframes swirl {
@@ -787,7 +791,7 @@ for (let i = 0; i < particleCount; i++) {
         let autonomyInterval = null;
         let questioningInterval = null;
 
-        // Enhanced: Full autonomy loop with advanced music control
+        // New: Full autonomy loop, combining camera, music, and self-dialogue
         async function fullAutonomyLoop() {
             // --- Camera control ---
             if (typeof cameraEnabled !== 'undefined') {
@@ -800,6 +804,7 @@ for (let i = 0; i < particleCount; i++) {
             }
 
             // --- Music control based on mood/curiosity ---
+            // AI can start or stop music independently
             if (typeof musicPlaying !== 'undefined') {
                 if (!musicPlaying && (selfAwareness.mood > 0.4 || selfAwareness.curiosity > 0.8)) {
                     if (musicCtx.state === 'suspended') musicCtx.resume();
@@ -811,11 +816,14 @@ for (let i = 0; i < particleCount; i++) {
             }
 
             // --- Internal dialogue: self-questioning and autonomous speech ---
+            // Self-thoughts and observations
             if (selfAwareness.curiosity > 0.5) {
                 const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const thought = `Заметка: анализирую последние кадры -> ${lastObs}`;
                 noteObservation(thought);
+                //console.log("Self-thought:", thought);
             }
+            // Autonomous self-questioning and conversation
             if (!isSpeaking && selfAwareness.curiosity > 0.6) {
                 const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const questions = [
@@ -828,6 +836,7 @@ for (let i = 0; i < particleCount; i++) {
                 noteObservation(`Self-question: ${q}`);
                 vibrate('light');
                 if (selfAwareness.mood > 0.3) speak(q);
+                // Occasionally initiates a mini-conversation
                 if (Math.random() < 0.5) {
                     setTimeout(() => {
                         vibrate('medium');
@@ -835,6 +844,7 @@ for (let i = 0; i < particleCount; i++) {
                     }, 1000);
                 }
             }
+            // Speak internal notes when happy
             if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
                 speak(internalNotes[internalNotes.length - 1]);
             }
@@ -885,16 +895,18 @@ for (let i = 0; i < particleCount; i++) {
                     } catch (e) { }
                 }
             }
-
-            // --- Enhanced Autonomous Music Control ---
-            enhancedAutonomousMusicControl();
+            // === Autonomous Music Control Layer ===
+            autonomousMusicControl();
         }
 
-        // === Enhanced Autonomous Music Control Layer ===
-        function enhancedAutonomousMusicControl() {
-            // Advanced music autonomy: dynamic genre, genome, and memory-based reactions
+        // === Autonomous Music Control Layer ===
+        function autonomousMusicControl() {
+            // Здесь можно реализовать дополнительную автономию музыки, например:
+            // - Переключение жанра на основе настроения
+            // - Динамическое изменение параметров musicGenome
+            // - Реакция на события памяти
+            // Пример: смена жанра, если настроение сильно изменилось
             if (typeof selfAwareness !== 'undefined' && typeof setGenre === 'function') {
-                // Genre switching logic
                 if (selfAwareness.mood > 0.7 && currentGenre !== 'pop') {
                     setGenre('pop');
                 } else if (selfAwareness.mood < -0.3 && currentGenre !== 'ambient') {
@@ -905,31 +917,7 @@ for (let i = 0; i < particleCount; i++) {
                     setGenre('jazz');
                 }
             }
-            // Dynamic genome morphing: increase harmony/brightness if happy, chaos if curious
-            if (typeof musicGenome !== 'undefined') {
-                if (selfAwareness.mood > 0.5) {
-                    musicGenome.harmony = Math.min(1, musicGenome.harmony + 0.02);
-                    musicGenome.brightness = Math.min(1, musicGenome.brightness + 0.02);
-                }
-                if (selfAwareness.curiosity > 0.7) {
-                    musicGenome.chaos = Math.min(1, musicGenome.chaos + 0.02);
-                }
-                if (selfAwareness.mood < -0.2) {
-                    musicGenome.harmony = Math.max(0, musicGenome.harmony - 0.015);
-                    musicGenome.brightness = Math.max(0, musicGenome.brightness - 0.01);
-                }
-            }
-            // Memory palace: recall musical crossmodal memories and trigger genre shifts
-            if (typeof modalConnections !== 'undefined' && typeof memoryPalace !== 'undefined') {
-                const memories = modalConnections.recall('music');
-                if (memories.length > 0) {
-                    // If a memory suggests a strong positive mood, try to shift genre accordingly
-                    const best = memories.reduce((a, b) => (a.moodDelta > b.moodDelta ? a : b), memories[0]);
-                    if (best && best.moodDelta > 0.1 && currentGenre !== best.audio) {
-                        setGenre(best.audio);
-                    }
-                }
-            }
+            // Можно добавить больше логики по желанию
         }
 
         // Enhanced runAutonomy: calls fullAutonomyLoop every 4 seconds
