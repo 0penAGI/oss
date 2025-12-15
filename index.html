@@ -649,24 +649,27 @@ for (let i = 0; i < particleCount; i++) {
             playAmbient(types[idx]);
         }
 
-        // Запуск ambient по клику на orb
+        function startAmbientInterval() {
+            updateAmbientByMood(); // сразу проигрываем
+            if (!ambientInterval) {
+                ambientInterval = setInterval(updateAmbientByMood, 10000);
+            }
+        }
+
+        function triggerAmbient() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume().then(() => startAmbientInterval());
+            } else {
+                startAmbientInterval();
+            }
+        }
+
+        // Клик на orb теперь просто вызывает triggerAmbient
         orb.addEventListener('click', () => {
             vibrate('medium');
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume().then(() => {
-                    updateAmbientByMood(); // запускаем ambient по команде
-                    if (!ambientInterval) {
-                        ambientInterval = setInterval(updateAmbientByMood, 10000);
-                    }
-                });
-            } else {
-                updateAmbientByMood();
-                if (!ambientInterval) {
-                    ambientInterval = setInterval(updateAmbientByMood, 10000);
-                }
-            }
+            triggerAmbient();
 
-            if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
+            if (typeof window.speechSynthesis?.resume === 'function') {
                 window.speechSynthesis.resume();
             }
             if (!isSpeaking && !isThinking) {
@@ -1287,15 +1290,7 @@ for (let i = 0; i < particleCount; i++) {
             // Голосовые команды для ambient
             const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
             if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
-                if (audioCtx.state === 'suspended') {
-                    audioCtx.resume().then(() => {
-                        updateAmbientByMood();
-                        if (!ambientInterval) ambientInterval = setInterval(updateAmbientByMood, 10000);
-                    });
-                } else {
-                    updateAmbientByMood();
-                    if (!ambientInterval) ambientInterval = setInterval(updateAmbientByMood, 10000);
-                }
+                triggerAmbient();
             }
 
             // Передать дальше в старый обработчик
