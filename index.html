@@ -1671,38 +1671,61 @@ for (let i = 0; i < particleCount; i++) {
             cameraEnabled = false;
             stopCameraAnalysisLoop();
         }
-        // ====== Shake Joke Layer ======
-        let shakeThreshold = 15;
+        // ====== Shake Joke Layer (с проверкой разрешений и orb) ======
+        let shakeThreshold = 10; // немного снизил для теста
         let lastX, lastY, lastZ;
         let lastTime = 0;
         let jokeCooldown = false;
 
-        window.addEventListener('devicemotion', (event) => {
-            const acc = event.accelerationIncludingGravity;
-            const curTime = Date.now();
-            if ((curTime - lastTime) > 100) {
-                const deltaTime = curTime - lastTime;
-                lastTime = curTime;
-                const deltaX = acc.x - (lastX || 0);
-                const deltaY = acc.y - (lastY || 0);
-                const deltaZ = acc.z - (lastZ || 0);
-                const speed = Math.abs(deltaX + deltaY + deltaZ) / deltaTime * 10000;
-                if (speed > shakeThreshold) {
-                    triggerShakeJoke();
-                    // Можно добавить визуальный эффект для orb
-                    orb.classList.add('vibrating');
-                    setTimeout(() => orb.classList.remove('vibrating'), 300);
-                }
-                lastX = acc.x;
-                lastY = acc.y;
-                lastZ = acc.z;
+        function initShakeListener() {
+            const orbElement = document.getElementById('orb');
+            if (!orbElement) {
+                console.warn("Orb элемент не найден, shake не будет работать");
+                return;
             }
-        });
+
+            function handleMotion(event) {
+                const acc = event.accelerationIncludingGravity;
+                const curTime = Date.now();
+                if ((curTime - lastTime) > 100) {
+                    const deltaTime = curTime - lastTime;
+                    lastTime = curTime;
+                    const deltaX = acc.x - (lastX || 0);
+                    const deltaY = acc.y - (lastY || 0);
+                    const deltaZ = acc.z - (lastZ || 0);
+                    const speed = Math.abs(deltaX + deltaY + deltaZ) / deltaTime * 10000;
+                    if (speed > shakeThreshold) {
+                        triggerShakeJoke();
+                        // Визуальный эффект orb
+                        orbElement.classList.add('vibrating');
+                        setTimeout(() => orbElement.classList.remove('vibrating'), 300);
+                    }
+                    lastX = acc.x;
+                    lastY = acc.y;
+                    lastZ = acc.z;
+                }
+            }
+
+            // Проверка разрешений (iOS 13+)
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('devicemotion', handleMotion);
+                        } else {
+                            console.warn("Доступ к датчику движения отклонён");
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        }
 
         async function triggerShakeJoke() {
             if (jokeCooldown) return;
             jokeCooldown = true;
-            setTimeout(() => { jokeCooldown = false; }, 3000); // cooldown 3s
+            setTimeout(() => { jokeCooldown = false; }, 3000);
 
             try {
                 const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1718,11 +1741,16 @@ for (let i = 0; i < particleCount; i++) {
                 });
                 const data = await response.json();
                 const joke = data.choices[0].message.content;
-                speak(joke); // использовать существующую функцию TTS
+                speak(joke); // используем существующую функцию TTS
             } catch(e) {
                 console.error("Ошибка генерации шутки:", e);
             }
         }
+
+        // Инициализация shake listener после загрузки страницы
+        window.addEventListener('load', () => {
+            setTimeout(initShakeListener, 1200);
+        });
     </script>
 </body>
 </html>
