@@ -1326,6 +1326,11 @@ for (let i = 0; i < particleCount; i++) {
                 utter.pitch = pitch;
                 utter.onstart = () => {
                     vibrateSpeaking();
+                    // Автозапуск музыки по определённым фразам
+                    if (/включаю музыку|начинаю музыку/i.test(s)) {
+                        if (musicCtx.state === 'suspended') musicCtx.resume();
+                        startMusic();
+                    }
                 };
                 utter.onend = () => {
                     stopSpeakingVibration();
