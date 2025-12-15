@@ -368,8 +368,6 @@ for (let i = 0; i < particleCount; i++) {
 
         const liquidFragmentShader = `
             uniform float time;
-            uniform float mood;
-            uniform float curiosity;
             uniform sampler2D tBackground;
             uniform vec2 resolution;
             varying vec2 vUv;
@@ -400,19 +398,16 @@ for (let i = 0; i < particleCount; i++) {
             }
 
             void main() {
-                float emotionalAmount = mix(0.6, 1.6, clamp(abs(mood), 0.0, 1.0));
-                float emotionalSpeed  = mix(0.12, 0.35, clamp(curiosity, 0.0, 1.0));
-
-                float t = sDelay(time, emotionalAmount, emotionalSpeed);
-                t += sin(time * (0.08 + curiosity * 0.25)) * (0.1 + abs(mood) * 0.25);
+                float t = sDelay(time, 1.1, 0.18);
+                t += sin(time * 0.12) * 0.15; // slow global breathing
 
                 float waveX =
                     sin(vUv.y * 12.0 + t * 1.1) *
-                    cos(vUv.x * 5.0 - t * 0.6) * (0.004 + curiosity * 0.006);
+                    cos(vUv.x * 5.0 - t * 0.6) * 0.007;
 
                 float waveY =
                     cos(vUv.x * 10.0 - t * 0.9) *
-                    sin(vUv.y * 7.0 + t * 0.8) * (0.004 + curiosity * 0.006);
+                    sin(vUv.y * 7.0 + t * 0.8) * 0.007;
 
                 // micro‑ripples
                 float ripple = sin((vUv.x + vUv.y) * 40.0 + t * 2.0) * 0.0015;
@@ -434,9 +429,7 @@ for (let i = 0; i < particleCount; i++) {
             uniforms: {
                 time: { value: 0 },
                 tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-                mood: { value: 0.0 },
-                curiosity: { value: 0.0 }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
             },
             vertexShader: liquidVertexShader,
             fragmentShader: liquidFragmentShader,
@@ -465,8 +458,6 @@ for (let i = 0; i < particleCount; i++) {
             renderer.setRenderTarget(null);
             // animate the liquid glass layer
             liquidMaterial.uniforms.time.value += 0.01;
-            liquidMaterial.uniforms.mood.value = selfAwareness.mood;
-            liquidMaterial.uniforms.curiosity.value = selfAwareness.curiosity;
             renderer.render(feedbackScene, feedbackCamera);
 
             // swap
