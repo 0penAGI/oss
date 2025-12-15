@@ -699,21 +699,21 @@ for (let i = 0; i < particleCount; i++) {
 
             // Реверберация
             const convolver = musicCtx.createConvolver();
-            // загружаем impulse response для реверба
-            fetch('path_to_ir.wav') // замени на реальный файл IR
-                .then(resp => resp.arrayBuffer())
-                .then(data => musicCtx.decodeAudioData(data))
+            fetch('path_to_ir.wav')
+                .then(r => r.arrayBuffer())
+                .then(d => musicCtx.decodeAudioData(d))
                 .then(buffer => { convolver.buffer = buffer; });
             convolver.connect(masterGain);
 
-            // === Бит без высоких частот ===
-            const beatsCount = 4;
-            const beatGains = [];
-            const beatOscs = [];
+            // Фильтр для битов
             const lpFilter = musicCtx.createBiquadFilter();
             lpFilter.type = 'lowpass';
-            lpFilter.frequency.value = 10000; // ограничиваем HF
+            lpFilter.frequency.value = 6000;
+            lpFilter.connect(masterGain);
 
+            // генерация битов
+            const beatsCount = 4;
+            const beatGains = [];
             for (let i = 0; i < beatsCount; i++) {
                 const osc = musicCtx.createOscillator();
                 osc.type = 'square';
@@ -722,45 +722,51 @@ for (let i = 0; i < particleCount; i++) {
                 gainNode.gain.value = 0.08;
                 osc.connect(gainNode).connect(lpFilter);
                 osc.start();
-                beatOscs.push(osc);
                 beatGains.push(gainNode);
             }
-            lpFilter.connect(masterGain);
 
             // === MIDI мелодия ===
             midiSynth = musicCtx.createOscillator();
             const midiGain = musicCtx.createGain();
             midiGain.gain.value = 0.08;
 
-            // Haas effect (лево-правое смещение для ощущения ширины)
             const haasDelay = musicCtx.createDelay();
-            haasDelay.delayTime.value = 0.02; // 20 мс
+            haasDelay.delayTime.value = 0.02;
             midiSynth.connect(midiGain).connect(haasDelay);
             haasDelay.connect(masterGain);
 
-            // Doppler effect (имитация движения источника)
             const panner = musicCtx.createPanner();
             panner.panningModel = 'HRTF';
             panner.distanceModel = 'linear';
             panner.positionX.setValueAtTime(0, musicCtx.currentTime);
             panner.positionY.setValueAtTime(0, musicCtx.currentTime);
             panner.positionZ.setValueAtTime(1, musicCtx.currentTime);
-
             haasDelay.connect(panner).connect(masterGain);
 
             midiSynth.type = 'sawtooth';
             midiSynth.start();
 
-            // Квинтовая последовательность
-            const notes = [261.63, 329.63, 392.00, 523.25];
+            // разнообразные паттерны мелодий
+            const patterns = [
+                [261.63, 329.63, 392.00, 523.25],          // C-E-G-C5
+                [293.66, 349.23, 440.00, 587.33],          // D-F-A-D5
+                [329.63, 415.30, 493.88, 659.26],          // E-G#-B-E5
+                [349.23, 440.00, 523.25, 698.46]           // F-A-C-F5
+            ];
             let idx = 0;
             setInterval(() => {
-                midiSynth.frequency.setValueAtTime(notes[idx % notes.length], musicCtx.currentTime);
-                // двигаем плеер для Doppler
+                const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+                const note = pattern[idx % pattern.length];
+                const detune = (Math.random()-0.5)*50; // живость
+                midiSynth.frequency.setValueAtTime(note, musicCtx.currentTime);
+                midiSynth.detune.setValueAtTime(detune, musicCtx.currentTime);
+
+                // панорама Doppler
                 panner.positionX.setValueAtTime(Math.sin(Date.now()/1000)*1, musicCtx.currentTime);
                 panner.positionZ.setValueAtTime(1 + Math.cos(Date.now()/1000)*0.5, musicCtx.currentTime);
+
                 idx++;
-            }, 500);
+            }, 400 + Math.random()*200); // случайная длительность между нотами
         }
 
         function stopMusic() {
