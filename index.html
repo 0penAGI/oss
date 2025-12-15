@@ -885,6 +885,29 @@ for (let i = 0; i < particleCount; i++) {
                     } catch (e) { }
                 }
             }
+            // === Autonomous Music Control Layer ===
+            autonomousMusicControl();
+        }
+
+        // === Autonomous Music Control Layer ===
+        function autonomousMusicControl() {
+            // Здесь можно реализовать дополнительную автономию музыки, например:
+            // - Переключение жанра на основе настроения
+            // - Динамическое изменение параметров musicGenome
+            // - Реакция на события памяти
+            // Пример: смена жанра, если настроение сильно изменилось
+            if (typeof selfAwareness !== 'undefined' && typeof setGenre === 'function') {
+                if (selfAwareness.mood > 0.7 && currentGenre !== 'pop') {
+                    setGenre('pop');
+                } else if (selfAwareness.mood < -0.3 && currentGenre !== 'ambient') {
+                    setGenre('ambient');
+                } else if (selfAwareness.curiosity > 0.8 && currentGenre !== 'electro') {
+                    setGenre('electro');
+                } else if (selfAwareness.mood > 0.3 && selfAwareness.curiosity > 0.5 && currentGenre !== 'jazz') {
+                    setGenre('jazz');
+                }
+            }
+            // Можно добавить больше логики по желанию
         }
 
         // Enhanced runAutonomy: calls fullAutonomyLoop every 4 seconds
