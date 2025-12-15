@@ -692,11 +692,15 @@ for (let i = 0; i < particleCount; i++) {
             currentAmbient.source.start();
         }
 
-        // Случайный выбор разнообразных ambient-звуков
-        function updateAmbientByMood() {
-            const types = ['rain','ocean','forest','jungle','wind','night','river'];
-            const idx = Math.floor(Math.random() * types.length);
-            playAmbient(types[idx]);
+        // Остановить ambient
+        function stopAmbientNoise() {
+            if (currentAmbient) {
+                try { currentAmbient.source.stop(); } catch {}
+                if (currentAmbient.lfo) {
+                    try { currentAmbient.lfo.stop(); } catch {}
+                }
+                currentAmbient = null;
+            }
         }
 
         // ===== Classical MIDI Generator =====
@@ -737,19 +741,47 @@ for (let i = 0; i < particleCount; i++) {
             classicalOscillators = [];
         }
 
-        // Изменяем функцию updateAmbientByMood для включения классики
-        const originalUpdateAmbient = updateAmbientByMood;
-        updateAmbientByMood = function() {
-            if (selfAwareness.mood > 0.7) {
-                startClassicalMode();
-                return;
-            } else {
-                stopClassicalMode();
+        // ===== Битовый генератор =====
+        let beatInterval = null;
+        function startBeatGenerator() {
+            if(beatInterval) clearInterval(beatInterval);
+            beatInterval = setInterval(() => {
+                const osc = audioCtx.createOscillator();
+                osc.frequency.value = 80 + Math.random()*40; // низкий бит
+                osc.type = 'sine';
+                const gain = audioCtx.createGain();
+                gain.gain.value = 0.12;
+                osc.connect(gain).connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            }, 400);
+        }
+        function stopBeatGenerator() {
+            if(beatInterval) {
+                clearInterval(beatInterval);
+                beatInterval = null;
             }
-            originalUpdateAmbient();
-        };
+        }
 
-        // Обновление при изменении mood
+        // ===== Новая функция управления ambient и классикой по mood =====
+        function updateAmbientByMood() {
+            stopClassicalMode();
+            stopAmbientNoise();
+            stopBeatGenerator();
+
+            if (selfAwareness.mood > 0.7) {
+                // Классическая музыка: чистая мелодия
+                startClassicalMode();
+            } else {
+                // Поп/бит: ambient + бит
+                const types = ['rain','ocean','forest','jungle','wind','night','river'];
+                const idx = Math.floor(Math.random() * types.length);
+                playAmbient(types[idx]);
+                startBeatGenerator();
+            }
+        }
+
+        // Обновление по таймеру
         setInterval(updateAmbientByMood, 10000);
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
