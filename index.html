@@ -218,7 +218,7 @@
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.z = 5;
 
-        // XDust шейдер для частиц
+        // === XDust шейдер для частиц (оставим для фоновых частиц) ===
         const vertexShader = `
             attribute float size;
             attribute vec3 customColor;
@@ -320,28 +320,24 @@
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
         feedbackScene.add(quad);
 
+        // --- Фоновые частицы ---
         const particleCount = 15000;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
         const colors = new Float32Array(particleCount * 3);
-
         for (let i = 0; i < particleCount; i++) {
             positions[i * 3] = (Math.random() - 0.5) * 10;
             positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
             positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-
             sizes[i] = Math.random() * 3 + 1;
-
             colors[i * 3] = 1;
             colors[i * 3 + 1] = 1;
             colors[i * 3 + 2] = 1;
         }
-
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
         geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
-
         const material = new THREE.ShaderMaterial({
             uniforms: { time: { value: 0 } },
             vertexShader,
@@ -350,9 +346,115 @@
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
-
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
+
+        // === StarDust: "звёздная пыль" вокруг orb ===
+        // Располагаем частицы вокруг центра (0,0,0) в сферической оболочке
+        const orbRadius = 1.26; // чуть больше, чем орб визуально (~200px)
+        const starCount = 900;
+        const starPositions = new Float32Array(starCount * 3);
+        const starBaseSizes = new Float32Array(starCount);
+        const starPhases = new Float32Array(starCount);
+        const starColors = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            // Случайная точка на сферической оболочке с небольшим разбросом
+            const theta = Math.acos(2 * Math.random() - 1); // [0, pi]
+            const phi = 2 * Math.PI * Math.random(); // [0, 2pi]
+            const r = orbRadius + Math.random() * 0.12 + Math.sin(i) * 0.01;
+            starPositions[i * 3] = r * Math.sin(theta) * Math.cos(phi);
+            starPositions[i * 3 + 1] = r * Math.cos(theta);
+            starPositions[i * 3 + 2] = r * Math.sin(theta) * Math.sin(phi);
+            starBaseSizes[i] = 8 + Math.random() * 11;
+            starPhases[i] = Math.random() * Math.PI * 2;
+            // Цвет: смесь белого и голубого/сиреневого
+            let t = Math.random();
+            starColors[i * 3] = 0.7 + 0.3 * t;
+            starColors[i * 3 + 1] = 0.7 + 0.2 * t;
+            starColors[i * 3 + 2] = 1.0;
+        }
+        const starGeometry = new THREE.BufferGeometry();
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starGeometry.setAttribute('baseSize', new THREE.BufferAttribute(starBaseSizes, 1));
+        starGeometry.setAttribute('phase', new THREE.BufferAttribute(starPhases, 1));
+        starGeometry.setAttribute('customColor', new THREE.BufferAttribute(starColors, 3));
+
+        // Шейдер "звёздной пыли" с динамикой под голос
+        const starVertexShader = `
+            attribute float baseSize;
+            attribute float phase;
+            attribute vec3 customColor;
+            uniform float time;
+            uniform float voiceIntensity;
+            varying float vAlpha;
+            varying vec3 vColor;
+            void main() {
+                vColor = customColor;
+                float pulse = 0.45 + 0.55 * abs(sin(time * 1.5 + phase));
+                float voicePulse = 1.0 + voiceIntensity * (0.9 + 0.7 * sin(time * 4.0 + phase * 2.0));
+                float size = baseSize * pulse * voicePulse;
+                // Немного вибрации/дрожания при голосе
+                float shake = voiceIntensity * 0.12 * sin(time * 10.0 + phase);
+                vec3 pos = position + normalize(position) * shake;
+                vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                gl_PointSize = size * (220.0 / -mvPosition.z);
+                gl_Position = projectionMatrix * mvPosition;
+                vAlpha = 0.72 + 0.18 * pulse + 0.35 * voiceIntensity;
+            }
+        `;
+        const starFragmentShader = `
+            varying float vAlpha;
+            varying vec3 vColor;
+            uniform float time;
+            uniform float voiceIntensity;
+            void main() {
+                float dist = length(gl_PointCoord - vec2(0.5));
+                float sparkle = 0.8 + 0.2 * sin(time * 8.0 + dist * 16.0);
+                float ring = smoothstep(0.44, 0.25, dist);
+                float core = smoothstep(0.21, 0.0, dist);
+                float flicker = 0.9 + 0.1 * sin(time * 12.0 + gl_FragCoord.x * 0.2 + gl_FragCoord.y * 0.2);
+                float a = vAlpha * ring * flicker * sparkle;
+                // Более яркое мерцание при голосе
+                a += voiceIntensity * 0.22 * core;
+                gl_FragColor = vec4(vColor, a);
+            }
+        `;
+        const starMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 },
+                voiceIntensity: { value: 0 }
+            },
+            vertexShader: starVertexShader,
+            fragmentShader: starFragmentShader,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+        const starParticles = new THREE.Points(starGeometry, starMaterial);
+        scene.add(starParticles);
+
+        // === Управление динамикой звёздной пыли ===
+        let lastVoiceIntensity = 0;
+        function getVoiceIntensity() {
+            // Голос/вибрация: плавно увеличивать при isSpeaking, иначе спадать
+            let target = (typeof isSpeaking !== 'undefined' && isSpeaking) ? 1.0 : 0.0;
+            // Добавим небольшой "отголосок" от вибрации (например, при сильной вибрации)
+            // (можно добавить дополнительные условия если нужно)
+            lastVoiceIntensity += (target - lastVoiceIntensity) * 0.12;
+            // Лёгкое фоновое дыхание даже если не говорит
+            if (target === 0) lastVoiceIntensity = Math.max(0, lastVoiceIntensity - 0.005);
+            return lastVoiceIntensity;
+        }
+
+        // === Анимация звёздной пыли ===
+        function animateStars(time) {
+            const t = (typeof time === "number" ? time * 0.001 : performance.now() * 0.001);
+            starMaterial.uniforms.time.value = t;
+            starMaterial.uniforms.voiceIntensity.value = getVoiceIntensity();
+            // Лёгкое вращение/покачивание слоя пыли
+            starParticles.rotation.y = Math.sin(t * 0.27) * 0.07;
+            starParticles.rotation.x = Math.cos(t * 0.19) * 0.04;
+        }
 
         // === Liquid Glass Layer ===
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
@@ -400,12 +502,15 @@
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // Update animate() to include liquid layer
-        function animate() {
+        // === Основная анимация с обновлением звёздной пыли ===
+        function animate(now) {
             requestAnimationFrame(animate);
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
+
+            // --- Анимация звёздной пыли вокруг orb ---
+            animateStars(now);
 
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
