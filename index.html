@@ -697,64 +697,42 @@ for (let i = 0; i < particleCount; i++) {
             if (musicPlaying) return;
             musicPlaying = true;
 
-            // Основной мастер-гейн
-            const masterGainNode = musicCtx.createGain();
-            masterGainNode.gain.value = 0.2;
-            masterGainNode.connect(musicCtx.destination);
-
             // Реверб
             const convolver = musicCtx.createConvolver();
-            convolver.connect(masterGainNode);
+            convolver.connect(masterGain);
 
-            // Загружаем реверб-импульсный отклик (можно заменить на локальный файл или онлайн)
-            fetch('https://cdn.jsdelivr.net/gh/mdn/webaudio-examples/impulse-response/impulse.wav')
-                .then(res => res.arrayBuffer())
-                .then(undecoded => musicCtx.decodeAudioData(undecoded))
-                .then(buffer => { convolver.buffer = buffer; });
-
-            // === Биты с низкой частотой без HF шумов ===
+            // === Бит ===
             const beatsCount = 4;
             const beatGains = [];
             const beatOscs = [];
             for (let i = 0; i < beatsCount; i++) {
                 const osc = musicCtx.createOscillator();
                 osc.type = 'square';
-                osc.frequency.value = 80 + i*10; // низкочастотный бит
+                osc.frequency.value = 80 + i*20; // разные частоты для каждого бита
                 const gainNode = musicCtx.createGain();
                 gainNode.gain.value = 0.08;
-
-                // Haas effect: задержка для панорамирования
-                const delayNode = musicCtx.createDelay();
-                delayNode.delayTime.value = 0.03 * i; // 30ms * индекс
-                const panNode = musicCtx.createStereoPanner();
-                panNode.pan.value = (i % 2 === 0) ? -0.3 : 0.3; // панорамирование
-
-                osc.connect(gainNode).connect(delayNode).connect(panNode).connect(convolver);
+                osc.connect(gainNode).connect(masterGain);
                 osc.start();
                 beatOscs.push(osc);
                 beatGains.push(gainNode);
             }
 
-            // Lowpass фильтр не нужен, HF шум убран
+            // Lowpass filter для битов
+            const lpFilter = musicCtx.createBiquadFilter();
+            lpFilter.type = 'lowpass';
+            lpFilter.frequency.value = 12000;
+            beatGains.forEach(g => {
+                g.disconnect();
+                g.connect(lpFilter);
+            });
+            lpFilter.connect(masterGain);
 
-            // === MIDI мелодия с Doppler ===
+            // === MIDI мелодия ===
             midiSynth = musicCtx.createOscillator();
             const midiGain = musicCtx.createGain();
             midiGain.gain.value = 0.08;
-
-            const dopplerOsc = musicCtx.createOscillator();
-            dopplerOsc.type = 'sine';
-            dopplerOsc.frequency.value = 0.5; // медленный LFO для Доплера
-            const dopplerGain = musicCtx.createGain();
-            dopplerGain.gain.value = 15; // максимальный эффект частотного смещения
-
-            dopplerOsc.connect(dopplerGain);
-            dopplerGain.connect(midiSynth.detune);
-
             midiSynth.type = 'sawtooth';
-            midiSynth.connect(midiGain).connect(convolver);
-            midiSynth.start();
-            dopplerOsc.start();
+            midiSynth.connect(midiGain).connect(masterGain);
 
             // Квинтовая последовательность
             const notes = [261.63, 329.63, 392.00, 523.25]; // C, E, G, C5
@@ -764,6 +742,8 @@ for (let i = 0; i < particleCount; i++) {
                 midiSynth.frequency.setValueAtTime(notes[idx % notes.length], musicCtx.currentTime);
                 idx++;
             }, 500); // каждая нота 0.5 сек
+
+            midiSynth.start();
         }
 
         function stopMusic() {
