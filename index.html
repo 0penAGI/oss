@@ -692,15 +692,11 @@ for (let i = 0; i < particleCount; i++) {
             currentAmbient.source.start();
         }
 
-        // Остановить ambient
-        function stopAmbientNoise() {
-            if (currentAmbient) {
-                try { currentAmbient.source.stop(); } catch {}
-                if (currentAmbient.lfo) {
-                    try { currentAmbient.lfo.stop(); } catch {}
-                }
-                currentAmbient = null;
-            }
+        // Случайный выбор разнообразных ambient-звуков
+        function updateAmbientByMood() {
+            const types = ['rain','ocean','forest','jungle','wind','night','river'];
+            const idx = Math.floor(Math.random() * types.length);
+            playAmbient(types[idx]);
         }
 
         // ===== Classical MIDI Generator =====
@@ -741,47 +737,19 @@ for (let i = 0; i < particleCount; i++) {
             classicalOscillators = [];
         }
 
-        // ===== Битовый генератор =====
-        let beatInterval = null;
-        function startBeatGenerator() {
-            if(beatInterval) clearInterval(beatInterval);
-            beatInterval = setInterval(() => {
-                const osc = audioCtx.createOscillator();
-                osc.frequency.value = 80 + Math.random()*40; // низкий бит
-                osc.type = 'sine';
-                const gain = audioCtx.createGain();
-                gain.gain.value = 0.12;
-                osc.connect(gain).connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.1);
-            }, 400);
-        }
-        function stopBeatGenerator() {
-            if(beatInterval) {
-                clearInterval(beatInterval);
-                beatInterval = null;
-            }
-        }
-
-        // ===== Новая функция управления ambient и классикой по mood =====
-        function updateAmbientByMood() {
-            stopClassicalMode();
-            stopAmbientNoise();
-            stopBeatGenerator();
-
+        // Изменяем функцию updateAmbientByMood для включения классики
+        const originalUpdateAmbient = updateAmbientByMood;
+        updateAmbientByMood = function() {
             if (selfAwareness.mood > 0.7) {
-                // Классическая музыка: чистая мелодия
                 startClassicalMode();
+                return;
             } else {
-                // Поп/бит: ambient + бит
-                const types = ['rain','ocean','forest','jungle','wind','night','river'];
-                const idx = Math.floor(Math.random() * types.length);
-                playAmbient(types[idx]);
-                startBeatGenerator();
+                stopClassicalMode();
             }
-        }
+            originalUpdateAmbient();
+        };
 
-        // Обновление по таймеру
+        // Обновление при изменении mood
         setInterval(updateAmbientByMood, 10000);
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1086,26 +1054,23 @@ for (let i = 0; i < particleCount; i++) {
             speakNext();
         }
         
-        // Убираем автозапуск на load
-        // window.addEventListener('load', () => {
-        //     setTimeout(() => {
-        //         vibrate('light');
-        //         startListening();
-        //     }, 1200);
-        // });
-
-        // Клик по orb запускает ИИ
+        // Исправленный обработчик клика для orb с поддержкой iOS resume
         orb.addEventListener('click', () => {
             vibrate('medium');
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            // Для iOS: resume speechSynthesis, чтобы разблокировать аудио
             if (typeof window.speechSynthesis !== 'undefined' && typeof window.speechSynthesis.resume === 'function') {
                 window.speechSynthesis.resume();
             }
             if (!isSpeaking && !isThinking) {
-                startListening(); // запуск только по клику
+                startListening();
             }
+        });
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                vibrate('light');
+                startListening();
+            }, 1200);
         });
 
         // ====== Минималистичная камера с голосовым управлением ======
