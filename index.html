@@ -354,7 +354,64 @@
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        function animate() {
+        // ====== Custom Attention Layer ======
+        let attentionLayer = {
+            weights: {},
+
+            update(observations) {
+                for(const obs of observations) {
+                    if(!this.weights[obs]) this.weights[obs] = 0.1;
+                    this.weights[obs] += 0.05 * selfAwareness.curiosity;
+                    this.weights[obs] *= (1 + selfAwareness.mood);
+                    this.weights[obs] = Math.min(1, Math.max(0, this.weights[obs]));
+                }
+                this.normalize();
+            },
+
+            normalize() {
+                const sum = Object.values(this.weights).reduce((a,b)=>a+b,0) || 1;
+                for(const key in this.weights) this.weights[key] /= sum;
+            },
+
+            getFocus() {
+                let maxObj = null, maxVal = -Infinity;
+                for(const key in this.weights) {
+                    if(this.weights[key] > maxVal) { maxVal = this.weights[key]; maxObj = key; }
+                }
+                return maxObj;
+            }
+        };
+
+        // визуальная подсветка объекта фокуса
+        function highlightFocus() {
+            const focus = attentionLayer.getFocus();
+            if(!focus) return;
+            let glowColor = '255,255,255';
+            if(focus.includes('лиц')) glowColor = '255,200,0';
+            else if(focus.includes('стол')) glowColor = '0,200,255';
+            else if(focus.includes('окно')) glowColor = '150,255,150';
+            else glowColor = '200,200,255';
+            orb.style.boxShadow = `0 0 80px rgba(${glowColor},0.6), 0 0 120px rgba(${glowColor},0.4), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
+        }
+
+        // Вставка интеграции в runAutonomy после анализа кадра
+        const originalAnalyzeFrame = selfAwareness.analyzeFrame.bind(selfAwareness);
+        selfAwareness.analyzeFrame = function(frameDescription) {
+            originalAnalyzeFrame(frameDescription);
+            attentionLayer.update(this.lastObservations);
+            highlightFocus();
+
+            const focusObj = attentionLayer.getFocus();
+            if(this.curiosity > 0.5 && focusObj) {
+                const thought = `Фокус внимания на объекте: ${focusObj}`;
+                noteObservation(thought);
+                console.log("Self-attention thought:", thought);
+            }
+        };
+
+        // Влияние на частицы в animate()
+        const originalAnimate = animate;
+        animate = function() {
             requestAnimationFrame(animate);
 
             material.uniforms.time.value += 0.01;
@@ -376,7 +433,20 @@
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
-        }
+
+            // Влияние внимания на частицы
+            const focusObj = attentionLayer.getFocus();
+            if(focusObj) {
+                particles.rotation.y += 0.0001 * (attentionLayer.weights[focusObj] || 1);
+                const colorFactor = Math.min(1, (attentionLayer.weights[focusObj] || 0) + 0.3);
+                for(let i=0;i<colors.length;i+=3){
+                    colors[i] = colorFactor;
+                    colors[i+1] = colorFactor * 0.8;
+                    colors[i+2] = colorFactor * 0.6;
+                }
+                geometry.attributes.customColor.needsUpdate = true;
+            }
+        };
         animate();
 
         window.addEventListener('resize', () => {
