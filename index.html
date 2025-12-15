@@ -796,7 +796,7 @@
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 let i = 0;
-                const speed = 20;
+                const speed = 8;
                 const container = element.parentElement; // #transcript
 
                 function type() {
@@ -807,7 +807,7 @@
                         // 🔒 магнитная автопрокрутка вниз
                         container.scrollTop = container.scrollHeight;
 
-                        setTimeout(type, speed + Math.random() * 15);
+                        setTimeout(type, speed + Math.random() * 11);
                     } else {
                         resolve();
                     }
