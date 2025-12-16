@@ -1749,21 +1749,46 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
-        // Append transcript with code formatting support
+        // Append transcript with code formatting support (supports code blocks and inline code)
         function appendTranscript(text) {
-            // Escape HTML
+            // Escape HTML utility
             function escapeHTML(str) {
                 return str.replace(/[&<>"']/g, ch =>
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
-            // Replace triple backtick code blocks with <pre><code>
-            let html = text;
-            // Regex: ```(optional lang)?\n?code...```
-            html = html.replace(/```(\w+)?\n?([\s\S]*?)```/g, (m, lang, code) => {
-                return `<pre><code>${escapeHTML(code.trim())}</code></pre>`;
-            });
-            // Inline code: `code`
-            html = html.replace(/`([^`]+?)`/g, (m, code) => `<code>${escapeHTML(code)}</code>`);
+
+            // Format all code blocks and inline code
+            let html = '';
+            let idx = 0;
+            // Regexp to match triple backtick code blocks (including possible language), or inline code
+            // We'll process the string sequentially
+            // Matches: ```lang\ncode``` or ```code``` or `inline`
+            const codePattern = /```(\w+)?\n?([\s\S]*?)```|`([^`]+?)`/g;
+            let lastIndex = 0;
+            let match;
+            while ((match = codePattern.exec(text)) !== null) {
+                // Text before match
+                if (match.index > lastIndex) {
+                    let before = text.slice(lastIndex, match.index);
+                    html += escapeHTML(before);
+                }
+                if (match[0].startsWith('```')) {
+                    // Code block
+                    const lang = match[1] || '';
+                    const code = match[2] || '';
+                    // Optionally add language as class: <code class="lang-python">
+                    const langClass = lang ? ` class="lang-${escapeHTML(lang.toLowerCase())}"` : '';
+                    html += `<pre><code${langClass}>${escapeHTML(code.replace(/\s+$/, ''))}</code></pre>`;
+                } else if (typeof match[3] === 'string') {
+                    // Inline code
+                    html += `<code>${escapeHTML(match[3])}</code>`;
+                }
+                lastIndex = codePattern.lastIndex;
+            }
+            // Remainder after last match
+            if (lastIndex < text.length) {
+                html += escapeHTML(text.slice(lastIndex));
+            }
             // Prepend "You:" label
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
             transcriptDiv.innerHTML = html;
@@ -1776,6 +1801,7 @@ for (let i = 0; i < particleCount; i++) {
             if (detectedLang !== currentLang) {
                 setLanguage(detectedLang);
             }
+            // Always format transcript for code blocks/inline code
             appendTranscript(text);
 
             // --- Голосовые команды для смены языка ---
