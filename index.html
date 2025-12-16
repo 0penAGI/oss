@@ -225,14 +225,13 @@
         #orb-interactive {
             position: absolute;
             left: 50%;
-            top: 20%;
+            top: calc(20% - 30px); /* подняли на 30px */
             width: 200px;
             height: 200px;
             transform: translate(-50%, -50%);
-            z-index: 10; /* orb всегда поверх шейдера и текста */
+            z-index: 10;
             cursor: pointer;
             background: transparent;
-            /* pointer-events: auto; */
         }
     </style>
 
