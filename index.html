@@ -380,10 +380,16 @@ for (let i = 0; i < particleCount; i++) {
 
     sizes[i] = Math.random() * 3 + 1;
 
-    // Разные цвета
-    colors[i * 3] = Math.random();
-    colors[i * 3 + 1] = Math.random();
-    colors[i * 3 + 2] = Math.random();
+    // Живые, гармоничные цвета с плавным смещением
+    const hue = Math.random();
+    const sat = 0.6 + Math.random() * 0.4;
+    const light = 0.5 + Math.random() * 0.5;
+    const col = new THREE.Color();
+    col.setHSL(hue, sat, light);
+
+    colors[i * 3] = col.r;
+    colors[i * 3 + 1] = col.g;
+    colors[i * 3 + 2] = col.b;
 }
 
         const geometry = new THREE.BufferGeometry();
