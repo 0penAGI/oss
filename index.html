@@ -453,11 +453,18 @@ for (let i = 0; i < particleCount; i++) {
             f.z);
     }
 
+    float sparkle(vec3 p, float t) {
+        vec3 q = p * 18.0;
+        float n = noise(floor(q));
+        float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
+        return step(0.965, n) * flicker;
+    }
+
     vec3 palette(float t) {
-        vec3 a = vec3(0.35, 0.25, 0.55);
-        vec3 b = vec3(0.45, 0.55, 0.65);
+        vec3 a = vec3(0.32, 0.24, 0.55);
+        vec3 b = vec3(0.48, 0.58, 0.68);
         vec3 c = vec3(1.0, 1.0, 1.0);
-        vec3 d = vec3(0.0, 0.15, 0.35);
+        vec3 d = vec3(0.15, 0.25, 0.45);
         return a + b * cos(6.28318 * (c * t + d));
     }
 
@@ -478,12 +485,17 @@ for (let i = 0; i < particleCount; i++) {
         float shell = smoothstep(0.95, 0.2, r);
         float core = exp(-6.0 * r) * (0.8 + 0.8 * audio);
 
-        float colorT = pulse + swirl * 0.4 + r;
+        float phase = 0.05 * modeSmooth + t * 0.03;
+        float colorT = pulse + swirl * 0.4 + r + phase;
         vec3 base = palette(colorT);
 
         vec3 glow =
             base * (0.6 + 0.7 * shell) +
             vec3(0.9, 0.95, 1.2) * f * (0.8 + audio);
+
+        // Sparkle dust effect
+        float dust = sparkle(p + swirl, t) * shell;
+        glow += vec3(1.2, 1.3, 1.5) * dust * (0.4 + audio);
 
         glow += base * core * 1.6;
 
