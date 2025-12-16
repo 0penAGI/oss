@@ -453,12 +453,18 @@ for (let i = 0; i < particleCount; i++) {
             f.z);
     }
 
-    float sparkle(vec3 p, float t) {
-        vec3 q = p * 18.0;
-        float n = noise(floor(q));
-        float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
-        return step(0.965, n) * flicker;
-    }
+        float sparkle(vec3 p, float t) {
+            vec3 q = p * 18.0;
+            float n = noise(floor(q));
+            float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
+            return step(0.965, n) * flicker;
+        }
+
+        float heartbeat(float t) {
+            float h = sin(t * 1.2) * 0.5 + 0.5;
+            h = smoothstep(0.3, 1.0, h);
+            return h;
+        }
 
     vec3 palette(float t) {
         vec3 a = vec3(0.32, 0.24, 0.55);
@@ -479,7 +485,9 @@ for (let i = 0; i < particleCount; i++) {
             noise(p * 3.5 + t * 0.35) * 0.6 +
             noise(p * 7.0 - t * 0.6) * 0.4;
 
-        float pulse = 0.5 + 0.5 * sin(t * 2.4 + swirl * 6.0);
+        float heart = heartbeat(t);
+        float pulse = 0.4 + 0.6 * sin(t * 2.4 + swirl * 6.0);
+        pulse *= mix(0.85, 1.15, heart);
         pulse *= (0.75 + 0.6 * audio);
 
         float shell = smoothstep(0.95, 0.2, r);
@@ -507,6 +515,9 @@ for (let i = 0; i < particleCount; i++) {
 
         alpha *= (0.75 + 0.5 * audio);
 
+        // Slow breathing expansion
+        glow *= 0.9 + 0.25 * heart;
+        alpha *= 0.85 + 0.3 * heart;
         return vec4(glow, alpha);
     }
 
