@@ -399,7 +399,7 @@ for (let i = 0; i < particleCount; i++) {
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
 
-        // === Artistic Glowing Orb Shader ===
+        // === Artistic Glowing Orb Shader (Self-Awareness Integrated) ===
         // Geometry
         const orbGeometry = new THREE.SphereGeometry(0.85, 96, 96);
         // Vertex shader
@@ -412,24 +412,41 @@ for (let i = 0; i < particleCount; i++) {
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
-        // Fragment shader
+        // Fragment shader: integrates curiosityGlow uniform
         const orbFragmentShader = `
             uniform float time;
+            uniform float curiosityGlow;
             varying vec3 vNormal;
             varying vec3 vPosition;
             void main() {
                 float glow = 0.5 + 0.5 * sin(time + length(vPosition) * 8.0);
                 float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0,0.0,1.0))), 2.5);
+                // mood-based color morphing (to be set from JS)
                 vec3 baseColor = mix(vec3(0.35,0.1,1.0), vec3(0.1,1.0,1.0), 0.5 + 0.5 * sin(time * 0.45));
-                vec3 color = baseColor + fresnel * vec3(0.8,0.8,1.2) + glow * 0.14;
-                float alpha = 0.62 + 0.18 * fresnel + 0.14 * glow;
+                // curiosityGlow modulates the blue/cyan
+                baseColor = mix(baseColor, vec3(0.1,0.9,1.2), curiosityGlow * 0.7);
+                vec3 color = baseColor + fresnel * vec3(0.8,0.8,1.2) + glow * 0.14 + curiosityGlow * 0.12;
+                float alpha = 0.62 + 0.18 * fresnel + 0.14 * glow + curiosityGlow * 0.09;
                 gl_FragColor = vec4(color, alpha);
             }
         `;
+        // Orb mode states
+        const ORB_MODES = [
+            { name: "neutral", colorA: [0.35, 0.1, 1.0], colorB: [0.1, 1.0, 1.0] },
+            { name: "happy", colorA: [0.3, 0.8, 0.3], colorB: [0.2, 1.0, 0.8] },
+            { name: "sad", colorA: [0.5, 0.1, 0.6], colorB: [0.1, 0.2, 0.8] },
+            { name: "curious", colorA: [0.15, 0.7, 1.2], colorB: [0.1, 1.0, 1.2] },
+            { name: "dreaming", colorA: [0.7, 0.7, 1.0], colorB: [1.0, 0.7, 1.0] }
+        ];
+        let currentMode = "neutral";
+        let targetMode = "neutral";
+        let curiosityGlow = 0.0;
+
         // Material
         const orbMaterial = new THREE.ShaderMaterial({
             uniforms: {
-                time: { value: 0 }
+                time: { value: 0 },
+                curiosityGlow: { value: 0 }
             },
             vertexShader: orbVertexShader,
             fragmentShader: orbFragmentShader,
@@ -441,6 +458,30 @@ for (let i = 0; i < particleCount; i++) {
         const soulOrbMesh = new THREE.Mesh(orbGeometry, orbMaterial);
         soulOrbMesh.position.set(0, 0.8, 0);
         scene.add(soulOrbMesh);
+
+        // Update orb mode and glow based on selfAwareness
+        function updateOrbFromSelfAwareness() {
+            // Determine target mode by mood and curiosity
+            if (typeof selfAwareness !== "undefined") {
+                if (selfAwareness.dreaming) {
+                    targetMode = "dreaming";
+                } else if (selfAwareness.mood > 0.4) {
+                    targetMode = "happy";
+                } else if (selfAwareness.mood < -0.2) {
+                    targetMode = "sad";
+                } else if (selfAwareness.curiosity > 0.6) {
+                    targetMode = "curious";
+                } else {
+                    targetMode = "neutral";
+                }
+                // Curiosity controls the glow, 0..1
+                curiosityGlow = Math.max(0, Math.min(1, selfAwareness.curiosity || 0));
+            }
+            // Smoothly transition mode (not abrupt)
+            if (currentMode !== targetMode) {
+                currentMode = targetMode;
+            }
+        }
 
         // === Liquid Glass Layer ===
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
@@ -526,9 +567,13 @@ for (let i = 0; i < particleCount; i++) {
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // Update animate() to include liquid layer
+        // Update animate() to include liquid layer and orb self-awareness state
         function animate() {
             requestAnimationFrame(animate);
+
+            // Update orb mode and glow based on selfAwareness
+            updateOrbFromSelfAwareness();
+            orbMaterial.uniforms.curiosityGlow.value = curiosityGlow;
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
