@@ -412,24 +412,35 @@ for (let i = 0; i < particleCount; i++) {
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
-        // Fragment shader
+        // Fragment shader (with mood, curiosity, dreaming uniforms)
         const orbFragmentShader = `
             uniform float time;
+            uniform float mood;
+            uniform float curiosity;
+            uniform float dreaming;
             varying vec3 vNormal;
             varying vec3 vPosition;
             void main() {
-                float glow = 0.5 + 0.5 * sin(time + length(vPosition) * 8.0);
-                float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0,0.0,1.0))), 2.5);
-                vec3 baseColor = mix(vec3(0.35,0.1,1.0), vec3(0.1,1.0,1.0), 0.5 + 0.5 * sin(time * 0.45));
-                vec3 color = baseColor + fresnel * vec3(0.8,0.8,1.2) + glow * 0.14;
-                float alpha = 0.62 + 0.18 * fresnel + 0.14 * glow;
+                float glow = 0.5 + 0.5 * sin(time + length(vPosition) * 8.0 + curiosity * 3.0);
+                float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0,0.0,1.0))), 2.5 + curiosity * 1.5);
+                // Mood controls base color: negative mood = blue/purple, positive = green/yellow, neutral = cyan
+                vec3 colorA = vec3(0.25 + 0.25 * mood, 0.15 + 0.85 * max(0.0, mood), 0.9 - 0.6 * mood); // mood: blue->green
+                vec3 colorB = vec3(0.1 + 0.9 * curiosity, 1.0 - 0.3 * curiosity, 1.0); // curiosity: cyan->yellow
+                vec3 baseColor = mix(colorA, colorB, 0.4 + 0.4 * curiosity);
+                // Dreaming overlays a pinkish highlight
+                vec3 dreamColor = vec3(1.0, 0.6, 1.0) * dreaming * 0.65;
+                vec3 color = baseColor + fresnel * vec3(0.8,0.8,1.2) + glow * 0.14 + dreamColor;
+                float alpha = 0.62 + 0.18 * fresnel + 0.14 * glow + dreaming * 0.13;
                 gl_FragColor = vec4(color, alpha);
             }
         `;
         // Material
         const orbMaterial = new THREE.ShaderMaterial({
             uniforms: {
-                time: { value: 0 }
+                time: { value: 0 },
+                mood: { value: 0 },
+                curiosity: { value: 0 },
+                dreaming: { value: 0 }
             },
             vertexShader: orbVertexShader,
             fragmentShader: orbFragmentShader,
@@ -535,6 +546,10 @@ for (let i = 0; i < particleCount; i++) {
 
             // Artistic Glowing Orb animation
             orbMaterial.uniforms.time.value += 0.01;
+            // Update orbMaterial uniforms from selfAwareness
+            orbMaterial.uniforms.mood.value = typeof selfAwareness?.mood === "number" ? selfAwareness.mood : 0;
+            orbMaterial.uniforms.curiosity.value = typeof selfAwareness?.curiosity === "number" ? selfAwareness.curiosity : 0;
+            orbMaterial.uniforms.dreaming.value = selfAwareness?.dreaming ? 1.0 : 0.0;
             soulOrbMesh.rotation.y += 0.001;
 
             // рендер частиц в новый буфер
