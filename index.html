@@ -157,6 +157,27 @@
             box-shadow: none;
             border: none;
         }
+
+        /* Code formatting for transcript code blocks */
+        #transcript pre, #transcript code {
+            font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
+            background: rgba(30, 30, 40, 0.92);
+            color: #e5e5ff;
+            border-radius: 7px;
+            padding: 0.6em 1em;
+            margin: 0.5em 0;
+            font-size: 14px;
+            overflow-x: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            text-align: left;
+        }
+        #transcript pre {
+            white-space: pre-wrap;
+        }
+        #transcript code {
+            background: none;
+            padding: 0;
+        }
         
         #transcript::-webkit-scrollbar { width: 3px; }
         #transcript::-webkit-scrollbar-track { background: transparent; }
@@ -1728,6 +1749,26 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
+        // Append transcript with code formatting support
+        function appendTranscript(text) {
+            // Escape HTML
+            function escapeHTML(str) {
+                return str.replace(/[&<>"']/g, ch =>
+                    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+            }
+            // Replace triple backtick code blocks with <pre><code>
+            let html = text;
+            // Regex: ```(optional lang)?\n?code...```
+            html = html.replace(/```(\w+)?\n?([\s\S]*?)```/g, (m, lang, code) => {
+                return `<pre><code>${escapeHTML(code.trim())}</code></pre>`;
+            });
+            // Inline code: `code`
+            html = html.replace(/`([^`]+?)`/g, (m, code) => `<code>${escapeHTML(code)}</code>`);
+            // Prepend "You:" label
+            html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
+            transcriptDiv.innerHTML = html;
+        }
+
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
             // --- Автоопределение языка по тексту ---
@@ -1735,7 +1776,7 @@ for (let i = 0; i < particleCount; i++) {
             if (detectedLang !== currentLang) {
                 setLanguage(detectedLang);
             }
-            transcriptDiv.innerHTML = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${text}`;
+            appendTranscript(text);
 
             // --- Голосовые команды для смены языка ---
             // Русский
