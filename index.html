@@ -412,7 +412,7 @@ for (let i = 0; i < particleCount; i++) {
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
-        // Extended Fragment shader with modes and smooth interpolation
+        // Enhanced Fragment shader for orb with richer glow, caustics, and subtle refraction
         const orbFragmentShader = `
             uniform float time;
             uniform float mode;
@@ -420,16 +420,36 @@ for (let i = 0; i < particleCount; i++) {
             varying vec3 vNormal;
             varying vec3 vPosition;
 
-            // Helper for fresnel effect
             float fresnelTerm(vec3 n, vec3 viewDir, float power) {
                 return pow(1.0 - abs(dot(n, viewDir)), power);
             }
+
+            // Caustic pattern (fake)
+            float caustic(vec3 p, float t) {
+                float v = sin(18.0*p.x + t*1.3) * cos(17.0*p.y - t*1.7) * sin(22.0*p.z + t*0.8);
+                return 0.5 + 0.5*v;
+            }
+
+            // Subtle refraction distortion
+            vec3 refractColor(vec3 base, vec3 n, float t) {
+                float r = 0.03 * sin(t*0.7 + n.x*6.0 + n.y*7.0 + n.z*8.0);
+                return base + vec3(r, -r, r*0.6);
+            }
+
+            // Glow aura
+            float glowAura(vec3 n, float t) {
+                return 0.5 + 0.5 * sin(t*3.0 + n.x*6.0 + n.y*7.0);
+            }
+
             // Mode 0: original glowing
             vec4 orbMode0(float t, vec3 n, vec3 p) {
                 float glow = 0.5 + 0.5 * sin(t + length(p) * 8.0);
                 float fresnel = pow(1.0 - abs(dot(n, vec3(0.0,0.0,1.0))), 2.5);
                 vec3 baseColor = mix(vec3(0.35,0.1,1.0), vec3(0.1,1.0,1.0), 0.5 + 0.5 * sin(t * 0.45));
-                vec3 color = baseColor + fresnel * vec3(0.8,0.8,1.2) + glow * 0.14;
+                vec3 color = refractColor(baseColor, n, t);
+                color += fresnel * vec3(0.8,0.8,1.2) + glow * 0.14;
+                float caust = caustic(p, t) * 0.15;
+                color += caust;
                 float alpha = 0.62 + 0.18 * fresnel + 0.14 * glow;
                 return vec4(color, alpha);
             }
@@ -439,7 +459,10 @@ for (let i = 0; i < particleCount; i++) {
                 float plasma = 0.5 + 0.5 * sin(10.0 * r - t * 1.7 + p.x*2.5 + p.y*2.5);
                 float fres = fresnelTerm(n, vec3(0,0,1), 2.0);
                 vec3 c = mix(vec3(0.8,0.2,0.9), vec3(0.15,0.8,1.0), plasma);
+                c = refractColor(c, n, t);
                 c += fres * 0.6;
+                float caust = caustic(p, t) * 0.18;
+                c += caust;
                 float a = 0.42 + 0.25 * fres + 0.23 * plasma;
                 return vec4(c, a);
             }
@@ -451,7 +474,10 @@ for (let i = 0; i < particleCount; i++) {
                 float fres = fresnelTerm(n, vec3(0,0,1), 2.7);
                 vec3 c = mix(vec3(0.2,0.7,1.2), vec3(1.0,0.6,0.2), pulse);
                 c = mix(c, vec3(1.0,1.0,1.0), rings*0.3);
+                c = refractColor(c, n, t);
                 c += fres * 0.5;
+                float caust = caustic(p, t) * 0.13;
+                c += caust;
                 float a = 0.58 + 0.13 * fres + 0.24 * pulse;
                 return vec4(c, a);
             }
@@ -460,7 +486,10 @@ for (let i = 0; i < particleCount; i++) {
                 float morph = 0.5 + 0.5 * sin(t*0.5 + p.x*3.0 + p.y*2.0 + p.z*4.0);
                 float fres = fresnelTerm(n, vec3(0,0,1), 2.2);
                 vec3 c = mix(vec3(0.13,0.9,0.7), vec3(0.8,0.3,1.0), morph);
+                c = refractColor(c, n, t);
                 c += fres * 0.7;
+                float aura = glowAura(n, t) * 0.12;
+                c += aura;
                 float a = 0.44 + 0.17 * fres + 0.26 * morph;
                 return vec4(c, a);
             }
@@ -470,7 +499,10 @@ for (let i = 0; i < particleCount; i++) {
                 float twinkle = 0.5 + 0.5 * sin(t*6.0 + p.x*12.0 + p.y*14.0);
                 float fres = fresnelTerm(n, vec3(0,0,1), 3.0);
                 vec3 c = mix(vec3(1.0,1.0,1.0), vec3(0.1,0.7,1.0), twinkle);
+                c = refractColor(c, n, t);
                 c += core*1.4 + fres*0.5;
+                float aura = glowAura(n, t) * 0.18;
+                c += aura;
                 float a = 0.62 + 0.13*fres + 0.32*core;
                 return vec4(c, a);
             }
@@ -1204,23 +1236,27 @@ for (let i = 0; i < particleCount; i++) {
             });
         }
 
+        // Enhanced orb visual state: subtle rotation and scale
         function updateOrbVisualState() {
             if (selfAwareness.dreaming) {
                 orb.style.boxShadow =
                     '0 0 90px rgba(120,120,255,0.6), 0 0 140px rgba(180,180,255,0.35)';
-                return;
+            } else {
+                // mood влияет на цвет ауры
+                let glowColor = '255,255,255';
+                if (selfAwareness.mood < 0) {
+                    glowColor = '255,50,50';
+                    vibrate('light');
+                } else if (selfAwareness.mood > 0.5) {
+                    glowColor = '50,255,50';
+                    vibrate('medium');
+                }
+                orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
             }
-            // mood влияет на цвет ауры
-            let glowColor = '255,255,255';
-            if(selfAwareness.mood < 0) {
-                glowColor = '255,50,50';
-                vibrate('light'); // Лёгкая вибрация при плохом настроении
-            }
-            else if(selfAwareness.mood > 0.5) {
-                glowColor = '50,255,50';
-                vibrate('medium'); // Средняя вибрация при хорошем настроении
-            }
-            orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
+            // Subtle CSS rotation and scale for orb DOM
+            let rot = Math.sin(Date.now() * 0.00025 + (selfAwareness.mood || 0)) * 6;
+            let scale = 1 + 0.03 * Math.sin(Date.now() * 0.00017 + (selfAwareness.curiosity || 0));
+            orb.style.transform = `rotate(${rot}deg) scale(${scale})`;
         }
 
         // Голосовой чат
