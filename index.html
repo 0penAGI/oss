@@ -656,9 +656,10 @@ for (let i = 0; i < particleCount; i++) {
         }
       };
 
-        // ===== Memory Palace / Graph-based Emergent Memory =====
+   // ===== Memory Palace / Graph-based Emergent Memory =====
         const memoryPalace = {
             nodes: new Map(),
+            emotionalClusters: [],
 
             addNode(node) {
                 this.nodes.set(node.id, {
@@ -666,6 +667,8 @@ for (let i = 0; i < particleCount; i++) {
                     activation: 0,
                     lastAccess: performance.now()
                 });
+                // После добавления узла — обновляем кластеры и притяжение
+                this.gravitationalPull();
             },
 
             connect(a, b, weight = 1) {
@@ -721,7 +724,6 @@ for (let i = 0; i < particleCount; i++) {
                 // 3. затухание и выбор резонансных узлов
                 const resonant = [];
                 this.nodes.forEach(node => {
-                    // node.activation *= 0.92;
                     node.activation *= 0.92;
                     if (node.connections) {
                         node.connections.forEach(link => {
@@ -745,6 +747,58 @@ for (let i = 0; i < particleCount; i++) {
                     n.connections &&
                     n.connections.length >= 2
                 );
+            },
+
+            // Новый: формирование эмоциональных кластеров
+            formEmotionalClusters() {
+                // Группируем узлы по близости эмоций и связности
+                const clusters = [];
+                const visited = new Set();
+                const nodesArr = [...this.nodes.values()];
+                for (let i = 0; i < nodesArr.length; i++) {
+                    const node = nodesArr[i];
+                    if (visited.has(node.id)) continue;
+                    const cluster = [node];
+                    visited.add(node.id);
+                    for (let j = i + 1; j < nodesArr.length; j++) {
+                        const other = nodesArr[j];
+                        if (visited.has(other.id)) continue;
+                        // Считаем похожими по эмоции и наличию связи
+                        const emotionClose = node.emotion !== undefined && other.emotion !== undefined
+                            ? Math.abs(node.emotion - other.emotion) < 0.18
+                            : false;
+                        const connected = node.connections?.some(c => c.id === other.id) || false;
+                        if (emotionClose && connected) {
+                            cluster.push(other);
+                            visited.add(other.id);
+                        }
+                    }
+                    if (cluster.length > 1) clusters.push(cluster);
+                }
+                this.emotionalClusters = clusters;
+            },
+
+            // Новый: "гравитационное притяжение" — усиливаем связи внутри кластеров
+            gravitationalPull() {
+                this.formEmotionalClusters();
+                for (const cluster of this.emotionalClusters) {
+                    // Усиливаем связи между всеми парами внутри кластера
+                    for (let i = 0; i < cluster.length; i++) {
+                        for (let j = i + 1; j < cluster.length; j++) {
+                            const a = cluster[i];
+                            const b = cluster[j];
+                            // Найти связь a→b и b→a и усилить
+                            if (a.connections) {
+                                const link = a.connections.find(l => l.id === b.id);
+                                if (link) link.weight = Math.min(5, link.weight + 0.03);
+                            }
+                            if (b.connections) {
+                                const link = b.connections.find(l => l.id === a.id);
+                                if (link) link.weight = Math.min(5, link.weight + 0.03);
+                            }
+                        }
+                    }
+                }
             }
         };
 
