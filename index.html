@@ -1757,17 +1757,17 @@ for (let i = 0; i < particleCount; i++) {
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
 
-            // Format all code blocks and inline code
+            // Main parser for code blocks and inline code
+            // This version supports triple backtick code blocks (with optional language), and inline code
             let html = '';
             let idx = 0;
-            // Regexp to match triple backtick code blocks (including possible language), or inline code
-            // We'll process the string sequentially
-            // Matches: ```lang\ncode``` or ```code``` or `inline`
-            const codePattern = /```(\w+)?\n?([\s\S]*?)```|`([^`]+?)`/g;
             let lastIndex = 0;
+            // Regex: code block: ```lang\n...``` or ```...```, or inline code: `...`
+            // The regex below matches triple-backtick code blocks (with/without language), or inline code
+            const codePattern = /```(\w+)?\n?([\s\S]*?)```|`([^`]+?)`/g;
             let match;
             while ((match = codePattern.exec(text)) !== null) {
-                // Text before match
+                // Add text before match, escaped
                 if (match.index > lastIndex) {
                     let before = text.slice(lastIndex, match.index);
                     html += escapeHTML(before);
@@ -1775,21 +1775,23 @@ for (let i = 0; i < particleCount; i++) {
                 if (match[0].startsWith('```')) {
                     // Code block
                     const lang = match[1] || '';
-                    const code = match[2] || '';
+                    let code = match[2] || '';
+                    // Remove trailing newlines, but preserve indentation
+                    code = code.replace(/\s+$/, '');
                     // Optionally add language as class: <code class="lang-python">
                     const langClass = lang ? ` class="lang-${escapeHTML(lang.toLowerCase())}"` : '';
-                    html += `<pre><code${langClass}>${escapeHTML(code.replace(/\s+$/, ''))}</code></pre>`;
-                } else if (typeof match[3] === 'string') {
+                    html += `<pre><code${langClass}>${escapeHTML(code)}</code></pre>`;
+                } else if (typeof match[3] === 'string' && match[3] !== undefined) {
                     // Inline code
                     html += `<code>${escapeHTML(match[3])}</code>`;
                 }
                 lastIndex = codePattern.lastIndex;
             }
-            // Remainder after last match
+            // Add remainder after last match
             if (lastIndex < text.length) {
                 html += escapeHTML(text.slice(lastIndex));
             }
-            // Prepend "You:" label
+            // Prepend "You:" label, and insert into transcriptDiv
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
             transcriptDiv.innerHTML = html;
         }
