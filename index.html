@@ -1055,9 +1055,41 @@ for (let i = 0; i < particleCount; i++) {
         }
 
         function updateAmbientByMood() {
-            const types = ['rain','ocean','forest','jungle','wind','night','river'];
-            const idx = Math.floor(Math.random() * types.length);
-            playAmbient(types[idx]);
+            // Адаптивный выбор ambient по mood, curiosity, fatigue
+            // Логика:
+            // - высокое настроение → энергичные (rain, jungle)
+            // - низкое настроение → спокойные (night, ocean)
+            // - высокая curiosity → динамичные (forest, river)
+            // - высокая fatigue → мягкие, расслабляющие (night, ocean)
+            let mood = typeof selfAwareness?.mood === 'number' ? selfAwareness.mood : 0;
+            let curiosity = typeof selfAwareness?.curiosity === 'number' ? selfAwareness.curiosity : 0;
+            let fatigue = typeof selfAwareness?.fatigue === 'number' ? selfAwareness.fatigue : 0;
+
+            // Кандидаты с весами
+            let candidates = [];
+            // Энергичные — если настроение высокое
+            if (mood > 0.4) {
+                candidates.push('rain', 'jungle');
+            }
+            // Спокойные — если настроение низкое
+            if (mood < -0.2) {
+                candidates.push('night', 'ocean');
+            }
+            // Динамичные — если curiosity высокая
+            if (curiosity > 0.6) {
+                candidates.push('forest', 'river');
+            }
+            // Расслабляющие — если fatigue высокая
+            if (fatigue > 0.5) {
+                candidates.push('night', 'ocean');
+            }
+            // Если ничего не выбрано — fallback
+            if (candidates.length === 0) {
+                candidates = ['rain','ocean','forest','jungle','wind','night','river'];
+            }
+            // Выбор случайного из кандидатов
+            const idx = Math.floor(Math.random() * candidates.length);
+            playAmbient(candidates[idx]);
         }
 
         function startAmbientInterval() {
