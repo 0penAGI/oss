@@ -1431,22 +1431,21 @@ for (let i = 0; i < particleCount; i++) {
         orb.addEventListener('click', orbClickHandler);
         orbInteractive.addEventListener('click', orbClickHandler);
 
-
         // ====== Music Autonomy Layer ======
-        // ====== Granular + Neural Morphing Layer ======
+// ====== Granular + Neural Morphing Layer ======
         let musicGenome = {
             tempo: Math.random(),
-            density: Math.random(),
-            brightness: Math.random(),
-            chaos: Math.random(),
-            harmony: Math.random()
+                density: Math.random(),
+                    brightness: Math.random(),
+                        chaos: Math.random(),
+                            harmony: Math.random()
         };
 
         function neuralMorph(state) {
             Object.keys(state).forEach(k => {
-                const drift = (Math.random() - 0.5) * 0.04;
-                state[k] = Math.min(1, Math.max(0, state[k] + drift));
-            });
+                    const drift = (Math.random() - 0.5) * 0.04;
+                        state[k] = Math.min(1, Math.max(0, state[k] + drift));
+                });
         }
 
         // --- Granular Engine ---
@@ -1464,33 +1463,33 @@ for (let i = 0; i < particleCount; i++) {
                 const spawn = () => {
                     if (!this.isPlaying) return;
 
-                    const grain = this.ctx.createBufferSource();
-                    grain.buffer = this.buffer;
-                    grain.playbackRate.value =
-                        0.4 + musicGenome.harmony * 1.6 +
-                        (Math.random() - 0.5) * musicGenome.chaos;
+            const grain = this.ctx.createBufferSource();
+            grain.buffer = this.buffer;
+            grain.playbackRate.value =
+                0.4 + musicGenome.harmony * 1.6 +
+                (Math.random() - 0.5) * musicGenome.chaos;
 
-                    const gain = this.ctx.createGain();
-                    gain.gain.value = 0.05 + Math.random() * 0.15;
+            const gain = this.ctx.createGain();
+            gain.gain.value = 0.05 + Math.random() * 0.15;
 
-                    const now = this.ctx.currentTime;
-                    const grainSize = 0.03 + musicGenome.density * 0.28;
-                    const offset = Math.random() * Math.max(0.01, this.buffer.duration - grainSize);
+            const now = this.ctx.currentTime;
+            const grainSize = 0.03 + musicGenome.density * 0.28;
+            const offset = Math.random() * Math.max(0.01, this.buffer.duration - grainSize);
 
-                    grain.connect(gain).connect(this.output);
-                    grain.start(now, offset, grainSize);
-                    grain.stop(now + grainSize);
+            grain.connect(gain).connect(this.output);
+            grain.start(now, offset, grainSize);
+            grain.stop(now + grainSize);
 
-                    setTimeout(
-                        spawn,
-                        30 + Math.random() * (220 - musicGenome.density * 180)
-                    );
-                };
-                spawn();
-            }
+            setTimeout(
+                spawn,
+                30 + Math.random() * (220 - musicGenome.density * 180)
+            );
+        };
+        spawn();
+    }
 
-            stop() { this.isPlaying = false; }
-        }
+    stop() { this.isPlaying = false; }
+}
 
         let granularEngine = null;
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1533,11 +1532,11 @@ for (let i = 0; i < particleCount; i++) {
             musicPlaying = true;
             // --- Memory Palace: фиксируем музыку как событие ---
             memoryPalace.addNode({
-                id: crypto.randomUUID(),
-                type: 'music',
-                genre: currentGenre,
-                emotion: (selfAwareness.mood + 1) / 2,
-                timestamp: performance.now()
+              id: crypto.randomUUID(),
+              type: 'music',
+              genre: currentGenre,
+              emotion: (selfAwareness.mood + 1) / 2,
+              timestamp: performance.now()
             });
 
             const genomeBPM = 60 + musicGenome.tempo * 100;
@@ -1557,8 +1556,12 @@ for (let i = 0; i < particleCount; i++) {
             masterGain.connect(delayNode);
             delayNode.connect(echoGain);
             echoGain.connect(masterGain); // echo возвращается в masterGain (feedback)
+            // Можно подключить echoGain к отдельному bus для большего контроля
+            // masterGain.connect(delayNode).connect(echoGain).connect(masterGain);
+            // (Для сложных эффектов можно подключить echoGain к отдельному слою)
 
             // Реверберация — уже подключена выше (masterGain → convolver → masterLP → musicCtx.destination)
+            // Но если IR не был загружен — загрузить его (если надо)
             if (!convolver.buffer) {
                 fetch('path_to_ir.wav')
                     .then(r => r.arrayBuffer())
@@ -1620,68 +1623,14 @@ for (let i = 0; i < particleCount; i++) {
             const scheduleAheadTime = 0.2;
             let nextNoteTime = musicCtx.currentTime + 0.1;
             let step = 0;
-            let chordIdx = 0;
-
-            // --- Neural Drift Sound Layer ---
-            function playNeuralDrift(ctx, out) {
-                const osc = ctx.createOscillator();
-                const filter = ctx.createBiquadFilter();
-                const gain = ctx.createGain();
-                const pan = ctx.createStereoPanner();
-
-                const baseFreq = 180 + Math.random() * 260;
-                osc.type = 'sine';
-                osc.frequency.value = baseFreq;
-
-                filter.type = 'lowpass';
-                filter.frequency.value = 600 + Math.random() * 1800;
-                filter.Q.value = 0.4 + Math.random() * 0.8;
-
-                pan.pan.value = (Math.random() - 0.5) * 0.6;
-
-                const t = ctx.currentTime;
-                gain.gain.setValueAtTime(0.0001, t);
-                gain.gain.exponentialRampToValueAtTime(0.12, t + 1.2);
-                gain.gain.exponentialRampToValueAtTime(0.0001, t + 5.4);
-
-                const lfo = ctx.createOscillator();
-                const lfoGain = ctx.createGain();
-                lfo.type = 'sine';
-                lfo.frequency.value = 0.08 + Math.random() * 0.12;
-                lfoGain.gain.value = 18 + Math.random() * 22;
-                lfo.connect(lfoGain).connect(osc.frequency);
-                lfo.start(t);
-
-                osc.connect(filter).connect(pan).connect(gain).connect(out);
-                osc.start(t);
-
-                for (let i = 0; i < 16; i++) {
-                    const tt = t + i * 0.32;
-
-                    osc.frequency.linearRampToValueAtTime(
-                        baseFreq * (0.82 + Math.random() * 0.36),
-                        tt
-                    );
-
-                    filter.frequency.linearRampToValueAtTime(
-                        400 + Math.random() * 3200,
-                        tt
-                    );
-
-                    pan.pan.linearRampToValueAtTime(
-                        (Math.random() - 0.5) * 0.9,
-                        tt
-                    );
-                }
-
-                osc.stop(t + 5.6);
-                lfo.stop(t + 5.6);
-            }
+            let lastExtraKickTime = 0;
 
             // --- Прямые/жанровые бочки (kick drum) ---
             function scheduleKick(time, step) {
+                // Ритм и плотность бита по жанру
                 if (!beatPattern[step % beatPattern.length]) return;
                 const osc = musicCtx.createOscillator();
+                // Тип осциллятора по жанру
                 let oscType = 'sine';
                 switch(currentGenre) {
                     case 'pop': oscType = Math.random() > 0.5 ? 'sine' : 'square'; break;
@@ -1701,49 +1650,74 @@ for (let i = 0; i < particleCount; i++) {
                 osc.connect(gain).connect(masterGain);
                 osc.start(time);
                 osc.stop(time + 0.09);
+                // --- Место для живых сэмплов ударных (жанровых) ---
+                // Пример:
+                // const sampleSource = musicCtx.createBufferSource();
+                // sampleSource.buffer = drumSampleBuffers[currentGenre]; // AudioBuffer сэмпла
+                // sampleSource.connect(masterGain);
+                // sampleSource.start(time);
             }
 
             // --- Случайные дополнительные бочки (extra kick, ghost notes) ---
             function maybeScheduleRandomKick(time) {
+                // С вероятностью 30% добавим ghost kick между основными ударами
                 if (Math.random() < 0.3) {
                     const osc = musicCtx.createOscillator();
                     osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+                    // Немного другой pitch для ghost
                     osc.frequency.setValueAtTime(65 + Math.random()*10, time);
                     osc.frequency.linearRampToValueAtTime(45 + Math.random()*12, time + 0.05 + Math.random()*0.03);
                     const gain = musicCtx.createGain();
+                    // Более тихий и короткий звук
                     let vol = 0.22 + Math.random()*0.18;
                     gain.gain.setValueAtTime(vol, time);
                     gain.gain.linearRampToValueAtTime(0.0, time + 0.05 + Math.random()*0.04);
                     osc.connect(gain).connect(masterGain);
                     osc.start(time);
                     osc.stop(time + 0.08 + Math.random()*0.03);
+                    // --- Место для живых ghost/перкуссионных сэмплов ---
+                    // Пример:
+                    // const sampleSource = musicCtx.createBufferSource();
+                    // sampleSource.buffer = drumSampleBuffers['ghost']; // AudioBuffer ghost sample
+                    // sampleSource.connect(masterGain);
+                    // sampleSource.start(time);
                 }
             }
 
             // --- Популярные аккорды: Am, Cm, Dm, F (оставляем общими для всех жанров) ---
             const chordDefs = [
+                // Минорные
                 { name: 'Am', notes: [220.00, 261.63, 329.63] },
                 { name: 'Em', notes: [164.81, 196.00, 246.94] },
                 { name: 'Dm', notes: [293.66, 349.23, 440.00] },
                 { name: 'Cm', notes: [261.63, 311.13, 392.00] },
+
+                // Мажорные
                 { name: 'C',  notes: [261.63, 329.63, 392.00] },
                 { name: 'G',  notes: [196.00, 246.94, 392.00] },
                 { name: 'F',  notes: [349.23, 440.00, 523.25] },
                 { name: 'D',  notes: [293.66, 369.99, 440.00] },
+
+                // Септаккорды (джаз / соул)
                 { name: 'Am7', notes: [220.00, 261.63, 329.63, 392.00] },
                 { name: 'Dm7', notes: [293.66, 349.23, 440.00, 523.25] },
                 { name: 'G7',  notes: [196.00, 246.94, 293.66, 392.00] },
                 { name: 'Cmaj7', notes: [261.63, 329.63, 392.00, 493.88] },
+
+                // Атмосферные / эмбиент
                 { name: 'Asus2', notes: [220.00, 246.94, 329.63] },
                 { name: 'Dsus2', notes: [293.66, 329.63, 440.00] },
                 { name: 'Csus4', notes: [261.63, 349.23, 392.00] }
             ];
+
+            let chordIdx = 0;
 
             // --- Автоматическое "меление" (smearing) аккордов ---
             function mellowChord(chord) {
                 return {
                     name: chord.name,
                     notes: chord.notes.map(n => {
+                        // случайное микросмещение + октавные тени
                         let drift = (Math.random() - 0.5) * 4;
                         let octave = Math.random() < 0.25 ? 12 : 0;
                         return n * Math.pow(2, octave / 12) + drift;
@@ -1754,6 +1728,7 @@ for (let i = 0; i < particleCount; i++) {
             function scheduleChord(time, chord) {
                 chord.notes.forEach((freq, i) => {
                     const osc = musicCtx.createOscillator();
+                    // Тип осциллятора по жанру
                     let oscType = 'triangle';
                     switch(currentGenre) {
                         case 'pop': oscType = 'triangle'; break;
@@ -1762,9 +1737,11 @@ for (let i = 0; i < particleCount; i++) {
                         case 'jazz': oscType = 'triangle'; break;
                     }
                     osc.type = oscType;
+                    // Дополнительный случайный детюн для аккордов (живость)
                     osc.detune.value = (Math.random() - 0.5) * 11;
                     osc.frequency.value = freq;
                     const gain = musicCtx.createGain();
+                    // Атака и decay по жанру
                     let atk = 0.02 + i*0.01, dec = quarter*0.6, rel = quarter*0.95;
                     if (currentGenre==='ambient') { atk = 0.12 + i*0.04; dec = quarter*1.8; rel = quarter*2.2; }
                     if (currentGenre==='jazz') { atk = 0.06 + i*0.01; dec = quarter*0.5; rel = quarter*0.85; }
@@ -1772,6 +1749,7 @@ for (let i = 0; i < particleCount; i++) {
                     gain.gain.linearRampToValueAtTime(0.32, time + atk);
                     gain.gain.linearRampToValueAtTime(0.08, time + dec);
                     gain.gain.linearRampToValueAtTime(0.0, time + rel);
+                    // Реверберация для ambient
                     if (currentGenre==='ambient') {
                         osc.connect(gain);
                         gain.connect(convolver);
@@ -1782,25 +1760,38 @@ for (let i = 0; i < particleCount; i++) {
                     osc.start(time);
                     osc.stop(time + rel + 0.02);
                 });
+                // --- Место для живых сэмплов гитары/пиано ---
+                // Пример:
+                // const sampleSource = musicCtx.createBufferSource();
+                // sampleSource.buffer = guitarChordBuffers[chord.name + '_' + currentGenre]; // AudioBuffer сэмпла
+                // sampleSource.connect(masterGain);
+                // sampleSource.start(time);
             }
 
             // --- Слой пиано/синтов/мелодии с вариативностью ---
             function schedulePianoLine(time, chord) {
+                // Мелодические паттерны по жанру
                 let pattern;
                 if (currentGenre === 'pop') {
                     pattern = [chord.notes[1], chord.notes[2], chord.notes[0] + 12, chord.notes[1]];
                 } else if (currentGenre === 'electro') {
+                    // Арпеджио: быстрые "бегущие" ноты
                     pattern = [chord.notes[0], chord.notes[1], chord.notes[2], chord.notes[1], chord.notes[2] + 12, chord.notes[0] + 12];
                 } else if (currentGenre === 'ambient') {
+                    // Протяжённые ноты, редко играют
                     pattern = [chord.notes[1], chord.notes[2]];
                 } else if (currentGenre === 'jazz') {
+                    // Swing-ноты, блюзовая гамма
                     pattern = [chord.notes[1], chord.notes[2], chord.notes[0] + 11, chord.notes[1]];
                 } else {
                     pattern = [chord.notes[1], chord.notes[2], chord.notes[0] + 12, chord.notes[1]];
                 }
+                // --- Разнообразие мелодий: случайные детюны, временные сдвиги, occasional note skipping ---
                 pattern.forEach((freq, i) => {
+                    // Иногда пропускаем ноту (10% шанс)
                     if (Math.random() < 0.1) return;
                     const osc = musicCtx.createOscillator();
+                    // Тип осциллятора мелодии по жанру
                     let oscType = 'triangle';
                     switch(currentGenre) {
                         case 'pop': oscType = Math.random() > 0.5 ? 'sawtooth' : 'triangle'; break;
@@ -1809,14 +1800,19 @@ for (let i = 0; i < particleCount; i++) {
                         case 'jazz': oscType = 'square'; break;
                     }
                     osc.type = oscType;
+                    // Детюн для живости (+ случайный детюн сильнее для electro/ambient)
                     let detune = (Math.random()-0.5)*18;
                     if (currentGenre==='electro') detune *= 1.5;
                     if (currentGenre==='ambient') detune *= 2.2;
                     osc.detune.value = detune;
+                    // Случайный временной сдвиг (до ±30 мс)
                     let timeJitter = (Math.random()-0.5)*0.06;
                     let noteTime = time + i*quarter/4 + timeJitter;
+                    // Swing для jazz
                     if (currentGenre==='jazz' && i%2===1) noteTime += swing * quarter/2;
+                    // Арпеджио для electro
                     if (currentGenre==='electro' && arpeggio) noteTime = time + i*quarter/6 + timeJitter;
+                    // Длина ноты по жанру
                     let noteLen = 0.15;
                     if (currentGenre==='ambient') noteLen = 0.6 + Math.random()*0.2;
                     if (currentGenre==='jazz') noteLen = 0.18 + Math.random()*0.06;
@@ -1825,6 +1821,7 @@ for (let i = 0; i < particleCount; i++) {
                     gain.gain.setValueAtTime(0.0, noteTime);
                     gain.gain.linearRampToValueAtTime(0.13, noteTime + 0.01 + Math.random()*0.01);
                     gain.gain.linearRampToValueAtTime(0.0, noteTime + noteLen);
+                    // Для ambient больше реверберации
                     if (currentGenre==='ambient') {
                         osc.connect(gain);
                         gain.connect(convolver);
@@ -1835,20 +1832,31 @@ for (let i = 0; i < particleCount; i++) {
                     osc.start(noteTime);
                     osc.stop(noteTime + noteLen + 0.03);
                 });
+                // --- Место для живых сэмплов пиано/электро/арпеджио ---
+                // Пример:
+                // const sampleSource = musicCtx.createBufferSource();
+                // sampleSource.buffer = pianoLineBuffers[chord.name + '_' + currentGenre]; // AudioBuffer сэмпла
+                // sampleSource.connect(masterGain);
+                // sampleSource.start(time);
+                // Для electro можно подгружать готовые арпеджио-сэмплы!
             }
 
             // --- Синхронизация всех слоёв ---
             function scheduler() {
                 while (nextNoteTime < musicCtx.currentTime + scheduleAheadTime) {
+                    // Swing timing (для jazz)
                     let scheduledNoteTime = nextNoteTime;
                     if (currentGenre === 'jazz' && swing > 0 && (step % 2 === 1)) {
                         scheduledNoteTime += swing * quarter/2;
                     }
+                    // Бит по жанровому паттерну
                     scheduleKick(scheduledNoteTime, step);
+                    // Иногда дополнительная ghost kick между ударами (сдвиг на 16-32% quarter)
                     if (Math.random() < 0.4) {
                         let ghostTime = scheduledNoteTime + (quarter * (0.16 + Math.random()*0.16));
                         maybeScheduleRandomKick(ghostTime);
                     }
+                    // Аккорд на первый удар такта (раз в длину паттерна)
                     if (step % beatPattern.length === 0) {
                         const chord = chordDefs[chordIdx % chordDefs.length];
                         const activeChord =
@@ -1858,10 +1866,6 @@ for (let i = 0; i < particleCount; i++) {
                         scheduleChord(scheduledNoteTime, activeChord);
                         schedulePianoLine(scheduledNoteTime, activeChord);
                         chordIdx++;
-                        // Add neural drift sound at random
-                        if (Math.random() < 0.36) {
-                            playNeuralDrift(musicCtx, masterGain);
-                        }
                     }
                     nextNoteTime += quarter;
                     step++;
@@ -1878,12 +1882,16 @@ for (let i = 0; i < particleCount; i++) {
             if (granularEngine) granularEngine.stop();
         }
 
+        // Расширенная автономность генерации под mood и curiosity
         setInterval(() => {
             neuralMorph(musicGenome);
+
+            // --- Memory Palace: stimulate and get emergent memories ---
             const emergentMemories = memoryPalace.stimulate({
                 emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
                 context: [typeof currentMode !== 'undefined' ? currentMode : '', typeof currentGenre !== 'undefined' ? currentGenre : '']
             });
+
             const newLP = 600 + musicGenome.brightness * 8000;
             masterLP.frequency.linearRampToValueAtTime(
                 newLP,
@@ -1895,6 +1903,7 @@ for (let i = 0; i < particleCount; i++) {
             if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
         }, 5000);
 
+        // Интеграция с orb
         orb.addEventListener('click', () => {
             if (musicCtx.state === 'suspended') musicCtx.resume();
             startMusic();
