@@ -387,17 +387,129 @@ for (let i = 0; i < particleCount; i++) {
         geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
         geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
 
-        const material = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
-            vertexShader,
-            fragmentShader,
-            transparent: true,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
-        });
+    const material = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 } },
+        vertexShader,
+        fragmentShader,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
 
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
+    const particles = new THREE.Points(geometry, material);
+    scene.add(particles);
+
+    // === Orb Rays/Lines Effect ===
+    // Parameters
+    const RAY_COUNT = 24;
+    const RAY_LENGTH = 1.45;
+    const RAY_FADE_TIME = 1.3; // seconds
+    const raysGeometry = new THREE.BufferGeometry();
+    // Each ray: 2 vertices (start, end), 3 floats per vertex
+    const raysPositions = new Float32Array(RAY_COUNT * 2 * 3);
+    const raysAlphas = new Float32Array(RAY_COUNT); // transparency per ray
+    // Custom attributes for alpha
+    raysGeometry.setAttribute('position', new THREE.BufferAttribute(raysPositions, 3));
+    // We'll update alpha via a uniform array
+    let raysActive = Array.from({length: RAY_COUNT}, ()=>({active:false, t:0, dir:[0,0,1], fade:0}));
+
+    // ShaderMaterial for rays
+    const raysMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            alphas: { value: raysAlphas },
+        },
+        vertexShader: `
+            attribute float rayIndex;
+            varying float vAlpha;
+            uniform float alphas[${RAY_COUNT}];
+            void main() {
+                vAlpha = alphas[int(rayIndex)];
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            varying float vAlpha;
+            void main() {
+                gl_FragColor = vec4(1.0, 0.9, 0.6, vAlpha * 0.62);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    // Add rayIndex attribute
+    const rayIndices = [];
+    for (let i=0; i<RAY_COUNT; ++i) {
+        rayIndices.push(i, i);
+    }
+    raysGeometry.setAttribute('rayIndex', new THREE.BufferAttribute(new Float32Array(rayIndices), 1));
+    const raysMesh = new THREE.LineSegments(raysGeometry, raysMaterial);
+    raysMesh.frustumCulled = false;
+    scene.add(raysMesh);
+
+    // === Subtle liquid/noise aura around orb for Dreaming/Reflecting ===
+    // We'll use a mesh with a custom shader, enabled only in some modes
+    const orbAuraGeometry = new THREE.SphereGeometry(1.12, 64, 64);
+    const orbAuraMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            mode: { value: 0 }
+        },
+        vertexShader: `
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            void main() {
+                vPosition = position;
+                vNormal = normal;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform float mode;
+            varying vec3 vPosition;
+            varying vec3 vNormal;
+            // Simple 3D noise
+            float hash(vec3 p) {
+                return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);
+            }
+            float noise(vec3 p) {
+                vec3 i = floor(p);
+                vec3 f = fract(p);
+                float n = mix(
+                    mix(
+                        mix(hash(i), hash(i+vec3(1,0,0)), f.x),
+                        mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y
+                    ),
+                    mix(
+                        mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                        mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y
+                    ), f.z
+                );
+                return n;
+            }
+            void main() {
+                // Only show in Dreaming/Reflecting (mode 3 or 4)
+                float show = smoothstep(2.5, 3.0, mode) + smoothstep(3.5, 4.0, mode);
+                if (show < 0.01) discard;
+                float t = time * 0.27;
+                float n = noise(vPosition*2.7 + t*vec3(0.3,0.6,0.2));
+                float n2 = noise(vPosition*4.9 - t*vec3(0.7,0.2,0.5));
+                float v = 0.5 + 0.5 * sin(n*6.0 + n2*8.0 + t*1.2);
+                float fres = pow(1.0 - abs(dot(normalize(vNormal), vec3(0,0,1))), 2.1);
+                float alpha = 0.20 * fres * show * (0.7 + 0.5*v);
+                vec3 col = mix(vec3(0.45,0.7,1.0), vec3(1.0,0.5,1.0), v*0.5+0.3);
+                gl_FragColor = vec4(col, alpha);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    const orbAuraMesh = new THREE.Mesh(orbAuraGeometry, orbAuraMaterial);
+    orbAuraMesh.position.copy(soulOrbMesh.position);
+    scene.add(orbAuraMesh);
 
         // === Artistic Glowing Orb Shader (Extended Modes) ===
         // Geometry
@@ -604,6 +716,9 @@ for (let i = 0; i < particleCount; i++) {
         feedbackScene.add(liquidMesh);
 
         // Update animate() to include liquid layer and orb mode interpolation
+        // === Orb Shake Effect State ===
+        let orbShake = { t: 0, power: 0, phase: 0 };
+
         function animate() {
             requestAnimationFrame(animate);
 
@@ -624,6 +739,88 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
+
+            // === Orb Rays/Lines effect update ===
+            raysMaterial.uniforms.time.value += 0.01;
+            // Randomly activate rays with low probability (except if excited)
+            let excited = (targetMode === 2) || (targetMode === 1); // e.g. mode 2 or 1 = "Excited"
+            let now = performance.now() * 0.001;
+            for (let i = 0; i < RAY_COUNT; ++i) {
+                let ray = raysActive[i];
+                // Excited: more rays, else rare
+                let appearChance = excited ? 0.07 : 0.015;
+                if (!ray.active && Math.random() < appearChance) {
+                    // Activate
+                    ray.active = true;
+                    ray.t = 0;
+                    // Random direction on sphere
+                    let theta = Math.random() * Math.PI * 2;
+                    let phi = Math.acos(2 * Math.random() - 1);
+                    ray.dir = [
+                        Math.sin(phi) * Math.cos(theta),
+                        Math.sin(phi) * Math.sin(theta),
+                        Math.cos(phi)
+                    ];
+                    // Fade in
+                    ray.fade = Math.random() * 0.15 + 0.85;
+                }
+                if (ray.active) {
+                    ray.t += 0.016;
+                    // Fade out after RAY_FADE_TIME
+                    let alpha = Math.max(0, 1 - ray.t / RAY_FADE_TIME) * ray.fade;
+                    raysAlphas[i] = alpha;
+                    if (alpha <= 0.01) {
+                        ray.active = false;
+                        raysAlphas[i] = 0;
+                    }
+                } else {
+                    raysAlphas[i] = 0;
+                }
+                // Update geometry positions
+                // Start at orb center, end at orb surface + ray length
+                let orbPos = soulOrbMesh.position;
+                let start = [orbPos.x, orbPos.y, orbPos.z];
+                let end = [
+                    orbPos.x + ray.dir[0] * (0.95),
+                    orbPos.y + ray.dir[1] * (0.95),
+                    orbPos.z + ray.dir[2] * (0.95 + RAY_LENGTH * (0.5 + 0.5 * raysAlphas[i]))
+                ];
+                for (let j = 0; j < 3; ++j) {
+                    raysPositions[i*6+j] = start[j];
+                    raysPositions[i*6+3+j] = end[j];
+                }
+            }
+            raysGeometry.attributes.position.needsUpdate = true;
+            raysMaterial.uniforms.alphas.value = raysAlphas;
+
+            // === Orb Shake Effect update ===
+            // Excited or if any ray just appeared: shake
+            let anyRayActive = raysActive.some(r => r.active && r.t < 0.12);
+            let shakeNow = excited || anyRayActive;
+            if (shakeNow) {
+                orbShake.power = Math.min(1, orbShake.power + 0.08);
+            } else {
+                orbShake.power = Math.max(0, orbShake.power - 0.03);
+            }
+            // Animate shake
+            if (orbShake.power > 0.01) {
+                orbShake.t += 0.07 + Math.random() * 0.04;
+                orbShake.phase += 0.09 + Math.random() * 0.03;
+                // Randomize shake direction
+                let shakeX = Math.sin(orbShake.t) * 0.025 * orbShake.power + (Math.random()-0.5)*0.007*orbShake.power;
+                let shakeY = Math.cos(orbShake.phase) * 0.018 * orbShake.power + (Math.random()-0.5)*0.007*orbShake.power;
+                soulOrbMesh.position.set(0 + shakeX, 0.8 + shakeY, 0);
+                orbAuraMesh.position.copy(soulOrbMesh.position);
+            } else {
+                soulOrbMesh.position.set(0, 0.8, 0);
+                orbAuraMesh.position.copy(soulOrbMesh.position);
+                orbShake.t = 0;
+                orbShake.phase = 0;
+            }
+
+            // === Subtle Noise/Liquid Aura update ===
+            orbAuraMaterial.uniforms.time.value += 0.01;
+            orbAuraMaterial.uniforms.mode.value = orbMaterial.uniforms.modeSmooth.value;
 
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
