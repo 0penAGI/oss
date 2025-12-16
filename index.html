@@ -2001,19 +2001,18 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
-        // Append transcript with enhanced Markdown/code formatting and scroll for large blocks
+        // Append transcript with Markdown/code formatting and Prism.js syntax highlighting
         function appendTranscript(text) {
             // Utility: escape HTML
             function escapeHTML(str) {
                 return str.replace(/[&<>"']/g, ch =>
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
-            // Enhanced Markdown renderer: supports tables, plus bold, italic, code, links
+            // Enhanced Markdown renderer: supports tables, bold, italic, links, inline code
             function renderMarkdown(str) {
-                // Escape HTML first
                 let html = escapeHTML(str);
-                // Inline code: `code`
-                html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
+                // Inline code: `code` (will be replaced by Prism later)
+                html = html.replace(/`([^`]+?)`/g, '<code class="lang-inline">$1</code>');
                 // Bold: **text**
                 html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
                 // Italic: *text*
@@ -2021,30 +2020,19 @@ for (let i = 0; i < particleCount; i++) {
                 // Links: [text](url)
                 html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
                 // Table support: convert markdown tables to HTML tables
-                // Find table blocks: lines with |, header separator with - and |
                 html = html.replace(
-                    // Match tables: at least 2 rows, |...|, header sep, |...|
-                    // Multiline, non-greedy
                     /((?:^\s*\|.*\|\s*\n)+^\s*\|?(?:\s*:?-+:?\s*\|)+\s*\n(?:^\s*\|.*\|\s*\n?)+)/gm,
                     function(tableBlock) {
-                        // Split lines, remove empty
                         let lines = tableBlock.trim().split('\n').filter(l => l.trim().length > 0);
-                        if (lines.length < 2) return tableBlock; // not enough lines
-                        // Header row: first line
+                        if (lines.length < 2) return tableBlock;
                         let headerLine = lines[0];
-                        // Separator line: second line
                         let sepLine = lines[1];
-                        // Check separator: must contain - and |
                         if (!/\|/.test(sepLine) || !/-/.test(sepLine)) return tableBlock;
-                        // Data rows: from third line
                         let dataLines = lines.slice(2);
-                        // Parse header cells
                         let headers = headerLine.split('|').map(cell => cell.trim()).filter(Boolean);
-                        // Parse data rows
                         let rows = dataLines.map(row =>
                             row.split('|').map(cell => cell.trim()).filter((_,i) => i < headers.length)
                         );
-                        // Build table HTML
                         let out = '<table style="border-collapse:collapse; margin:8px 0; background:rgba(40,40,60,0.92); border-radius:7px; overflow:hidden; font-size:1em;">';
                         out += '<thead><tr>';
                         for (let h of headers) {
@@ -2081,11 +2069,12 @@ for (let i = 0; i < particleCount; i++) {
                     const lang = match[1] || '';
                     let code = match[2] || '';
                     code = code.replace(/\s+$/, '');
-                    const langClass = lang ? ` class="lang-${escapeHTML(lang.toLowerCase())}"` : '';
-                    html += `<div class="code-block-wrapper" style="max-width: 100%; overflow-x: auto; background: rgba(40,40,60,0.92); border-radius: 7px; margin: 8px 0;"><pre style="margin:0; padding: 10px 12px; font-size: 1em;"><code${langClass}>${escapeHTML(code)}</code></pre></div>`;
+                    // Use Prism.js class: language-<lang>
+                    const langClass = lang ? `language-${escapeHTML(lang.toLowerCase())}` : '';
+                    html += `<div class="code-block-wrapper" style="max-width: 100%; overflow-x: auto; background: rgba(40,40,60,0.92); border-radius: 7px; margin: 8px 0;"><pre style="margin:0; padding: 10px 12px; font-size: 1em;"><code class="${langClass}">${escapeHTML(code)}</code></pre></div>`;
                 } else if (typeof match[3] === 'string' && match[3] !== undefined) {
-                    // Inline code
-                    html += `<code>${escapeHTML(match[3])}</code>`;
+                    // Inline code (will be highlighted)
+                    html += `<code class="language-none">${escapeHTML(match[3])}</code>`;
                 }
                 lastIndex = codePattern.lastIndex;
             }
@@ -2096,6 +2085,15 @@ for (let i = 0; i < particleCount; i++) {
             // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
             transcriptDiv.innerHTML = html;
+            // Prism.js highlighting
+            if (window.Prism && Prism.highlightAll) {
+                Prism.highlightAll();
+            } else if (window.Prism && Prism.highlightElement) {
+                // fallback for older Prism
+                transcriptDiv.querySelectorAll('code[class^="language-"], code[class*=" language-"]').forEach(function(block) {
+                    Prism.highlightElement(block);
+                });
+            }
             // Scroll transcriptDiv to bottom for large blocks
             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
