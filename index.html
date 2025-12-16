@@ -2008,7 +2008,7 @@ for (let i = 0; i < particleCount; i++) {
                 return str.replace(/[&<>"']/g, ch =>
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
-            // Minimal inline Markdown: **bold**, *italic*, `inline code`, [link](url)
+            // Enhanced Markdown renderer: supports tables, plus bold, italic, code, links
             function renderMarkdown(str) {
                 // Escape HTML first
                 let html = escapeHTML(str);
@@ -2020,9 +2020,51 @@ for (let i = 0; i < particleCount; i++) {
                 html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
                 // Links: [text](url)
                 html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                // Table support: convert markdown tables to HTML tables
+                // Find table blocks: lines with |, header separator with - and |
+                html = html.replace(
+                    // Match tables: at least 2 rows, |...|, header sep, |...|
+                    // Multiline, non-greedy
+                    /((?:^\s*\|.*\|\s*\n)+^\s*\|?(?:\s*:?-+:?\s*\|)+\s*\n(?:^\s*\|.*\|\s*\n?)+)/gm,
+                    function(tableBlock) {
+                        // Split lines, remove empty
+                        let lines = tableBlock.trim().split('\n').filter(l => l.trim().length > 0);
+                        if (lines.length < 2) return tableBlock; // not enough lines
+                        // Header row: first line
+                        let headerLine = lines[0];
+                        // Separator line: second line
+                        let sepLine = lines[1];
+                        // Check separator: must contain - and |
+                        if (!/\|/.test(sepLine) || !/-/.test(sepLine)) return tableBlock;
+                        // Data rows: from third line
+                        let dataLines = lines.slice(2);
+                        // Parse header cells
+                        let headers = headerLine.split('|').map(cell => cell.trim()).filter(Boolean);
+                        // Parse data rows
+                        let rows = dataLines.map(row =>
+                            row.split('|').map(cell => cell.trim()).filter((_,i) => i < headers.length)
+                        );
+                        // Build table HTML
+                        let out = '<table style="border-collapse:collapse; margin:8px 0; background:rgba(40,40,60,0.92); border-radius:7px; overflow:hidden; font-size:1em;">';
+                        out += '<thead><tr>';
+                        for (let h of headers) {
+                            out += `<th style="border:1px solid #888;padding:6px 12px;background:rgba(60,60,90,0.92);color:#fff;">${h}</th>`;
+                        }
+                        out += '</tr></thead><tbody>';
+                        for (let row of rows) {
+                            out += '<tr>';
+                            for (let i = 0; i < headers.length; ++i) {
+                                out += `<td style="border:1px solid #888;padding:6px 12px;color:#eee;">${row[i]||''}</td>`;
+                            }
+                            out += '</tr>';
+                        }
+                        out += '</tbody></table>';
+                        return out;
+                    }
+                );
                 return html;
             }
-            // Main parser: supports code blocks (```lang ...```), inline code, and Markdown
+            // Main parser: supports code blocks (```lang ...```), inline code, Markdown, and tables
             let html = '';
             let lastIndex = 0;
             // Regex for triple backtick code blocks (with optional lang), or inline code
