@@ -2005,102 +2005,101 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
-        // Append transcript with Markdown/code formatting and Prism.js syntax highlighting
-        function appendTranscript(text) {
-            // Utility: escape HTML
-            function escapeHTML(str) {
-                return str.replace(/[&<>"']/g, ch =>
-                    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-            }
-            // Enhanced Markdown renderer: supports tables, bold, italic, links, inline code
-            function renderMarkdown(str) {
-                let html = escapeHTML(str);
-                // Inline code: `code` (will be replaced by Prism later)
-                html = html.replace(/`([^`]+?)`/g, '<code class="lang-inline">$1</code>');
-                // Bold: **text**
-                html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
-                // Italic: *text*
-                html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
-                // Links: [text](url)
-                html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-                // Table support: convert markdown tables to HTML tables
-                html = html.replace(
-                    /((?:^\s*\|.*\|\s*\n)+^\s*\|?(?:\s*:?-+:?\s*\|)+\s*\n(?:^\s*\|.*\|\s*\n?)+)/gm,
-                    function(tableBlock) {
-                        let lines = tableBlock.trim().split('\n').filter(l => l.trim().length > 0);
-                        if (lines.length < 2) return tableBlock;
-                        let headerLine = lines[0];
-                        let sepLine = lines[1];
-                        if (!/\|/.test(sepLine) || !/-/.test(sepLine)) return tableBlock;
-                        let dataLines = lines.slice(2);
-                        let headers = headerLine.split('|').map(cell => cell.trim()).filter(Boolean);
-                        let rows = dataLines.map(row =>
-                            row.split('|').map(cell => cell.trim()).filter((_,i) => i < headers.length)
-                        );
-                        let out = '<table style="border-collapse:collapse; margin:8px 0; background:rgba(40,40,60,0.92); border-radius:7px; overflow:hidden; font-size:1em;">';
-                        out += '<thead><tr>';
-                        for (let h of headers) {
-                            out += `<th style="border:1px solid #888;padding:6px 12px;background:rgba(60,60,90,0.92);color:#fff;">${h}</th>`;
-                        }
-                        out += '</tr></thead><tbody>';
-                        for (let row of rows) {
-                            out += '<tr>';
-                            for (let i = 0; i < headers.length; ++i) {
-                                out += `<td style="border:1px solid #888;padding:6px 12px;color:#eee;">${row[i]||''}</td>`;
-                            }
-                            out += '</tr>';
-                        }
-                        out += '</tbody></table>';
-                        return out;
-                    }
+        // Append transcript with full Markdown/code support, triple backticks and Prism.js highlighting
+// Новый вариант appendTranscript: корректная обработка блоков кода с обратными кавычками и Prism.js
+function appendTranscript(text) {
+    // Escape HTML utility
+    function escapeHTML(str) {
+        return str.replace(/[&<>"']/g, ch =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    // Markdown renderer: tables, bold, italic, links, inline code
+    function renderMarkdown(str) {
+        let html = escapeHTML(str);
+        // Inline code: `code`
+        html = html.replace(/`([^`]+?)`/g, '<code class="lang-inline">$1</code>');
+        // Bold: **text**
+        html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
+        // Italic: *text*
+        html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
+        // Links: [text](url)
+        html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        // Tables: markdown to HTML
+        html = html.replace(
+            /((?:^\s*\|.*\|\s*\n)+^\s*\|?(?:\s*:?-+:?\s*\|)+\s*\n(?:^\s*\|.*\|\s*\n?)+)/gm,
+            function(tableBlock) {
+                let lines = tableBlock.trim().split('\n').filter(l => l.trim().length > 0);
+                if (lines.length < 2) return tableBlock;
+                let headerLine = lines[0];
+                let sepLine = lines[1];
+                if (!/\|/.test(sepLine) || !/-/.test(sepLine)) return tableBlock;
+                let dataLines = lines.slice(2);
+                let headers = headerLine.split('|').map(cell => cell.trim()).filter(Boolean);
+                let rows = dataLines.map(row =>
+                    row.split('|').map(cell => cell.trim()).filter((_,i) => i < headers.length)
                 );
-                return html;
-            }
-            // Main parser: supports code blocks (```lang ...```), inline code, Markdown, and tables
-            let html = '';
-            let lastIndex = 0;
-            // Regex for triple backtick code blocks (with optional lang), or inline code
-            const codePattern = /```(\w+)?\n?([\s\S]*?)```|`([^`]+?)`/g;
-            let match;
-            while ((match = codePattern.exec(text)) !== null) {
-                // Add text before match, rendered as Markdown
-                if (match.index > lastIndex) {
-                    let before = text.slice(lastIndex, match.index);
-                    html += renderMarkdown(before);
+                let out = '<table style="border-collapse:collapse; margin:8px 0; background:rgba(40,40,60,0.92); border-radius:7px; overflow:hidden; font-size:1em;">';
+                out += '<thead><tr>';
+                for (let h of headers) {
+                    out += `<th style="border:1px solid #888;padding:6px 12px;background:rgba(60,60,90,0.92);color:#fff;">${h}</th>`;
                 }
-                if (match[0].startsWith('```')) {
-                    // Code block
-                    const lang = match[1] || '';
-                    let code = match[2] || '';
-                    code = code.replace(/\s+$/, '');
-                    // Use Prism.js class: language-<lang>
-                    const langClass = lang ? `language-${escapeHTML(lang.toLowerCase())}` : '';
-                    html += `<div class="code-block-wrapper" style="max-width: 100%; overflow-x: auto; background: rgba(40,40,60,0.92); border-radius: 7px; margin: 8px 0;"><pre style="margin:0; padding: 10px 12px; font-size: 1em;"><code class="${langClass}">${escapeHTML(code)}</code></pre></div>`;
-                } else if (typeof match[3] === 'string' && match[3] !== undefined) {
-                    // Inline code (will be highlighted)
-                    html += `<code class="language-none">${escapeHTML(match[3])}</code>`;
+                out += '</tr></thead><tbody>';
+                for (let row of rows) {
+                    out += '<tr>';
+                    for (let i = 0; i < headers.length; ++i) {
+                        out += `<td style="border:1px solid #888;padding:6px 12px;color:#eee;">${row[i]||''}</td>`;
+                    }
+                    out += '</tr>';
                 }
-                lastIndex = codePattern.lastIndex;
+                out += '</tbody></table>';
+                return out;
             }
-            // Add remainder after last match, rendered as Markdown
-            if (lastIndex < text.length) {
-                html += renderMarkdown(text.slice(lastIndex));
-            }
-            // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
-            html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
-            transcriptDiv.innerHTML = html;
-            // Prism.js highlighting
-            if (window.Prism && Prism.highlightAll) {
-                Prism.highlightAll();
-            } else if (window.Prism && Prism.highlightElement) {
-                // fallback for older Prism
-                transcriptDiv.querySelectorAll('code[class^="language-"], code[class*=" language-"]').forEach(function(block) {
-                    Prism.highlightElement(block);
-                });
-            }
-            // Scroll transcriptDiv to bottom for large blocks
-            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+        );
+        return html;
+    }
+    // Новый парсер: корректно разбивает на обычный текст и блоки кода (```), поддерживает Prism.js
+    let html = '';
+    let pos = 0;
+    // Регулярка для поиска блоков кода с ```
+    const blockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    let match, lastIndex = 0;
+    let pieces = [];
+    while ((match = blockRegex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            pieces.push({ type: 'text', value: text.slice(lastIndex, match.index) });
         }
+        pieces.push({ type: 'code', lang: match[1] || '', code: match[2] });
+        lastIndex = blockRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+        pieces.push({ type: 'text', value: text.slice(lastIndex) });
+    }
+    // Теперь обрабатываем каждый кусок
+    for (let part of pieces) {
+        if (part.type === 'text') {
+            // Могут быть инлайн-коды
+            html += renderMarkdown(part.value);
+        } else if (part.type === 'code') {
+            // Prism.js: language-<lang>
+            const langClass = part.lang ? `language-${escapeHTML(part.lang.toLowerCase())}` : '';
+            html += `<div class="code-block-wrapper" style="max-width:100%;overflow-x:auto;background:rgba(40,40,60,0.92);border-radius:7px;margin:8px 0;"><pre style="margin:0;padding:10px 12px;font-size:1em;"><code class="${langClass}">${escapeHTML(part.code.replace(/\s+$/, ""))}</code></pre></div>`;
+        }
+    }
+    // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
+    html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
+    transcriptDiv.innerHTML = html;
+    // Prism.js highlighting
+    if (window.Prism && Prism.highlightAll) {
+        Prism.highlightAll();
+    } else if (window.Prism && Prism.highlightElement) {
+        // fallback for older Prism
+        transcriptDiv.querySelectorAll('code[class^="language-"], code[class*=" language-"]').forEach(function(block) {
+            Prism.highlightElement(block);
+        });
+    }
+    // Scroll transcriptDiv to bottom for large blocks
+    transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+}
 
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
