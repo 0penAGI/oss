@@ -225,13 +225,14 @@
         #orb-interactive {
             position: absolute;
             left: 50%;
-            top: calc(20% - 30px); /* подняли на 30px */
+            top: 20%;
             width: 200px;
             height: 200px;
             transform: translate(-50%, -50%);
-            z-index: 10;
+            z-index: 10; /* orb всегда поверх шейдера и текста */
             cursor: pointer;
             background: transparent;
+            /* pointer-events: auto; */
         }
     </style>
 
@@ -2000,51 +2001,61 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
-        // Append transcript with code formatting support (supports code blocks and inline code)
+        // Append transcript with enhanced Markdown/code formatting and scroll for large blocks
         function appendTranscript(text) {
-            // Escape HTML utility
+            // Utility: escape HTML
             function escapeHTML(str) {
                 return str.replace(/[&<>"']/g, ch =>
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
-
-            // Main parser for code blocks and inline code
-            // This version supports triple backtick code blocks (with optional language), and inline code
+            // Minimal inline Markdown: **bold**, *italic*, `inline code`, [link](url)
+            function renderMarkdown(str) {
+                // Escape HTML first
+                let html = escapeHTML(str);
+                // Inline code: `code`
+                html = html.replace(/`([^`]+?)`/g, '<code>$1</code>');
+                // Bold: **text**
+                html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
+                // Italic: *text*
+                html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
+                // Links: [text](url)
+                html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                return html;
+            }
+            // Main parser: supports code blocks (```lang ...```), inline code, and Markdown
             let html = '';
-            let idx = 0;
             let lastIndex = 0;
-            // Regex: code block: ```lang\n...``` or ```...```, or inline code: `...`
-            // The regex below matches triple-backtick code blocks (with/without language), or inline code
+            // Regex for triple backtick code blocks (with optional lang), or inline code
             const codePattern = /```(\w+)?\n?([\s\S]*?)```|`([^`]+?)`/g;
             let match;
             while ((match = codePattern.exec(text)) !== null) {
-                // Add text before match, escaped
+                // Add text before match, rendered as Markdown
                 if (match.index > lastIndex) {
                     let before = text.slice(lastIndex, match.index);
-                    html += escapeHTML(before);
+                    html += renderMarkdown(before);
                 }
                 if (match[0].startsWith('```')) {
                     // Code block
                     const lang = match[1] || '';
                     let code = match[2] || '';
-                    // Remove trailing newlines, but preserve indentation
                     code = code.replace(/\s+$/, '');
-                    // Optionally add language as class: <code class="lang-python">
                     const langClass = lang ? ` class="lang-${escapeHTML(lang.toLowerCase())}"` : '';
-                    html += `<pre><code${langClass}>${escapeHTML(code)}</code></pre>`;
+                    html += `<div class="code-block-wrapper" style="max-width: 100%; overflow-x: auto; background: rgba(40,40,60,0.92); border-radius: 7px; margin: 8px 0;"><pre style="margin:0; padding: 10px 12px; font-size: 1em;"><code${langClass}>${escapeHTML(code)}</code></pre></div>`;
                 } else if (typeof match[3] === 'string' && match[3] !== undefined) {
                     // Inline code
                     html += `<code>${escapeHTML(match[3])}</code>`;
                 }
                 lastIndex = codePattern.lastIndex;
             }
-            // Add remainder after last match
+            // Add remainder after last match, rendered as Markdown
             if (lastIndex < text.length) {
-                html += escapeHTML(text.slice(lastIndex));
+                html += renderMarkdown(text.slice(lastIndex));
             }
-            // Prepend "You:" label, and insert into transcriptDiv
+            // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
             transcriptDiv.innerHTML = html;
+            // Scroll transcriptDiv to bottom for large blocks
+            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
 
         recognition.onresult = async (event) => {
