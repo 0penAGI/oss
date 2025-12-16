@@ -190,7 +190,8 @@
     <canvas id="webgl-canvas"></canvas>
 
     <!-- Only video element for camera -->
-    <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
+   <video id="camera-video" autoplay playsinline style="display:none; position:absolute; left:0; top:0; width:100vw; height:100vh; object-fit:cover; z-index:5; pointer-events:none;"></video>
+   <canvas id="overlay" style="position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:6; pointer-events:none;"></canvas>
 
     <div class="content">
         <div class="soul-container">
@@ -791,6 +792,17 @@ for (let i = 0; i < particleCount; i++) {
         let autonomyInterval = null;
         let questioningInterval = null;
 
+        // === AR Overlay for camera video ===
+        const visionCanvas = document.createElement('canvas');
+        const overlay = document.getElementById('overlay');
+        const overlayCtx = overlay.getContext('2d');
+        function resizeOverlay() {
+            overlay.width = cameraVideo.videoWidth;
+            overlay.height = cameraVideo.videoHeight;
+        }
+        cameraVideo.addEventListener('loadedmetadata', resizeOverlay);
+        window.addEventListener('resize', resizeOverlay);
+
         // New: Full autonomy loop, combining camera, music, and self-dialogue
         async function fullAutonomyLoop() {
             // --- Camera control ---
@@ -880,6 +892,17 @@ for (let i = 0; i < particleCount; i++) {
                 if (typeof tfReady !== 'undefined' && tfReady && tfModel) {
                     try {
                         const predictions = await tfModel.detect(visionCanvas);
+                        // === AR overlay drawing ===
+                        overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+                        predictions.forEach(p => {
+                            const [x, y, w, h] = p.bbox;
+                            overlayCtx.strokeStyle = 'red';
+                            overlayCtx.lineWidth = 2;
+                            overlayCtx.strokeRect(x, y, w, h);
+                            overlayCtx.font = '18px sans-serif';
+                            overlayCtx.fillStyle = 'red';
+                            overlayCtx.fillText(p.class, x, y > 20 ? y - 5 : y + 20);
+                        });
                         const detectedObjectsRu = [];
                         for (const obj of OBJECTS_OF_INTEREST) {
                             const found = predictions.find(p =>
@@ -893,7 +916,13 @@ for (let i = 0; i < particleCount; i++) {
                             selfAwareness.analyzeFrame(latestCameraDescription);
                         }
                     } catch (e) { }
+                } else {
+                    // Clear overlay if no predictions
+                    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
                 }
+            } else {
+                // Clear overlay if camera is not active
+                overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
             }
             // === Autonomous Music Control Layer ===
             autonomousMusicControl();
