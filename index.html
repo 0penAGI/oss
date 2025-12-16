@@ -2117,7 +2117,7 @@ for (let i = 0; i < particleCount; i++) {
             orb.dispatchEvent(clickEvent);
         }
 
-        // Говорит текст с добавлением случайных пауз, вздохов и пульсацией речи
+        // Говорит текст с использованием объектов пауз и без текстовых "вдохов"
         function speak(text) {
             if (!text || !text.trim()) return;
             stopListeningVibration();
@@ -2159,33 +2159,28 @@ for (let i = 0; i < particleCount; i++) {
                     fragments.push(s.trim());
                 }
             }
-            // Вставляем иногда вздохи и случайные паузы
-            // Вздохи — короткие аудио-фрагменты (можно заменить на "мм..." или "вздох" если нет аудио)
-            function randomBreath() {
-                // 40% шанс на вздох перед длинной фразой, 20% после
-                const breathVariants = [
-                    'hm...', 'aam...', 'inhale', '...', 'oh...', 'aaa...', 'eee...'
-                ];
-                return breathVariants[Math.floor(Math.random() * breathVariants.length)];
-            }
+            // Вставляем паузы — теперь только объекты {pause: ms}
             let enhancedFragments = [];
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
-                // 30% шанс добавить вздох перед длинной фразой (>45)
-                if (frag.length > 45 && Math.random() < 0.3) {
-                    enhancedFragments.push(randomBreath());
+                // 20% шанс добавить паузу перед длинной фразой (>45)
+                if (frag.length > 45 && Math.random() < 0.2) {
+                    enhancedFragments.push({ pause: 220 + Math.floor(Math.random() * 220) });
                 }
-                enhancedFragments.push(frag);
-                // 18% шанс добавить вздох после фразы, если короткая
-                if (frag.length < 40 && Math.random() < 0.18) {
-                    enhancedFragments.push(randomBreath());
+                // Добавляем сам фрагмент, если он не пустой
+                if (frag && frag.trim()) {
+                    enhancedFragments.push(frag);
                 }
-                // 25% шанс добавить пустую паузу (эмулируется пустым utterance)
-                if (Math.random() < 0.25) {
-                    enhancedFragments.push('');
+                // 13% шанс добавить паузу после короткой фразы
+                if (frag.length < 40 && Math.random() < 0.13) {
+                    enhancedFragments.push({ pause: 120 + Math.floor(Math.random() * 180) });
+                }
+                // 22% шанс добавить случайную паузу
+                if (Math.random() < 0.22) {
+                    enhancedFragments.push({ pause: 80 + Math.floor(Math.random() * 260) });
                 }
             }
-            // Пульсация речи — случайно варьируем rate и pitch для каждого utterance
+            // speakNext теперь поддерживает объекты {pause: ms}
             let idx = 0;
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
@@ -2197,21 +2192,26 @@ for (let i = 0; i < particleCount; i++) {
                     startListening();
                     return;
                 }
-                let s = enhancedFragments[idx];
+                let frag = enhancedFragments[idx];
                 idx++;
-                // Пауза: если пустая строка, просто ждем случайное время
-                if (!s || !s.trim()) {
-                    setTimeout(speakNext, 180 + Math.random() * 340);
+                // Если это пауза-объект
+                if (typeof frag === 'object' && frag && typeof frag.pause === 'number') {
+                    setTimeout(speakNext, frag.pause);
                     return;
                 }
+                // Фильтруем вдохи/текстовые паузы: не произносить слова типа inhale или символы …
+                if (
+                    /^(inhale|вздох|hm+\.{2,}|aam+\.{2,}|oh+\.{2,}|aaa+\.{2,}|eee+\.{2,}|эм\.{2,}|ээ\.{2,}|ох\.{2,}|уф\.{2,}|хм\.{2,}|…+)$/.test(frag.trim().toLowerCase()) ||
+                    frag.trim() === '...'
+                ) {
+                    // Просто пауза вместо "вдоха"
+                    setTimeout(speakNext, 200 + Math.random() * 250);
+                    return;
+                }
+                // Обычный текст
                 let localRate = rate * (0.96 + Math.random() * 0.16); // 0.96..1.12
                 let localPitch = pitch * (0.96 + Math.random() * 0.11); // 0.96..1.07
-                // Для вздохов — медленнее и выше/ниже
-                if (/^([мэоухвз]+\.{2,}|вздох|эм\.\.\.|ээ\.\.\.|ох\.\.\.|уф\.\.\.|хм\.\.\.)$/i.test(s)) {
-                    localRate *= 0.88 + Math.random() * 0.08;
-                    localPitch *= 1.12 + Math.random() * 0.22;
-                }
-                const utter = new SpeechSynthesisUtterance(s);
+                const utter = new SpeechSynthesisUtterance(frag);
                 utter.lang = currentLang;
                 utter.rate = localRate;
                 utter.pitch = localPitch;
@@ -2219,7 +2219,7 @@ for (let i = 0; i < particleCount; i++) {
                 utter.onstart = () => {
                     vibrateSpeaking();
                     // Автозапуск музыки по определённым фразам
-                    if (/включаю музыку|нажимаю шар|музыка включена/i.test(s)) {
+                    if (/включаю музыку|нажимаю шар|музыка включена/i.test(frag)) {
                         triggerOrbClick();
                     }
                 };
