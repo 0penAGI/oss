@@ -412,11 +412,12 @@ for (let i = 0; i < particleCount; i++) {
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
-        // Enhanced Fragment shader for orb with richer glow, caustics, and subtle refraction
+        // Enhanced Fragment shader for orb with richer glow, caustics, and subtle refraction, now audio-reactive
         const orbFragmentShader = `
             uniform float time;
             uniform float mode;
             uniform float modeSmooth;
+            uniform float audioLevel;
             varying vec3 vNormal;
             varying vec3 vPosition;
 
@@ -439,6 +440,25 @@ for (let i = 0; i < particleCount; i++) {
             // Glow aura
             float glowAura(vec3 n, float t) {
                 return 0.5 + 0.5 * sin(t*3.0 + n.x*6.0 + n.y*7.0);
+            }
+
+            // Audio-reactive color/alpha modulation
+            vec4 applyAudioReactive(vec4 c, float audioLevel) {
+                // Different effects per mode (modeSmooth: 0..4)
+                float m = clamp(modeSmooth, 0.0, 4.0);
+                float sensitivity = 1.0;
+                // Listening: more breathing, Thinking: sharper, Speaking: most intense
+                if (m < 1.0) sensitivity = 0.7 + 0.6*audioLevel; // listening
+                else if (m < 2.0) sensitivity = 1.0 + 1.2*audioLevel; // thinking
+                else if (m < 3.0) sensitivity = 1.3 + 2.0*audioLevel; // speaking
+                else sensitivity = 0.85 + 0.5*audioLevel;
+                // Color pulse: modulate brightness and add warm/cool tinge
+                float pulse = 0.4 + 0.9 * audioLevel * sensitivity;
+                c.rgb = mix(c.rgb, c.rgb + vec3(0.2,0.35,0.7)*pulse, 0.22 * sensitivity);
+                c.rgb += audioLevel * sensitivity * 0.14;
+                // Alpha pulse
+                c.a = clamp(c.a + 0.25 * audioLevel * sensitivity, 0.0, 1.0);
+                return c;
             }
 
             // Mode 0: original glowing
@@ -520,15 +540,17 @@ for (let i = 0; i < particleCount; i++) {
                 else if (m < 2.0) c = mix(m1, m2, m-1.0);
                 else if (m < 3.0) c = mix(m2, m3, m-2.0);
                 else c = mix(m3, m4, m-3.0);
-                gl_FragColor = c;
+                // Audio-reactive modulation
+                gl_FragColor = applyAudioReactive(c, audioLevel);
             }
         `;
-        // Material with extended uniforms
+        // Material with extended uniforms (including audioLevel)
         const orbMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
                 mode: { value: 0 },
-                modeSmooth: { value: 0 }
+                modeSmooth: { value: 0 },
+                audioLevel: { value: 0 }
             },
             vertexShader: orbVertexShader,
             fragmentShader: orbFragmentShader,
@@ -635,7 +657,49 @@ for (let i = 0; i < particleCount; i++) {
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // Update animate() to include liquid layer and orb mode interpolation
+        // === Audio-reactivity: AnalyserNode for orb ===
+        let orbAnalyser = null;
+        let orbAudioData = null;
+        let orbAudioLevel = 0;
+        // Setup AnalyserNode for musicCtx
+        function setupOrbAnalyser() {
+            if (!musicCtx) return;
+            if (!orbAnalyser) {
+                orbAnalyser = musicCtx.createAnalyser();
+                orbAnalyser.fftSize = 256;
+                orbAudioData = new Uint8Array(orbAnalyser.frequencyBinCount);
+                // Connect masterLP to analyser (after all effects)
+                masterLP.connect(orbAnalyser);
+            }
+        }
+        setupOrbAnalyser();
+
+        // Compute average audio level (normalized 0..1)
+        function updateAudioLevel() {
+            if (orbAnalyser && orbAudioData) {
+                orbAnalyser.getByteFrequencyData(orbAudioData);
+                // Average over low-mid frequencies for visual effect
+                let sum = 0, count = 0;
+                // Use bins 2..32 for more musical response
+                for (let i = 2; i < 32; i++) { sum += orbAudioData[i]; count++; }
+                let avg = count > 0 ? sum / count : 0;
+                // Normalize (0..255) to (0..1)
+                orbAudioLevel = avg / 128;
+                orbAudioLevel = Math.min(1, Math.max(0, orbAudioLevel));
+                // Sensitivity boost by mode (listening/thinking/speaking)
+                let mode = orbMaterial.uniforms.modeSmooth.value;
+                let sensitivity = 1.0;
+                if (mode < 1.0) sensitivity = 1.1; // listening
+                else if (mode < 2.0) sensitivity = 1.6; // thinking
+                else if (mode < 3.0) sensitivity = 2.2; // speaking
+                else sensitivity = 1.0;
+                orbMaterial.uniforms.audioLevel.value = Math.min(1, orbAudioLevel * sensitivity);
+            } else {
+                orbMaterial.uniforms.audioLevel.value = 0.0;
+            }
+        }
+
+        // Update animate() to include liquid layer, orb mode interpolation, and audioLevel
         function animate() {
             requestAnimationFrame(animate);
 
@@ -656,6 +720,9 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
+
+            // Audio-reactive update for orb
+            updateAudioLevel();
 
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
