@@ -44,7 +44,7 @@
             margin-bottom: 30px;
         }
         .soul-orb {
-            display: none;
+            /* display: none; */
         }
 
         .soul-orb::before {
@@ -211,11 +211,26 @@
         <div class="soul-container">
             <div class="aura"></div>
             <div id="orb" class="soul-orb"></div>
+            <div id="orb-interactive"></div>
         </div>
        
         <div id="status">resonating</div>
         <div id="transcript"></div>
     </div>
+    <style>
+        #orb-interactive {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 200px;
+            height: 200px;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            cursor: pointer;
+            background: transparent;
+            /* pointer-events: auto; */
+        }
+    </style>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
@@ -1124,6 +1139,7 @@ for (let i = 0; i < particleCount; i++) {
         }
         
         const orb = document.getElementById('orb');
+        const orbInteractive = document.getElementById('orb-interactive');
         const status = document.getElementById('status');
         const transcriptDiv = document.getElementById('transcript');
         const generatedImg = document.getElementById('img');
@@ -1228,7 +1244,7 @@ for (let i = 0; i < particleCount; i++) {
         let tapCount = 0;
         let tapTimer = null;
 
-        orb.addEventListener('click', () => {
+        function orbClickHandler() {
             vibrate('medium');
             triggerAmbient();
 
@@ -1250,7 +1266,9 @@ for (let i = 0; i < particleCount; i++) {
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
-        });
+        }
+        orb.addEventListener('click', orbClickHandler);
+        orbInteractive.addEventListener('click', orbClickHandler);
 
         // ====== Music Autonomy Layer ======
 // ====== Granular + Neural Morphing Layer ======
@@ -1726,6 +1744,10 @@ for (let i = 0; i < particleCount; i++) {
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
+            if (musicCtx.state === 'suspended') musicCtx.resume();
+            startMusic();
+        });
+        orbInteractive.addEventListener('click', () => {
             if (musicCtx.state === 'suspended') musicCtx.resume();
             startMusic();
         });
