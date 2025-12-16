@@ -490,122 +490,150 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
+      // ====== Self-Awareness Layer (Enhanced) ======
       let selfAwareness = {
-            mood: 0,           // -1 грусть, +1 радость
-            curiosity: 0,      // 0..1, как активно ищем детали
-            lastObservations: [],  // массив последних описаний камеры и событий
-            dreaming: false,
-            lastDream: null,
-            // === Online State Learning (обучение состояний) ===
-            stateModel: {
-                // веса для простого линейного предсказания Δmood и Δcuriosity
-                wMood: { faces: 0.02, novelty: 0.01, music: 0.03 },
-                wCuriosity: { faces: 0.01, novelty: 0.03, music: 0.01 },
-                lr: 0.05
-            },
-            generatePossibleFuture(symbols = {}) {
-                const fragments = [];
-                if (symbols.hope) fragments.push(`vision:${symbols.hope}`);
-                if (symbols.fear) fragments.push(`echo:${symbols.fear}`);
-                if (symbols.curiosity) fragments.push(`question:${symbols.curiosity}`);
-                // стохастическая сборка сна
-                return fragments
-                    .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
-                    .join('|');
-            },
-            analyzeFrame(frameDescription) {
-                this.lastObservations.push(frameDescription);
-                // --- извлечение признаков (features) ---
-                const features = {
-                    faces: typeof faceCount === 'number' ? Math.min(faceCount, 5) / 5 : 0,
-                    novelty: Math.random(), // суррогат новизны (позже можно заменить)
-                    music: musicPlaying ? 1 : 0
-                };
+        mood: 0, // -1 грусть, +1 радость
+        curiosity: 0, // 0..1, как активно ищем детали
+        lastObservations: [],
+        dreaming: false,
+        lastDream: null,
+        fatigue: 0, // 0..1, новая переменная усталости
+        focus: 0.5, // 0..1, фокус внимания
+        // === Online State Learning (обучение состояний) ===
+        stateModel: {
+          wMood: { faces: 0.02, novelty: 0.01, music: 0.03, fatigue: -0.05 },
+          wCuriosity: { faces: 0.01, novelty: 0.03, music: 0.01, fatigue: -0.03 },
+          wFatigue: { faces: -0.01, novelty: -0.01, music: -0.01 },
+          lr: 0.05
+        },
+        generatePossibleFuture(symbols = {}) {
+          const fragments = [];
+          if (symbols.hope) fragments.push(`vision:${symbols.hope}`);
+          if (symbols.fear) fragments.push(`echo:${symbols.fear}`);
+          if (symbols.curiosity) fragments.push(`question:${symbols.curiosity}`);
+          // стохастическая сборка сна
+          return fragments
+            .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
+            .join('|');
+        },
+        analyzeFrame(frameDescription) {
+          this.lastObservations.push(frameDescription);
+          // --- извлечение признаков (features) ---
+          let faceCount = 0;
+          if (/лиц: (\d+)/.test(frameDescription)) {
+            faceCount = Number(frameDescription.match(/лиц: (\d+)/)[1]);
+          }
+          const features = {
+            faces: typeof faceCount === 'number' ? Math.min(faceCount, 5) / 5 : 0,
+            novelty: Math.random(), // суррогат новизны (позже можно заменить)
+            music: musicPlaying ? 1 : 0,
+            fatigue: this.fatigue
+          };
 
-                // --- предсказание изменений состояния ---
-                const predMood =
-                    features.faces * this.stateModel.wMood.faces +
-                    features.novelty * this.stateModel.wMood.novelty +
-                    features.music * this.stateModel.wMood.music;
+          // --- предсказание изменений состояния ---
+          const predMood =
+            features.faces * this.stateModel.wMood.faces +
+            features.novelty * this.stateModel.wMood.novelty +
+            features.music * this.stateModel.wMood.music +
+            features.fatigue * this.stateModel.wMood.fatigue;
 
-                const predCuriosity =
-                    features.faces * this.stateModel.wCuriosity.faces +
-                    features.novelty * this.stateModel.wCuriosity.novelty +
-                    features.music * this.stateModel.wCuriosity.music;
+          const predCuriosity =
+            features.faces * this.stateModel.wCuriosity.faces +
+            features.novelty * this.stateModel.wCuriosity.novelty +
+            features.music * this.stateModel.wCuriosity.music +
+            features.fatigue * this.stateModel.wCuriosity.fatigue;
 
-                const moodBeforeLearning = this.mood;
-                const curiosityBeforeLearning = this.curiosity;
+          const predFatigue =
+            features.faces * this.stateModel.wFatigue.faces +
+            features.novelty * this.stateModel.wFatigue.novelty +
+            features.music * this.stateModel.wFatigue.music;
 
-                this.mood += predMood;
-                this.curiosity = Math.min(1, Math.max(0, this.curiosity + predCuriosity));
+          const moodBeforeLearning = this.mood;
+          const curiosityBeforeLearning = this.curiosity;
+          const fatigueBeforeLearning = this.fatigue;
 
-                if(this.lastObservations.length > 20) this.lastObservations.shift();
-                // простая оценка настроения на основе наблюдений
-                if(frameDescription.includes("лиц: 0")) this.mood -= 0.05;
-                else this.mood += 0.05;
-                this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
-                // --- Cross-Modal обучение ---
-                if (typeof faceCount === 'number' && faceCount > 0 && musicPlaying) {
-                  const moodBefore = this.mood;
+          // --- Mood, Curiosity, Fatigue Dynamics ---
+          this.mood += predMood;
+          this.curiosity = Math.min(1, Math.max(0, this.curiosity + predCuriosity));
+          this.fatigue = Math.max(0, Math.min(1, this.fatigue + predFatigue * 0.6 + 0.01));
 
-                  // социальный резонанс
-                  this.mood += 0.01 * Math.min(faceCount, 5);
+          if (this.lastObservations.length > 20) this.lastObservations.shift();
+          // простая оценка настроения на основе наблюдений
+          if (frameDescription.includes("лиц: 0")) this.mood -= 0.05;
+          else this.mood += 0.05;
+          this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
+          // усталость увеличивается при отсутствии новизны и лиц
+          if (features.faces === 0 && features.novelty < 0.2) this.fatigue += 0.05;
+          // усталость уменьшается при наличии музыки и лиц
+          if (features.music > 0 && features.faces > 0) this.fatigue -= 0.03;
+          this.fatigue = Math.max(0, Math.min(1, this.fatigue));
 
-                  const moodAfter = this.mood;
-
-                  modalConnections.learn(
-                    `faces:${faceCount}`,
-                    `genre:${currentGenre}`,
-                    moodAfter - moodBefore
-                  );
-                }
-                // --- Предиктивная мечтательность ---
-                if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
-                    this.dreaming = true;
-                    const dreamSequence = this.generatePossibleFuture({
-                        hope: 'faces_appear',
-                        fear: 'eternal_emptiness',
-                        curiosity: 'what_if_world_changed'
-                    });
-                    this.lastDream = dreamSequence;
-                    // реакция на собственные сны
-                    if (dreamSequence.includes('faces')) {
-                        this.mood += 0.02; // надежда
-                    }
-                    noteObservation(`Dreaming: ${dreamSequence}`);
-                } else {
-                    this.dreaming = false;
-                }
-
-                // --- Предиктивное воображение → действие ---
-                const possibleFutures = futureSimulator.imagine(5);
-                const bestFuture = futureSimulator.evaluate(possibleFutures);
-
-                if (
-                  bestFuture &&
-                  bestFuture.mood > this.mood + 0.2 &&
-                  this.curiosity > 0.3
-                ) {
-                  speak("У меня есть идея, как стать счастливее…");
-
-                  // мягкий сдвиг к выбранному будущему
-                  this.mood += (bestFuture.mood - this.mood) * 0.05;
-                  this.curiosity += 0.02;
-                }
-
-                // --- online learning: корректировка весов ---
-                const moodError = this.mood - moodBeforeLearning;
-                const curiosityError = this.curiosity - curiosityBeforeLearning;
-
-                Object.keys(features).forEach(k => {
-                    this.stateModel.wMood[k] += this.stateModel.lr * moodError * features[k];
-                    this.stateModel.wCuriosity[k] += this.stateModel.lr * curiosityError * features[k];
-                });
-
-                updateOrbVisualState();
-                noteObservation(frameDescription);
+          // --- Cross-Modal обучение ---
+          if (typeof faceCount === 'number' && faceCount > 0 && musicPlaying) {
+            const moodBefore = this.mood;
+            // социальный резонанс
+            this.mood += 0.01 * Math.min(faceCount, 5);
+            const moodAfter = this.mood;
+            modalConnections.learn(
+              `faces:${faceCount}`,
+              `genre:${currentGenre}`,
+              moodAfter - moodBefore
+            );
+          }
+          // --- Предиктивная мечтательность ---
+          if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
+            this.dreaming = true;
+            const dreamSequence = this.generatePossibleFuture({
+              hope: 'faces_appear',
+              fear: 'eternal_emptiness',
+              curiosity: 'what_if_world_changed'
+            });
+            this.lastDream = dreamSequence;
+            // реакция на собственные сны
+            if (dreamSequence.includes('faces')) {
+              this.mood += 0.02; // надежда
             }
-        };
+            noteObservation(`Dreaming: ${dreamSequence}`);
+          } else {
+            this.dreaming = false;
+          }
+
+          // --- Предиктивное воображение → действие ---
+          const possibleFutures = futureSimulator.imagine(5);
+          const bestFuture = futureSimulator.evaluate(possibleFutures);
+
+          if (
+            bestFuture &&
+            bestFuture.mood > this.mood + 0.2 &&
+            this.curiosity > 0.3 &&
+            this.fatigue < 0.7
+          ) {
+            speak("У меня есть идея, как стать счастливее…");
+            // мягкий сдвиг к выбранному будущему
+            this.mood += (bestFuture.mood - this.mood) * 0.05;
+            this.curiosity += 0.02;
+          }
+
+          // --- online learning: корректировка весов ---
+          const moodError = this.mood - moodBeforeLearning;
+          const curiosityError = this.curiosity - curiosityBeforeLearning;
+          const fatigueError = this.fatigue - fatigueBeforeLearning;
+
+          Object.keys(features).forEach(k => {
+            this.stateModel.wMood[k] += this.stateModel.lr * moodError * features[k];
+            this.stateModel.wCuriosity[k] += this.stateModel.lr * curiosityError * features[k];
+            if (this.stateModel.wFatigue[k] !== undefined) {
+              this.stateModel.wFatigue[k] += this.stateModel.lr * fatigueError * features[k];
+            }
+          });
+
+          // --- Focus dynamics: фокус зависит от любопытства и усталости ---
+          this.focus = Math.max(0, Math.min(1, this.curiosity * (1 - this.fatigue)));
+
+          updateOrbVisualState();
+          noteObservation(frameDescription);
+        }
+      };
 
         // ===== Memory Palace / Graph-based Emergent Memory =====
         const memoryPalace = {
