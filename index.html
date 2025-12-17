@@ -784,10 +784,84 @@ for (let i = 0; i < particleCount; i++) {
             uniforms: {
                 time: { value: 0 },
                 tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                energy: { value: 0.0 },
+                curiosity: { value: 0.0 },
+                skinMemory: { value: 0.0 }
             },
             vertexShader: liquidVertexShader,
-            fragmentShader: liquidFragmentShader,
+            fragmentShader: `
+                uniform float time;
+                uniform sampler2D tBackground;
+                uniform vec2 resolution;
+                uniform float energy;
+                uniform float curiosity;
+                uniform float skinMemory;
+                varying vec2 vUv;
+
+                float hash(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+                }
+
+                float noise(vec2 p) {
+                    vec2 i = floor(p);
+                    vec2 f = fract(p);
+                    f = f * f * (3.0 - 2.0 * f);
+                    float a = hash(i);
+                    float b = hash(i + vec2(1.0, 0.0));
+                    float c = hash(i + vec2(0.0, 1.0));
+                    float d = hash(i + vec2(1.0, 1.0));
+                    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+                }
+
+                float fbm(vec2 p) {
+                    float v = 0.0;
+                    float a = 0.5;
+                    for (int i = 0; i < 4; i++) {
+                        v += a * noise(p);
+                        p *= 2.0;
+                        a *= 0.5;
+                    }
+                    return v;
+                }
+
+                void main() {
+                    vec2 uv = vUv;
+                    vec2 center = uv - 0.5;
+                    float r = length(center);
+                    float t = time * 0.12;
+
+                    // --- Liquid flow enhanced by energy and curiosity ---
+                    vec2 flow = vec2(
+                        fbm(uv * 3.0 + t + energy * 0.5),
+                        fbm(uv * 3.0 - t + curiosity * 0.3)
+                    );
+
+                    float glassMask = smoothstep(0.75, 0.2, r);
+                    vec2 refractUV = uv + (flow - 0.5) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
+
+                    // subtle shimmer
+                    float shimmer = sin(uv.y*12.0 + time*6.0 + curiosity*3.0) * 0.02;
+                    refractUV += vec2(shimmer, shimmer);
+
+                    // chromatic aberration
+                    float caR = 0.002 + curiosity * 0.003;
+                    float caG = 0.002;
+                    float caB = 0.002 + energy * 0.003;
+                    vec3 col;
+                    col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
+                    col.g = texture2D(tBackground, refractUV).g;
+                    col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
+
+                    float highlight = pow(1.0 - r, 3.0);
+                    col += vec3(0.12, 0.14, 0.18) * highlight * glassMask;
+                    float edge = smoothstep(0.55, 0.9, r);
+                    col += vec3(0.08, 0.1, 0.14) * edge * glassMask;
+
+                    float alpha = 0.22 + 0.18 * glassMask;
+                    gl_FragColor = vec4(col, alpha);
+                }
+            `,
             transparent: true
         });
 
