@@ -2481,6 +2481,12 @@ for (let i = 0; i < particleCount; i++) {
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
+        // Вспомогательная функция для разбивки текста на символы
+        function splitForTyping(text) {
+            // разбиваем поток на минимальные временные зерна
+            return text.match(/[\s\S]/g) || [];
+        }
+
         // Подготовка UI с курсором
         transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
 
@@ -2529,10 +2535,19 @@ for (let i = 0; i < particleCount; i++) {
 
                 const chunk = decoder.decode(value, { stream: true });
 
-                // Печатание текста
-                typingQueue = typingQueue.then(() =>
-                    typeWriterEffect(responseContainer, chunk)
-                );
+                // Печатание текста: дробим поток на символы
+                const letters = splitForTyping(chunk);
+                for (const char of letters) {
+                    typingQueue = typingQueue.then(() =>
+                        typeWriterEffect(responseContainer, char)
+                    );
+                }
+                // Микропаузa на границах фраз
+                if (/[.!?\n]/.test(chunk)) {
+                    typingQueue = typingQueue.then(() =>
+                        new Promise(r => setTimeout(r, 180 + Math.random() * 220))
+                    );
+                }
 
                 // Копим для озвучки
                 audioBuffer += chunk;
