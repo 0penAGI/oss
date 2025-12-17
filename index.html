@@ -353,11 +353,17 @@
                     // локальная активность = яркость (псевдо‑нейронная активация)
                     float activity = dot(oldCol.rgb, vec3(0.333));
 
+                    // усталость ткани: активные зоны временно "деревенеют"
+                    float fatigue = smoothstep(0.4, 0.9, activity);
+
+                    // эффективная пластичность с учетом усталости
+                    float effectivePlasticity = plasticity * (1.0 - fatigue * 0.6);
+
                     // обучаемое локальное затухание (Hebbian‑like plasticity)
                     float localDecay = mix(
                         decay,
                         1.0,
-                        activity * learning * plasticity
+                        activity * learning * effectivePlasticity
                     );
 
                     oldCol *= localDecay;
