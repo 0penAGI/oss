@@ -224,47 +224,28 @@
 
         const fragmentShader = `
             uniform float time;
+            const float PI = 3.141592653589793;
             varying vec3 vColor;
 
-            // Тёмная палитра без выжигания
-            vec3 bgPalette(float t) {
-                vec3 pink = vec3(0.55, 0.18, 0.38);   // приглушённый розовый
-                vec3 blue = vec3(0.12, 0.28, 0.45);   // тёмно‑голубой, НЕ неон
-                vec3 deep = vec3(0.015, 0.02, 0.06);  // почти космос
-
-                float p1 = smoothstep(0.0, 0.4, t);
-                float p2 = smoothstep(0.4, 0.75, t);
-                float p3 = smoothstep(0.75, 1.0, t);
-
-                vec3 col = mix(pink, blue, p1);
-                col = mix(col, deep, p2);
-                col = mix(col, pink, p3 * 0.5);
-
-                return col;
-            }
-
-            // мягкое сжатие яркости (лучше clamp)
-            vec3 compress(vec3 c) {
-                float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-                return c / (1.0 + l * 1.6);
+            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
+                vec3 dir = normalize(p - vec3(0.015, 0.02, 0.06));
+                float d = length(dir);
+                float anim = time * 0.5;
+                if (d > 0.98 && d < 1.02) {
+                    float t = fract(sin(d * PI) * anim + c1.x);
+                    return mix(c1, c2, t);
+                } else {
+                    float t = fract(cos(d * PI) * anim + c2.y);
+                    return mix(c2, c3, t);
+                }
             }
 
             void main() {
+                vec3 p = gl_PointCoord.xyx / vec3(2.0);
+                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.3, 0.5, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = smoothstep(0.48, 0.0, dist);
-
-                float loopT = fract(time * 0.028);
-                vec3 bg = bgPalette(loopT);
-
-                // дыхание без вспышек
-                float breathe = 0.88 + 0.12 * sin(time * 0.45);
-                vec3 color = bg * vColor * breathe;
-
-                // защита от additive‑пережога
-                color = compress(color);
-                color = clamp(color, 0.0, 0.78);
-
-                gl_FragColor = vec4(color, alpha * 0.7);
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                gl_FragColor = vec4(color * vColor, alpha * 0.8);
             }
         `;
 
