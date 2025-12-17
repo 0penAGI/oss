@@ -702,8 +702,8 @@ for (let i = 0; i < particleCount; i++) {
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         // Uniforms for flow interpolation
-        let prevFlow = new THREE.Vector2(0.5, 0.5);
-        let flow = new THREE.Vector2(0.5, 0.5);
+        let prevFlow = new THREE.Vector2(0.55, 0.55);
+        let flow = new THREE.Vector2(0.55, 0.55);
 
         const liquidVertexShader = `
             varying vec2 vUv;
@@ -780,7 +780,7 @@ for (let i = 0; i < particleCount; i++) {
                 float edge = smoothstep(0.55, 0.9, r);
                 col += vec3(0.09, 0.1, 0.14) * edge * glassMask;
 
-                float alpha = 0.18 + 0.18 * glassMask;
+                float alpha = 0.12 + 0.12 * glassMask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
