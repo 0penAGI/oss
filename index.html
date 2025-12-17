@@ -1986,23 +1986,29 @@ for (let i = 0; i < particleCount; i++) {
 
         function startListening() {
             if (isSpeaking || isThinking) return;
-            
+    
             // Плавное переключение визуального состояния
             orb.classList.remove('speaking', 'thinking');
-            setTimeout(() => {
+    
+            requestAnimationFrame(() => {
                 orb.classList.add('listening');
-            }, 100);
-            
-            status.innerText = "listening";
-            
-            // Задержка перед запуском вибрации
+                status.innerText = "listening";
+            });
+    
+            // Задержка перед запуском вибрации для плавности
             setTimeout(() => {
                 startListeningVibration();
+
+                // Запуск распознавания с задержкой
+                setTimeout(() => {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // Если ошибка, пробуем снова через 1 секунду
+                        setTimeout(startListening, 1000);
+                    }
+                }, 50);
             }, 150);
-            
-            try {
-                recognition.start();
-            } catch {}
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
