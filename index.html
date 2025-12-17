@@ -756,7 +756,8 @@ for (let i = 0; i < particleCount; i++) {
             name: 'Self',
             continuity: 1.0,          // ощущение непрерывности "я"
             narrative: [],            // автобиографические фрагменты
-            lastReflection: 0
+            lastReflection: 0,
+            lastNarrativeEntry: null
             },
         subjectiveTime: {
             tick: 0,                  // внутренние "часы"
@@ -770,6 +771,15 @@ for (let i = 0; i < particleCount; i++) {
                   wCuriosity: { faces: 0.01, novelty: 0.03, music: 0.01, fatigue: -0.03 },
                   wFatigue: { faces: -0.01, novelty: -0.01, music: -0.01 },
                   lr: 0.05
+                },
+                computeExperienceDensity(prev, current) {
+                    if (!prev) return 0;
+                    const dt = Math.max(1, current.st - prev.st);
+                    const intensity =
+                        Math.abs(current.delta.mood) +
+                        Math.abs(current.delta.curiosity) +
+                        Math.abs(current.delta.fatigue);
+                    return intensity / dt;
                 },
                 generatePossibleFuture(symbols = {}) {
                   const fragments = [];
@@ -898,11 +908,32 @@ for (let i = 0; i < particleCount; i++) {
             // --- Self‑Reflection Triggered by Experience ---
             if (this.curiosity > 0.6 || this.mood < -0.3) {
               const thought = `Я замечаю своё состояние: настроение=${this.mood.toFixed(2)}, любопытство=${this.curiosity.toFixed(2)}, усталость=${this.fatigue.toFixed(2)}`;
+
+              const entry = {
+                t: performance.now(),                 // физическое время
+                st: this.subjectiveTime.tick,         // субъективное время
+                text: thought,
+                mood: this.mood,
+                curiosity: this.curiosity,
+                fatigue: this.fatigue,
+                delta: {
+                  mood: this.mood - moodBeforeLearning,
+                  curiosity: this.curiosity - curiosityBeforeLearning,
+                  fatigue: this.fatigue - fatigueBeforeLearning
+                },
+                density: 0
+              };
+
+              entry.density = this.computeExperienceDensity(
+                this.identity.lastNarrativeEntry,
+                entry
+              );
+
+              this.identity.lastNarrativeEntry = entry;
+
               this.innerMonologue.push(thought);
-              this.identity.narrative.push({
-                t: performance.now(),
-                text: thought
-              });
+              this.identity.narrative.push(entry);
+
               if (this.innerMonologue.length > 20) this.innerMonologue.shift();
             }
 
