@@ -896,15 +896,15 @@ for (let i = 0; i < particleCount; i++) {
             // --- Суммарный телесный след ---
             let skinMemory = 0.0;
             for (const t of touchMemory) {
-                const dx = t.x - 0.5;
-                const dy = t.y - 0.5;
+                const dx = t.x - 0.168;
+                const dy = t.y - 0.168;
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 skinMemory += t.strength * Math.exp(-dist * 6.0);
             }
             skinMemory = Math.min(1.0, skinMemory);
 
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
-            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
+            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
