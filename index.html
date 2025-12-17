@@ -1136,6 +1136,47 @@ for (let i = 0; i < particleCount; i++) {
                         this.curiosity = Math.min(1, Math.max(0, this.curiosity * 0.6 + curiosityPred * 0.4));
                         this.fatigue = Math.min(1, Math.max(0, this.fatigue * 0.6 + fatiguePred * 0.4));
                     }
+                },
+                // === Эмоционально-чувствительный поиск последних узлов памяти ===
+                recallRecentEmotionalNodes: function(stimulus) {
+                    // Поиск последних 5 узлов, связанных с данным стимулом и эмоцией, близкой к текущему mood
+                    const moodNorm = (typeof this.mood === 'number') ? (this.mood + 1) / 2 : 0.5;
+                    // Считаем релевантными те, у кого type совпадает со стимулом или в connections есть стимул
+                    let candidates = [...memoryPalace.nodes.values()]
+                        .filter(n =>
+                            (n.type === stimulus ||
+                             (Array.isArray(n.connections) && n.connections.some(c => {
+                                const target = memoryPalace.nodes.get(c.id);
+                                return target && target.type === stimulus;
+                             })))
+                            && typeof n.emotion === 'number'
+                            && Math.abs(n.emotion - moodNorm) < 0.25
+                        )
+                        .sort((a, b) => b.lastAccess - a.lastAccess)
+                        .slice(0, 5);
+                    return candidates;
+                },
+                // === Мягкая коррекция настроения через последние наблюдения (эмпатия) ===
+                gentleMoodCorrection: function() {
+                    // Усредняем эмоции последних 3 наблюдений и мягко корректируем mood
+                    const lastObs = this.lastObservations.slice(-3);
+                    if (lastObs.length === 0) return;
+                    // Для каждой ищем соответствующий узел в memoryPalace
+                    let emotions = [];
+                    for (let obs of lastObs) {
+                        let node = [...memoryPalace.nodes.values()]
+                            .filter(n => n.type === 'observation' && typeof n.emotion === 'number' && n.lastAccess && obs && obs.includes)
+                            .sort((a, b) => b.lastAccess - a.lastAccess)
+                            .find(n => obs && n && typeof n.timestamp === 'number' && Math.abs(performance.now() - n.timestamp) < 60000);
+                        if (node) emotions.push(node.emotion);
+                    }
+                    if (emotions.length > 0) {
+                        // Среднее по эмоциям (0..1), переводим в mood (-1..1)
+                        const avg = emotions.reduce((a, b) => a + b, 0) / emotions.length;
+                        const targetMood = avg * 2 - 1;
+                        // Мягко корректируем — только небольшой сдвиг
+                        this.mood += (targetMood - this.mood) * 0.08;
+                    }
                 }
         };
 
