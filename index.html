@@ -336,16 +336,7 @@
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv);
-
-                    // --- synaptic plasticity ---
-                    float activity = length(oldCol.rgb);     // активность "нейрона"
-                    float adaptiveDecay = mix(decay, 0.995, activity * plasticity);
-
-                    // кратковременное обучение (вспышки внимания)
-                    adaptiveDecay = mix(adaptiveDecay, 1.02, learning);
-
-                    oldCol *= adaptiveDecay;
+                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
                     vec4 newCol = texture2D(tNew, vUv);
                     gl_FragColor = max(oldCol * 0.96, newCol);
                 }
