@@ -196,6 +196,7 @@
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
         let targetEnergy = 0.25; // baseline listening
+        let responseInertia = 0.08; // базовая инерция реакции (чем меньше — тем медленнее)
 
         // === Shader as Brain Interface ===
         // Шейдер напрямую отражает когнитивное состояние
@@ -235,7 +236,18 @@
 
             feedbackMaterial.uniforms.plasticity.value =
                     0.15 + selfAwareness.focus * 0.4;
-                    }
+
+            // --- micro‑hesitation: сомнение вместо лага ---
+            // усталость замедляет отклик, curiosity делает его нервным
+            const fatigueVal = selfAwareness.fatigue ?? 0.0;
+            const curiosityJitter = (Math.random() - 0.5) * 0.02 * (selfAwareness.curiosity ?? 0.0);
+
+            responseInertia =
+                0.04 +                 // минимальный живой отклик
+                (1.0 - fatigueVal) * 0.06; // уставший — медленнее
+
+            responseInertia = Math.max(0.02, Math.min(0.12, responseInertia + curiosityJitter));
+        }
 
         // === Feedback RenderTarget initialization ===
         const rtParams = {
@@ -707,7 +719,8 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
-            orbEnergy += (targetEnergy - orbEnergy) * 0.08;
+            // живой отклик с микро‑нерешительностью
+            orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
