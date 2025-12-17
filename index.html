@@ -2249,18 +2249,17 @@ for (let i = 0; i < particleCount; i++) {
     function vibrateSpeaking() {
         stopThinkingVibration();
         stopSpeakingVibration();
+    
         if (tg?.HapticFeedback) {
-            // Chaotic: random impacts (light, medium, heavy)
+            // Более легкая и редкая вибрация
             speakingVibrationInterval = setInterval(() => {
-                const levels = ['light', 'medium', 'heavy'];
+                const levels = ['light', 'light', 'medium']; // 66% light, 33% medium
                 tg.HapticFeedback.impactOccurred(levels[Math.floor(Math.random() * levels.length)]);
-            }, 80 + Math.random() * 80);
+            }, 200 + Math.random() * 150); // 200-350ms между вибрациями
         } else if (navigator.vibrate) {
             speakingVibrationInterval = setInterval(() => {
-                // Random short pulses
-                const patterns = [[15, 20, 10], [30, 10], [10, 25, 15, 5]];
-                navigator.vibrate(patterns[Math.floor(Math.random() * patterns.length)]);
-            }, 80 + Math.random() * 80);
+                navigator.vibrate([15, 10]); // Короткие импульсы
+            }, 250);
         }
     }
 
