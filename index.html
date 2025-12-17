@@ -2635,32 +2635,92 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Новый typeWriterEffect: печать слов целиком без разрыва
-        function typeWriterEffect(element, text) {
-            return new Promise((resolve) => {
-                const tokens = text.split(/(\s+)/); // слова + пробелы
-                let index = 0;
+        // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
+                // ===== Типографский эффект по словам и буквам =====
+        // ===== Типографский эффект по словам =====
+    function typeWriterEffect(element, text) {
+        return new Promise((resolve) => {
+            // Разбиваем текст на слова, сохраняя пробелы и знаки препинания
+            const words = text.match(/\S+|\s+/g) || [];
+            let wordIndex = 0;
 
-                function typeNext() {
-                    if (index >= tokens.length) {
-                        resolve();
-                        return;
-                    }
-
-                    const token = tokens[index++];
-                    const span = document.createElement('span');
-                    span.textContent = token.replace(/ /g, '\u00A0'); // неразрывный пробел
-                    span.style.cssText = 'white-space: pre-wrap; display: inline-block;';
-                    element.appendChild(span);
-                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
-
-                    // небольшая пауза между словами
-                    setTimeout(typeNext, 50 + Math.random() * 80);
+            function typeNextWord() {
+                if (wordIndex >= words.length) {
+                    resolve();
+                    return;
                 }
 
-                typeNext();
-            });
-        }
+                const word = words[wordIndex++];
+                
+                // Если это пробелы - добавляем сразу без анимации
+                if (/^\s+$/.test(word)) {
+                    const spaceSpan = document.createElement('span');
+                    spaceSpan.textContent = word.replace(/ /g, '\u00A0');
+                    spaceSpan.style.cssText = 'display: inline; white-space: pre;';
+                    element.appendChild(spaceSpan);
+                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    
+                    // Минимальная задержка для пробелов
+                    setTimeout(typeNextWord, 20);
+                    return;
+                }
+
+                // Создаем контейнер для слова
+                const wordSpan = document.createElement('span');
+                wordSpan.className = 'word';
+                wordSpan.style.cssText = `
+                    display: inline-block;
+                    opacity: 0;
+                    filter: blur(4px);
+                    transform: translateY(4px) scale(0.98);
+                    animation: wordIn 380ms ease-out forwards;
+                    margin-right: 0.1em;
+                `;
+                
+                // Добавляем текст слова
+                wordSpan.textContent = word;
+                element.appendChild(wordSpan);
+                
+                // Прокручиваем контейнер
+                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                
+                // Задержка между словами зависит от длины слова и знаков препинания
+                let delay = 80 + Math.random() * 40; // Базовая задержка
+                
+                // Увеличиваем задержку после длинных слов
+                if (word.length > 8) delay += 30;
+                
+                // Увеличиваем задержку после знаков препинания
+                if (/[.,!?;:]$/.test(word)) delay += 120;
+                if (/[.!?]$/.test(word)) delay += 180; // Особенно после конца предложения
+                
+                setTimeout(typeNextWord, delay);
+            }
+
+            // Добавляем CSS анимацию для слов, если её еще нет
+            if (!document.getElementById('word-animation-style')) {
+                const style = document.createElement('style');
+                style.id = 'word-animation-style';
+                style.textContent = `
+                    @keyframes wordIn {
+                        0% {
+                            opacity: 0;
+                            filter: blur(4px);
+                            transform: translateY(4px) scale(0.98);
+                        }
+                        100% {
+                            opacity: 1;
+                            filter: blur(0);
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            typeNextWord();
+        });
+    }
         
         // Гуманизация текста: убирает лишние пробелы и добавляет паузы
         function humanizeText(text) {
