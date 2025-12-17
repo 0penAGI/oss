@@ -1400,6 +1400,30 @@ for (let i = 0; i < particleCount; i++) {
           }
         };
 
+        let statusQueue = [];
+        let statusInterval = null;
+
+        function showStatusAnimated(text) {
+            const statusEl = document.getElementById('status');
+            if (!statusEl) return;
+
+            // создаем span для нового статуса
+            const span = document.createElement('span');
+            span.className = 'status-text';
+            span.textContent = text;
+            statusEl.appendChild(span);
+
+            // убираем активность у старых
+            statusEl.querySelectorAll('.status-text.active').forEach(oldSpan => {
+                oldSpan.classList.remove('active');
+                setTimeout(() => oldSpan.remove(), 500);
+            });
+
+            // активируем новый
+            setTimeout(() => {
+                span.classList.add('active');
+            }, 50);
+        }
         // ===== Predictive Imagination: симуляция будущего =====
     const futureSimulator = {
         imagine(steps = 5) {
@@ -2624,19 +2648,32 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
+    // Функция для анимированного показа статуса (вместо прямого status.innerText)
+    function showStatusAnimated(text) {
+        // Если текст не изменился, не анимируем
+        if (status.innerText === text) return;
+        status.classList.remove('status-animated');
+        // Триггер reflow для повторной анимации
+        void status.offsetWidth;
+        status.classList.add('status-animated');
+        status.innerText = text;
+        // Можно добавить сброс класса после анимации (если нужен эффект исчезновения)
+        setTimeout(() => status.classList.remove('status-animated'), 800);
+    }
+
     async function sendToBot(text) {
         stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
         isThinking = true;
         orb.classList.remove('listening');
         orb.classList.add('thinking');
-        status.innerText = "processing stream";
+        showStatusAnimated("processing stream");
         // --- таймеры статуса для длинной обработки ---
         let processingTimeout = setTimeout(() => {
-            status.innerText = "thinking";
+            showStatusAnimated("thinking");
         }, 10000); // через 10 секунд
 
         let researchingTimeout = setTimeout(() => {
-            status.innerText = "preparing answer";
+            showStatusAnimated("preparing answer");
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
@@ -2679,7 +2716,7 @@ for (let i = 0; i < particleCount; i++) {
             orb.classList.remove('thinking');
             stopThinkingVibration();
             orb.classList.add('speaking');
-            status.innerText = "receiving data";
+            showStatusAnimated("receiving data");
             vibrateSpeaking();
 
             while (true) {
@@ -2725,7 +2762,7 @@ for (let i = 0; i < particleCount; i++) {
             }
 
             responseContainer.classList.remove("typing-cursor");
-            status.innerText = "speaking";
+            showStatusAnimated("speaking");
             // One strong vibration at the end of receiving
             if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
             else if (navigator.vibrate) navigator.vibrate([60]);
@@ -2738,7 +2775,7 @@ for (let i = 0; i < particleCount; i++) {
 
         } catch (e) {
             console.error(e);
-            status.innerText = "stream error";
+            showStatusAnimated("stream error");
             orb.classList.remove('thinking');
             orb.classList.remove('speaking');
             isThinking = false;
