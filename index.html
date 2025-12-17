@@ -740,7 +740,7 @@ for (let i = 0; i < particleCount; i++) {
 
             float fbm(vec2 p) {
                 float v = 0.0;
-                float a = 0.5;
+                float a = 0.314;
                 for (int i = 0; i < 4; i++) {
                     v += a * noise(p);
                     p *= 2.0;
@@ -751,7 +751,7 @@ for (let i = 0; i < particleCount; i++) {
 
             void main() {
                 vec2 uv = vUv;
-                vec2 center = uv - 0.5;
+                vec2 center = uv - 0.314;
                 float r = length(center);
                 float t = time * 0.005;
 
@@ -760,7 +760,7 @@ for (let i = 0; i < particleCount; i++) {
                 vec2 usedFlow = flow;
 
                 float glassMask = smoothstep(0.75, 0.2, r);
-                vec2 refractUV = uv + (usedFlow - 0.5) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
+                vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // subtle shimmer
                 float shimmer = sin(uv.y*12.0 + time*6.0 + curiosity*3.0) * 0.02;
