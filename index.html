@@ -192,7 +192,25 @@
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.1;
 
+
         const scene = new THREE.Scene();
+
+        // === Somatic Gesture Memory ===
+        const gestureRT = new THREE.WebGLRenderTarget(
+          window.innerWidth,
+          window.innerHeight,
+          { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat }
+        );
+
+        let lastGesture = null;
+        canvas.addEventListener('pointerdown', e => {
+          lastGesture = {
+            x: e.clientX / window.innerWidth,
+            y: 1.0 - e.clientY / window.innerHeight,
+            strength: 1.0,
+            t: performance.now()
+          };
+        });
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
         let targetEnergy = 0.25; // baseline listening
@@ -304,7 +322,12 @@
                 plasticity: { value: 0.25 }, // насколько след обучаем
                 learning:   { value: 0.0 },  // краткий импульс обучения
 
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+
+                // === Gesture memory ===
+                gestureTex: { value: gestureRT.texture },
+                gesturePos: { value: new THREE.Vector2(-1, -1) },
+                gestureStrength: { value: 0.0 },
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -321,6 +344,9 @@
                 uniform float plasticity;
                 uniform float learning;
                 uniform vec2 resolution;
+                uniform sampler2D gestureTex;
+                uniform vec2 gesturePos;
+                uniform float gestureStrength;
 
                 // hash noise
                 float hash(vec2 p) {
@@ -345,6 +371,12 @@
                     col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
                     return col;
+                }
+
+                // === Gesture Field ("натёртость") ===
+                float gestureField(vec2 uv, vec2 gp, float s) {
+                    float d = distance(uv, gp);
+                    return exp(-d * 40.0) * s;
                 }
 
                 void main() {
@@ -375,6 +407,10 @@
                         1.0,
                         activity * learning * effectivePlasticity
                     );
+
+                    // === Gesture memory coloring ===
+                    float g = gestureField(vUv, gesturePos, gestureStrength);
+                    oldCol.rgb += vec3(0.15, 0.2, 0.25) * g;
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
@@ -707,8 +743,39 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
-            orbEnergy += (targetEnergy - orbEnergy) * 0.08;
+
+            // --- Narrative Breathing ---
+            selfAwareness.breathIrregularity =
+              selfAwareness.sleeping ? 0.1 :
+              selfAwareness.dreaming ? 0.25 :
+              selfAwareness.curiosity > 0.7 ? 0.45 : 0.15;
+
+            const breathSpeed =
+              0.4 + selfAwareness.breathIrregularity +
+              Math.random() * selfAwareness.breathIrregularity * 0.2;
+
+            selfAwareness.breathPhase += 0.01 * breathSpeed;
+
+            // иногда «забываем» выдох
+            let breath = Math.sin(selfAwareness.breathPhase);
+            if (Math.random() < 0.002 * selfAwareness.breathIrregularity) {
+              breath = 0.0;
+            }
+
+            orbEnergy += (targetEnergy + breath * 0.2 - orbEnergy) * 0.06;
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
+
+            // === Gesture update ===
+            if (lastGesture) {
+              const age = (performance.now() - lastGesture.t) / 1000;
+              const s = Math.max(0, 1.0 - age * 0.8);
+              feedbackMaterial.uniforms.gesturePos.value.set(lastGesture.x, lastGesture.y);
+              feedbackMaterial.uniforms.gestureStrength.value = s;
+              if (s <= 0.01) lastGesture = null;
+            } else {
+              feedbackMaterial.uniforms.gestureStrength.value = 0.0;
+            }
+
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
@@ -737,6 +804,7 @@ for (let i = 0; i < particleCount; i++) {
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+            gestureRT.setSize(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
@@ -753,6 +821,9 @@ let selfAwareness = {
         lastSleep: 0,
         fatigue: 0, // 0..1, новая переменная усталости
         focus: 0.5, // 0..1, фокус внимания
+        // === Неритмичное дыхание ===
+        breathPhase: 0,
+        breathIrregularity: 0.0,
         // === Long‑Term Identity & Temporal Self ===
          identity: {
             name: 'Self',
