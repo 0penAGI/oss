@@ -748,7 +748,7 @@ for (let i = 0; i < particleCount; i++) {
                 float r = length(center);
 
                 // --- slow liquid flow ---
-                float t = time * 0.12;
+                float t = time * 0.005;
                 vec2 flow = vec2(
                     fbm(uv * 3.0 + t),
                     fbm(uv * 3.0 - t)
@@ -829,7 +829,7 @@ for (let i = 0; i < particleCount; i++) {
                     vec2 uv = vUv;
                     vec2 center = uv - 0.5;
                     float r = length(center);
-                    float t = time * 0.12;
+                    float t = time * 0.005;
 
                     // --- Liquid flow enhanced by energy and curiosity ---
                     vec2 flow = vec2(
