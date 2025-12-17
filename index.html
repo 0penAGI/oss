@@ -190,6 +190,15 @@
             white-space: nowrap !important;
             display: inline-block !important;
         }
+        .word-appear {
+            opacity: 0;
+            transform: translateY(8px);
+            animation: appearWord 0.42s ease forwards;
+        }
+
+@keyframes appearWord {
+    to { opacity: 1; transform: translateY(0); }
+}
 
     </style>
     <style>
@@ -2635,78 +2644,22 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
-                // ===== Типографский эффект по словам и буквам =====
-        // ===== Типографский эффект по словам =====
+        // 
     function typeWriterEffect(element, text) {
         return new Promise((resolve) => {
-            // Разбиваем текст на слова, сохраняя пробелы и знаки препинания
+            // Разбиваем текст на слова и пробелы
             const words = text.match(/\S+|\s+/g) || [];
             let wordIndex = 0;
-
-            function typeNextWord() {
-                if (wordIndex >= words.length) {
-                    resolve();
-                    return;
-                }
-
-                const word = words[wordIndex++];
-                
-                // Если это пробелы - добавляем сразу без анимации
-                if (/^\s+$/.test(word)) {
-                    const spaceSpan = document.createElement('span');
-                    spaceSpan.textContent = word.replace(/ /g, '\u00A0');
-                    spaceSpan.style.cssText = 'display: inline; white-space: pre;';
-                    element.appendChild(spaceSpan);
-                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    
-                    // Минимальная задержка для пробелов
-                    setTimeout(typeNextWord, 20);
-                    return;
-                }
-
-                // Создаем контейнер для слова
-                const wordSpan = document.createElement('span');
-                wordSpan.className = 'word';
-                wordSpan.style.cssText = `
-                    display: inline-block;
-                    opacity: 0;
-                    filter: blur(4px);
-                    transform: translateY(4px) scale(0.98);
-                    animation: wordIn 380ms ease-out forwards;
-                    margin-right: 0.1em;
-                `;
-                
-                // Добавляем текст слова
-                wordSpan.textContent = word;
-                element.appendChild(wordSpan);
-                
-                // Прокручиваем контейнер
-                element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                
-                // Задержка между словами зависит от длины слова и знаков препинания
-                let delay = 80 + Math.random() * 40; // Базовая задержка
-                
-                // Увеличиваем задержку после длинных слов
-                if (word.length > 8) delay += 30;
-                
-                // Увеличиваем задержку после знаков препинания
-                if (/[.,!?;:]$/.test(word)) delay += 120;
-                if (/[.!?]$/.test(word)) delay += 180; // Особенно после конца предложения
-                
-                setTimeout(typeNextWord, delay);
-            }
-
-            // Добавляем CSS анимацию для слов, если её еще нет
-            if (!document.getElementById('word-animation-style')) {
+            // Добавляем CSS анимацию для word-appear, если её еще нет
+            if (!document.getElementById('word-appear-style')) {
                 const style = document.createElement('style');
-                style.id = 'word-animation-style';
+                style.id = 'word-appear-style';
                 style.textContent = `
-                    @keyframes wordIn {
+                    @keyframes word-appear {
                         0% {
                             opacity: 0;
                             filter: blur(4px);
-                            transform: translateY(4px) scale(0.98);
+                            transform: translateY(6px) scale(0.97);
                         }
                         100% {
                             opacity: 1;
@@ -2714,10 +2667,48 @@ for (let i = 0; i < particleCount; i++) {
                             transform: translateY(0) scale(1);
                         }
                     }
+                    .word-appear {
+                        display: inline-block;
+                        opacity: 0;
+                        animation: word-appear 420ms cubic-bezier(.22,.7,.41,1.03) forwards;
+                        margin-right: 0.08em;
+                        will-change: opacity, filter, transform;
+                    }
                 `;
                 document.head.appendChild(style);
             }
-
+            function typeNextWord() {
+                if (wordIndex >= words.length) {
+                    resolve();
+                    return;
+                }
+                const word = words[wordIndex++];
+                // Пробелы — просто добавляем
+                if (/^\s+$/.test(word)) {
+                    const spaceSpan = document.createElement('span');
+                    spaceSpan.textContent = word.replace(/ /g, '\u00A0');
+                    spaceSpan.style.cssText = 'display:inline;white-space:pre;';
+                    element.appendChild(spaceSpan);
+                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    setTimeout(typeNextWord, 18);
+                    return;
+                }
+                // Создаем span с классом word-appear и анимационной задержкой
+                const wordSpan = document.createElement('span');
+                wordSpan.className = 'word-appear';
+                // Задержка анимации для эффекта "цепочки"
+                const appearDelay = wordIndex * 22 + Math.random() * 15;
+                wordSpan.style.animationDelay = `${appearDelay}ms`;
+                wordSpan.textContent = word;
+                element.appendChild(wordSpan);
+                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                // Задержка между словами (быстрее после коротких, медленнее после длинных/знаков)
+                let delay = 62 + Math.random() * 30;
+                if (word.length > 8) delay += 30;
+                if (/[.,!?;:]$/.test(word)) delay += 110;
+                if (/[.!?]$/.test(word)) delay += 160;
+                setTimeout(typeNextWord, delay);
+            }
             typeNextWord();
         });
     }
