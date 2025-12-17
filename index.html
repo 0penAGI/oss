@@ -93,8 +93,8 @@
 
         /* Дополнительно для контейнера ответа, чтобы он вёл себя предсказуемо */
         #current-response {
-            word-break: keep-all;
-            overflow-wrap: anywhere;
+            word-break: normal;
+            overflow-wrap: break-word;
             white-space: pre-wrap;
         }
 
@@ -111,7 +111,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
             text-align: left;
             word-break: keep-all !important;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
             white-space: pre-wrap;
             hyphens: none;
         }
