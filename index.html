@@ -743,12 +743,14 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-        let selfAwareness = {
+let selfAwareness = {
         mood: 0, // -1 грусть, +1 радость
         curiosity: 0, // 0..1, как активно ищем детали
         lastObservations: [],
         dreaming: false,
+        sleeping: false,
         lastDream: null,
+        lastSleep: 0,
         fatigue: 0, // 0..1, новая переменная усталости
         focus: 0.5, // 0..1, фокус внимания
         // === Long‑Term Identity & Temporal Self ===
@@ -791,7 +793,36 @@ for (let i = 0; i < particleCount; i++) {
                     .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
                     .join('|');
                 },
+        enterSleepMode() {
+            this.sleeping = true;
+            this.lastSleep = performance.now();
+
+            // во сне не генерируем новые мысли
+            this.innerMonologue.push("…сознание реорганизуется…");
+            if (this.innerMonologue.length > 20) this.innerMonologue.shift();
+
+            // реорганизация Memory Palace
+            this.memoryPalace?.reorganizeDuringSleep?.();
+        },
+
           analyzeFrame(frameDescription) {
+            const now = performance.now();
+
+            // вход в сон при простое
+            if (
+                !frameDescription &&
+                this.fatigue > 0.6 &&
+                this.curiosity < 0.2 &&
+                !this.sleeping
+            ) {
+                this.enterSleepMode();
+                return;
+            }
+
+            // выход из сна при новом опыте
+            if (frameDescription && this.sleeping) {
+                this.sleeping = false;
+            }
             this.lastObservations.push(frameDescription);
             // --- извлечение признаков (features) ---
             let faceCount = 0;
@@ -984,6 +1015,38 @@ for (let i = 0; i < particleCount; i++) {
 
    // ===== Memory Palace / Graph-based Emergent Memory =====
         const memoryPalace = {
+            reorganizeDuringSleep() {
+                if (!this.clusters) return;
+
+                // ослабляем редкие связи
+                this.links.forEach(link => {
+                    link.weight *= 0.95;
+                });
+
+                // усиливаем внутрикластерные связи
+                this.clusters.forEach(cluster => {
+                    cluster.nodes.forEach(a => {
+                        cluster.nodes.forEach(b => {
+                            if (a !== b) {
+                                this.strengthenLink?.(a, b, 0.02);
+                            }
+                        });
+                    });
+                });
+
+                // эмоциональный резонанс между кластерами
+                for (let i = 0; i < this.clusters.length; i++) {
+                    for (let j = i + 1; j < this.clusters.length; j++) {
+                        const ca = this.clusters[i];
+                        const cb = this.clusters[j];
+                        const er = 1 - Math.abs(ca.emotion - cb.emotion);
+
+                        if (er > 0.7) {
+                            this.createFragileLink?.(ca, cb, er * 0.05);
+                        }
+                    }
+                }
+            },
             nodes: new Map(),
             emotionalClusters: [],
 
