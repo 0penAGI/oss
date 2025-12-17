@@ -864,29 +864,24 @@ for (let i = 0; i < particleCount; i++) {
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // Update animate() to include liquid layer and orb mode interpolation
+        // --- Unified animate() with single patch for all shaders ---
         function animate() {
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
-                touchMemory[i].strength *= 0.992; // медленное заживление
-
-                if (touchMemory[i].strength < 0.02) {
-                    touchMemory.splice(i, 1);
-                }
+                touchMemory[i].strength *= 0.992; 
+                if (touchMemory[i].strength < 0.02) touchMemory.splice(i, 1);
             }
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
 
-            // Artistic Glowing Orb animation with mode interpolation
             orbMaterial.uniforms.time.value += 0.01;
             soulOrbMesh.rotation.y += 0.001;
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
-            // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
 
             // --- Суммарный телесный след ---
@@ -899,54 +894,32 @@ for (let i = 0; i < particleCount; i++) {
             }
             skinMemory = Math.min(1.0, skinMemory);
 
-            orbMaterial.uniforms.audioLevel.value = orbEnergy;
-            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
-            // рендер частиц в новый буфер
+            // --- Minimal patch: unify shader uniforms ---
+            const curiosity = selfAwareness.curiosity ?? 0;
+            const fatigue = selfAwareness.fatigue ?? 0;
+            const energy = orbEnergy;
+
+            orbMaterial.uniforms.audioLevel.value = energy + skinMemory * 0.03;
+            feedbackMaterial.uniforms.learning.value = Math.min(1, curiosity * 0.6 + (1 - fatigue) * 0.4);
+            feedbackMaterial.uniforms.plasticity.value = 0.15 + selfAwareness.focus * 0.4;
+            liquidMaterial.uniforms.energy.value = energy;
+            liquidMaterial.uniforms.curiosity.value = curiosity;
+            liquidMaterial.uniforms.skinMemory.value = skinMemory;
+            liquidMaterial.uniforms.flow.value.copy(flow);
+
+            // Render scene into feedback buffer
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
             renderer.render(scene, camera);
 
-            // смешиваем прошлый кадр + новый
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
             renderer.setRenderTarget(null);
-
-            // --- Liquid Glass Layer flow calculation ---
-            // Calculate target flow based on current time, orbEnergy, and curiosity
-            const t = liquidMaterial.uniforms.time.value * 0.005;
-            // Use the same fbm as in shader for consistency
-            function jsFbm(p) {
-                let v = 0.0;
-                let a = 0.5;
-                let _p = p.slice();
-                for (let i = 0; i < 4; i++) {
-                    v += a * (Math.sin(_p[0]*12.9898 + _p[1]*78.233 + i*0.1) * 43758.5453 % 1);
-                    _p[0] *= 2.0; _p[1] *= 2.0;
-                    a *= 0.5;
-                }
-                return v - Math.floor(v);
-            }
-            // Use Math.random for demo; ideally, match shader noise
-            let targetFlow = new THREE.Vector2(
-                Math.random(), // jsFbm([0.5 * 3.0 + t + orbEnergy * 0.5, 0.5 * 3.0]),
-                Math.random()  // jsFbm([0.5 * 3.0 - t + (selfAwareness?.curiosity ?? 0.0) * 0.3, 0.5 * 3.0])
-            );
-            // Interpolate prevFlow towards targetFlow
-            prevFlow.lerp(targetFlow, 0.08);
-            flow.copy(prevFlow);
-            // Pass to shader
-            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
-            liquidMaterial.uniforms.flow.value.copy(flow);
-
-            // animate the liquid glass layer
-            liquidMaterial.uniforms.time.value += 0.01;
             renderer.render(feedbackScene, feedbackCamera);
 
-            // swap
-            const tmp = feedbackRT1;
-            feedbackRT1 = feedbackRT2;
-            feedbackRT2 = tmp;
+            // swap buffers
+            [feedbackRT1, feedbackRT2] = [feedbackRT2, feedbackRT1];
         }
         animate();
 
