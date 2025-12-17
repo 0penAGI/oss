@@ -2608,37 +2608,40 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Тайпрайтер-эффект по словам: печатает по словам, не разрывая их при переносе
+        // Плавный тайпрайтер-эффект для чанков
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                const container = element.parentElement;
-                // Разбиваем на слова и пробелы, чтобы не разрывать слова при переносе
-                // \s+ отдельно, чтобы сохранить пробелы
-                const words = text.split(/(\s+)/);
                 let i = 0;
+                const container = element.parentElement;
 
-                function nextDelay(word) {
-                    let base = 22 + word.length * 5; // немного увеличиваем задержку на длинные слова
-                    if (/[.!?\n]/.test(word)) base += 120;
+                function nextDelay(char) {
+                    let base = 22; // базовая медленность
+                    if (/[.,!?]/.test(char)) base += 120;   // дыхание на знаках
+                    if (/\n/.test(char)) base += 180;
+                    if (Math.random() < 0.08) base += 60;   // микро-задумчивость
                     return base + Math.random() * 40;
                 }
 
                 function type() {
-                    if (i >= words.length) {
+                    if (i >= text.length) {
                         resolve();
                         return;
                     }
 
                     const span = document.createElement('span');
-                    // Пробелы делаем неразрывными, чтобы не схлопывались
-                    let word = words[i];
-                    span.textContent = word.replace(/ /g, '\u00A0');
+
+                    let ch = text[i];
+                    // делаем пробелы телесными, чтобы они не схлопывались
+                    if (ch === ' ') ch = '\u00A0';
+
+                    span.textContent = ch;
                     span.className = 'glass-char';
                     element.appendChild(span);
 
                     container.scrollTop = container.scrollHeight;
                     i++;
-                    setTimeout(type, nextDelay(word));
+
+                    setTimeout(type, nextDelay(text[i - 1]));
                 }
 
                 type();
