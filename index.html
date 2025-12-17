@@ -2623,7 +2623,12 @@ for (let i = 0; i < particleCount; i++) {
                     }
 
                     const span = document.createElement('span');
-                    span.textContent = text[i];
+
+                    let ch = text[i];
+                    // делаем пробелы телесными, чтобы они не схлопывались
+                    if (ch === ' ') ch = '\u00A0';
+
+                    span.textContent = ch;
                     span.className = 'glass-char';
                     element.appendChild(span);
 
