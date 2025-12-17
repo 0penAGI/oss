@@ -702,8 +702,8 @@ for (let i = 0; i < particleCount; i++) {
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         // Uniforms for flow interpolation
-        let prevFlow = new THREE.Vector2(0.5, 0.5);
-        let flow = new THREE.Vector2(0.5, 0.5);
+        let prevFlow = new THREE.Vector2(0.3, 0.3);
+        let flow = new THREE.Vector2(0.3, 0.3);
 
         const liquidVertexShader = `
             varying vec2 vUv;
