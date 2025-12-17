@@ -709,7 +709,7 @@ for (let i = 0; i < particleCount; i++) {
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.1);
             }
         `;
 
@@ -753,7 +753,7 @@ for (let i = 0; i < particleCount; i++) {
                 vec2 uv = vUv;
                 vec2 center = uv - 0.314;
                 float r = length(center);
-                float t = time * 0.005;
+                float t = time * 0.001;
 
                 // --- Use provided flow uniform ---
                 // (flow is passed from JS, interpolated)
@@ -763,7 +763,7 @@ for (let i = 0; i < particleCount; i++) {
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // subtle shimmer
-                float shimmer = sin(uv.y*12.0 + time*6.0 + curiosity*3.0) * 0.02;
+                float shimmer = sin(uv.y*12.0 + time*3.0 + curiosity*3.0) * 0.02;
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
