@@ -2619,9 +2619,10 @@ for (let i = 0; i < particleCount; i++) {
     }
 
         // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
+                // ===== Типографский эффект по словам и буквам =====
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                const tokens = text.match(/(\s+|\S+|\n)/g) || [];
+                const tokens = text.split(/(\s+)/); // разделяем на слова и пробелы
                 let tokenIndex = 0;
 
                 function typeNextToken() {
@@ -2629,25 +2630,25 @@ for (let i = 0; i < particleCount; i++) {
                         resolve();
                         return;
                     }
+
                     const token = tokens[tokenIndex++];
-                    const tokenSpan = document.createElement('span');
-                    tokenSpan.style.display = 'inline';
-
-                    if (token === '\n') {
-                        tokenSpan.innerHTML = '<br>';
-                        element.appendChild(tokenSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        setTimeout(typeNextToken, 20);
-                        return;
-                    }
-
+                    // если это пробелы
                     if (/^\s+$/.test(token)) {
-                        tokenSpan.textContent = token.replace(/ /g, '\u00A0');
-                        element.appendChild(tokenSpan);
+                        const spaceSpan = document.createElement('span');
+                        spaceSpan.textContent = token.replace(/ /g, '\u00A0'); // небьющийся пробел
+                        spaceSpan.style.display = 'inline-block';
+                        element.appendChild(spaceSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
                         setTimeout(typeNextToken, 20);
                         return;
                     }
+
+                    // слово
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'word';
+                    wordSpan.style.whiteSpace = 'nowrap';
+                    wordSpan.style.display = 'inline-block';
+                    element.appendChild(wordSpan);
 
                     let charIndex = 0;
                     function typeNextChar() {
@@ -2655,21 +2656,23 @@ for (let i = 0; i < particleCount; i++) {
                             setTimeout(typeNextToken, 30 + Math.random() * 50);
                             return;
                         }
-                        if (!tokenSpan.parentElement) element.appendChild(tokenSpan);
                         const ch = token[charIndex++];
                         const charSpan = document.createElement('span');
-                        charSpan.textContent = ch;
                         charSpan.className = 'glass-char';
-                        tokenSpan.appendChild(charSpan);
+                        charSpan.textContent = ch;
+                        wordSpan.appendChild(charSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
                         let delay = 22 + Math.random() * 30;
                         if (/[.,!?]/.test(ch)) delay += 180;
                         if (Math.random() < 0.08) delay += 80;
+
                         setTimeout(typeNextChar, delay);
                     }
+
                     typeNextChar();
                 }
+
                 typeNextToken();
             });
         }
