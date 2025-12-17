@@ -2626,17 +2626,16 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Плавный тайпрайтер-эффект для чанков
+        // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 let i = 0;
-                const container = element.parentElement;
 
                 function nextDelay(char) {
-                    let base = 22; // базовая медленность
-                    if (/[.,!?]/.test(char)) base += 120;   // дыхание на знаках
+                    let base = 22;
+                    if (/[.,!?]/.test(char)) base += 120;
                     if (/\n/.test(char)) base += 180;
-                    if (Math.random() < 0.08) base += 60;   // микро-задумчивость
+                    if (Math.random() < 0.08) base += 60;
                     return base + Math.random() * 40;
                 }
 
@@ -2647,18 +2646,19 @@ for (let i = 0; i < particleCount; i++) {
                     }
 
                     const span = document.createElement('span');
-
                     let ch = text[i];
-                    // делаем пробелы телесными, чтобы они не схлопывались
-                    if (ch === ' ') ch = '\u00A0';
-
+                    if (ch === ' ') ch = '\u00A0'; // небьющийся пробел
                     span.textContent = ch;
                     span.className = 'glass-char';
+                    // CSS для предотвращения разрыва слов
+                    span.style.wordBreak = 'keep-all';
+                    span.style.whiteSpace = 'pre-wrap';
+                    span.style.overflowWrap = 'normal';
+
                     element.appendChild(span);
+                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                    container.scrollTop = container.scrollHeight;
                     i++;
-
                     setTimeout(type, nextDelay(text[i - 1]));
                 }
 
