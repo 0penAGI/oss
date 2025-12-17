@@ -318,6 +318,8 @@
                 uniform sampler2D tOld;
                 uniform sampler2D tNew;
                 uniform float decay;
+                uniform float plasticity;
+                uniform float learning;
                 uniform vec2 resolution;
 
                 // hash noise
@@ -346,7 +348,19 @@
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+                    vec4 oldCol = noiseBlur(tOld, vUv);
+
+                    // локальная активность = яркость (псевдо‑нейронная активация)
+                    float activity = dot(oldCol.rgb, vec3(0.333));
+
+                    // обучаемое локальное затухание (Hebbian‑like plasticity)
+                    float localDecay = mix(
+                        decay,
+                        1.0,
+                        activity * learning * plasticity
+                    );
+
+                    oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
                     gl_FragColor = max(oldCol * 0.96, newCol);
                 }
