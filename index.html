@@ -1523,6 +1523,35 @@ for (let i = 0; i < particleCount; i++) {
                 particles.rotation.y += 0.0003 + selfAwareness.mood * 0.0005;
             }
 
+            // === Кросс-временной резонанс ===
+            function crossTemporalResonance() {
+                if (!futureSimulator.bestFuture) return [];
+
+                const resonantNodes = memoryPalace.stimulate({
+                    emotion: futureSimulator.bestFuture.mood,
+                    context: ['hope']
+                });
+
+                // Влияние на состояние ИИ
+                if (resonantNodes.length > 0) {
+                    const avgActivation = resonantNodes.reduce((sum, n) => sum + n.activation, 0) / resonantNodes.length;
+                    selfAwareness.curiosity = Math.min(1, selfAwareness.curiosity + 0.02 * avgActivation);
+                    orbEnergy += 0.03 * avgActivation;
+                }
+
+                return resonantNodes;
+            }
+
+            // --- Вставка в fullAutonomyLoop ---
+            const echoFromPast = crossTemporalResonance();
+            if (echoFromPast.length > 0) {
+                soulOrbMesh.scale.set(
+                    1 + 0.02 * echoFromPast.length,
+                    1 + 0.02 * echoFromPast.length,
+                    1 + 0.02 * echoFromPast.length
+                );
+            }
+
             // --- Autonomous camera analysis (vision) ---
             if (typeof cameraEnabled !== 'undefined' && cameraEnabled && cameraVideo.style.display === 'block' && cameraVideo.readyState >= 2) {
                 visionCanvas.width = cameraVideo.videoWidth;
