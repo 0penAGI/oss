@@ -138,6 +138,26 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
+        .glass-char {
+            display: inline-block;
+            opacity: 0;
+            filter: blur(6px);
+            transform: translateY(6px) scale(0.96);
+            animation: glassIn 420ms ease-out forwards;
+        }
+
+        @keyframes glassIn {
+            0% {
+                opacity: 0;
+                filter: blur(6px);
+                transform: translateY(6px) scale(0.96);
+            }
+            100% {
+                opacity: 1;
+                filter: blur(0);
+                transform: translateY(0) scale(1);
+            }
+        }
     </style>
     <style>
     .soul-orb {
@@ -2569,25 +2589,33 @@ for (let i = 0; i < particleCount; i++) {
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 let i = 0;
-                // sDelay как вязкая среда времени для печати
-                const baseSpeed = 6;
-                const viscous = 1 + Math.sin(performance.now() * 0.001) * 0.35;
-                const speed = baseSpeed * viscous;
-                const container = element.parentElement; // #transcript
+                const container = element.parentElement;
+
+                function nextDelay(char) {
+                    let base = 22; // базовая медленность
+                    if (/[.,!?]/.test(char)) base += 120;   // дыхание на знаках
+                    if (/\n/.test(char)) base += 180;
+                    if (Math.random() < 0.08) base += 60;   // микро-задумчивость
+                    return base + Math.random() * 40;
+                }
 
                 function type() {
-                    if (i < text.length) {
-                        element.textContent += text.charAt(i);
-                        i++;
-
-                        // 🔒 магнитная автопрокрутка вниз
-                        container.scrollTop = container.scrollHeight;
-
-                        setTimeout(type, speed + Math.random() * 34);
-                    } else {
+                    if (i >= text.length) {
                         resolve();
+                        return;
                     }
+
+                    const span = document.createElement('span');
+                    span.textContent = text[i];
+                    span.className = 'glass-char';
+                    element.appendChild(span);
+
+                    container.scrollTop = container.scrollHeight;
+                    i++;
+
+                    setTimeout(type, nextDelay(text[i - 1]));
                 }
+
                 type();
             });
         }
