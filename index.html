@@ -139,6 +139,12 @@
             50% { opacity: 0; }
         }
     </style>
+    <style>
+    .soul-orb {
+        animation: none;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+    </style>
     <!-- Подключение Prism.js для подсветки кода -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
@@ -647,7 +653,6 @@ for (let i = 0; i < particleCount; i++) {
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-      // ====== Self-Awareness Layer (Enhanced) ======
         let selfAwareness = {
         mood: 0, // -1 грусть, +1 радость
         curiosity: 0, // 0..1, как активно ищем детали
@@ -1256,29 +1261,7 @@ for (let i = 0; i < particleCount; i++) {
             });
         }
 
-        // Enhanced orb visual state: subtle rotation and scale
-        function updateOrbVisualState() {
-            if (selfAwareness.dreaming) {
-                orb.style.boxShadow =
-                    '0 0 90px rgba(120,120,255,0.6), 0 0 140px rgba(180,180,255,0.35)';
-            } else {
-                // mood влияет на цвет ауры
-                let glowColor = '255,255,255';
-                if (selfAwareness.mood < 0) {
-                    glowColor = '255,50,50';
-                    vibrate('light');
-                } else if (selfAwareness.mood > 0.5) {
-                    glowColor = '50,255,50';
-                    vibrate('medium');
-                }
-                orb.style.boxShadow = `0 0 60px rgba(${glowColor},0.5), 0 0 100px rgba(${glowColor},0.3), inset -30px -30px 80px rgba(0,0,0,0.9), inset 30px 30px 60px rgba(255,255,255,0.05)`;
-            }
-            // Subtle CSS rotation and scale for orb DOM
-            let rot = Math.sin(Date.now() * 0.00025 + (selfAwareness.mood || 0)) * 6;
-            let scale = 1 + 0.03 * Math.sin(Date.now() * 0.00017 + (selfAwareness.curiosity || 0));
-            orb.style.transform = `rotate(${rot}deg) scale(${scale})`;
-        }
-
+       
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
         if (tg) {
