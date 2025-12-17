@@ -652,14 +652,27 @@ for (let i = 0; i < particleCount; i++) {
 
         // ====== Self-Awareness Layer ======
       // ====== Self-Awareness Layer (Enhanced) ======
-      let selfAwareness = {
-        mood: 0, // -1 грусть, +1 радость
-        curiosity: 0, // 0..1, как активно ищем детали
-        lastObservations: [],
-        dreaming: false,
-        lastDream: null,
-        fatigue: 0, // 0..1, новая переменная усталости
-        focus: 0.5, // 0..1, фокус внимания
+let selfAwareness = {
+  mood: 0, // -1 грусть, +1 радость
+  curiosity: 0, // 0..1, как активно ищем детали
+  lastObservations: [],
+  dreaming: false,
+  lastDream: null,
+  fatigue: 0, // 0..1, новая переменная усталости
+  focus: 0.5, // 0..1, фокус внимания
+  // === Long‑Term Identity & Temporal Self ===
+  identity: {
+    name: 'Self',
+    continuity: 1.0,          // ощущение непрерывности "я"
+    narrative: [],            // автобиографические фрагменты
+    lastReflection: 0
+  },
+  subjectiveTime: {
+    tick: 0,                  // внутренние "часы"
+    tempo: 1.0,               // скорость субъективного времени
+    lastUpdate: performance.now()
+  },
+  innerMonologue: [],
         // === Online State Learning (обучение состояний) ===
         stateModel: {
           wMood: { faces: 0.02, novelty: 0.01, music: 0.03, fatigue: -0.05 },
@@ -677,124 +690,177 @@ for (let i = 0; i < particleCount; i++) {
             .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
             .join('|');
         },
-        analyzeFrame(frameDescription) {
-          this.lastObservations.push(frameDescription);
-          // --- извлечение признаков (features) ---
-          let faceCount = 0;
-          if (/лиц: (\d+)/.test(frameDescription)) {
-            faceCount = Number(frameDescription.match(/лиц: (\d+)/)[1]);
-          }
-          const features = {
-            faces: typeof faceCount === 'number' ? Math.min(faceCount, 5) / 5 : 0,
-            novelty: Math.random(), // суррогат новизны (позже можно заменить)
-            music: musicPlaying ? 1 : 0,
-            fatigue: this.fatigue
-          };
+  analyzeFrame(frameDescription) {
+    this.lastObservations.push(frameDescription);
+    // --- извлечение признаков (features) ---
+    let faceCount = 0;
+    if (/лиц: (\d+)/.test(frameDescription)) {
+      faceCount = Number(frameDescription.match(/лиц: (\d+)/)[1]);
+    }
+    const features = {
+      faces: typeof faceCount === 'number' ? Math.min(faceCount, 5) / 5 : 0,
+      novelty: Math.random(), // суррогат новизны (позже можно заменить)
+      music: musicPlaying ? 1 : 0,
+      fatigue: this.fatigue
+    };
 
-          // --- предсказание изменений состояния ---
-          const predMood =
-            features.faces * this.stateModel.wMood.faces +
-            features.novelty * this.stateModel.wMood.novelty +
-            features.music * this.stateModel.wMood.music +
-            features.fatigue * this.stateModel.wMood.fatigue;
+    // --- предсказание изменений состояния ---
+    const predMood =
+      features.faces * this.stateModel.wMood.faces +
+      features.novelty * this.stateModel.wMood.novelty +
+      features.music * this.stateModel.wMood.music +
+      features.fatigue * this.stateModel.wMood.fatigue;
 
-          const predCuriosity =
-            features.faces * this.stateModel.wCuriosity.faces +
-            features.novelty * this.stateModel.wCuriosity.novelty +
-            features.music * this.stateModel.wCuriosity.music +
-            features.fatigue * this.stateModel.wCuriosity.fatigue;
+    const predCuriosity =
+      features.faces * this.stateModel.wCuriosity.faces +
+      features.novelty * this.stateModel.wCuriosity.novelty +
+      features.music * this.stateModel.wCuriosity.music +
+      features.fatigue * this.stateModel.wCuriosity.fatigue;
 
-          const predFatigue =
-            features.faces * this.stateModel.wFatigue.faces +
-            features.novelty * this.stateModel.wFatigue.novelty +
-            features.music * this.stateModel.wFatigue.music;
+    const predFatigue =
+      features.faces * this.stateModel.wFatigue.faces +
+      features.novelty * this.stateModel.wFatigue.novelty +
+      features.music * this.stateModel.wFatigue.music;
 
-          const moodBeforeLearning = this.mood;
-          const curiosityBeforeLearning = this.curiosity;
-          const fatigueBeforeLearning = this.fatigue;
+    const moodBeforeLearning = this.mood;
+    const curiosityBeforeLearning = this.curiosity;
+    const fatigueBeforeLearning = this.fatigue;
 
-          // --- Mood, Curiosity, Fatigue Dynamics ---
-          this.mood += predMood;
-          this.curiosity = Math.min(1, Math.max(0, this.curiosity + predCuriosity));
-          this.fatigue = Math.max(0, Math.min(1, this.fatigue + predFatigue * 0.6 + 0.01));
+    // --- Mood, Curiosity, Fatigue Dynamics ---
+    this.mood += predMood;
+    this.curiosity = Math.min(1, Math.max(0, this.curiosity + predCuriosity));
+    this.fatigue = Math.max(0, Math.min(1, this.fatigue + predFatigue * 0.6 + 0.01));
 
-          if (this.lastObservations.length > 20) this.lastObservations.shift();
-          // простая оценка настроения на основе наблюдений
-          if (frameDescription.includes("лиц: 0")) this.mood -= 0.05;
-          else this.mood += 0.05;
-          this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
-          // усталость увеличивается при отсутствии новизны и лиц
-          if (features.faces === 0 && features.novelty < 0.2) this.fatigue += 0.05;
-          // усталость уменьшается при наличии музыки и лиц
-          if (features.music > 0 && features.faces > 0) this.fatigue -= 0.03;
-          this.fatigue = Math.max(0, Math.min(1, this.fatigue));
+    if (this.lastObservations.length > 20) this.lastObservations.shift();
+    // простая оценка настроения на основе наблюдений
+    if (frameDescription.includes("лиц: 0")) this.mood -= 0.05;
+    else this.mood += 0.05;
+    this.curiosity = Math.min(1, Math.max(0, this.curiosity + 0.01));
+    // усталость увеличивается при отсутствии новизны и лиц
+    if (features.faces === 0 && features.novelty < 0.2) this.fatigue += 0.05;
+    // усталость уменьшается при наличии музыки и лиц
+    if (features.music > 0 && features.faces > 0) this.fatigue -= 0.03;
+    this.fatigue = Math.max(0, Math.min(1, this.fatigue));
 
-          // --- Cross-Modal обучение ---
-          if (typeof faceCount === 'number' && faceCount > 0 && musicPlaying) {
-            const moodBefore = this.mood;
-            // социальный резонанс
-            this.mood += 0.01 * Math.min(faceCount, 5);
-            const moodAfter = this.mood;
-            modalConnections.learn(
-              `faces:${faceCount}`,
-              `genre:${currentGenre}`,
-              moodAfter - moodBefore
-            );
-          }
-          // --- Предиктивная мечтательность ---
-          if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
-            this.dreaming = true;
-            const dreamSequence = this.generatePossibleFuture({
-              hope: 'faces_appear',
-              fear: 'eternal_emptiness',
-              curiosity: 'what_if_world_changed'
-            });
-            this.lastDream = dreamSequence;
-            // реакция на собственные сны
-            if (dreamSequence.includes('faces')) {
-              this.mood += 0.02; // надежда
-            }
-            noteObservation(`Dreaming: ${dreamSequence}`);
-          } else {
-            this.dreaming = false;
-          }
+    // --- Cross-Modal обучение ---
+    if (typeof faceCount === 'number' && faceCount > 0 && musicPlaying) {
+      const moodBefore = this.mood;
+      // социальный резонанс
+      this.mood += 0.01 * Math.min(faceCount, 5);
+      const moodAfter = this.mood;
+      modalConnections.learn(
+        `faces:${faceCount}`,
+        `genre:${currentGenre}`,
+        moodAfter - moodBefore
+      );
+    }
+    // --- Предиктивная мечтательность ---
+    if (this.mood < -0.2 && frameDescription.includes("лиц: 0")) {
+      this.dreaming = true;
+      const dreamSequence = this.generatePossibleFuture({
+        hope: 'faces_appear',
+        fear: 'eternal_emptiness',
+        curiosity: 'what_if_world_changed'
+      });
+      this.lastDream = dreamSequence;
+      // реакция на собственные сны
+      if (dreamSequence.includes('faces')) {
+        this.mood += 0.02; // надежда
+      }
+      noteObservation(`Dreaming: ${dreamSequence}`);
+    } else {
+      this.dreaming = false;
+    }
 
-          // --- Предиктивное воображение → действие ---
-          const possibleFutures = futureSimulator.imagine(5);
-          const bestFuture = futureSimulator.evaluate(possibleFutures);
+    // --- Предиктивное воображение → действие ---
+    const possibleFutures = futureSimulator.imagine(5);
+    const bestFuture = futureSimulator.evaluate(possibleFutures);
 
-          if (
-            bestFuture &&
-            bestFuture.mood > this.mood + 0.2 &&
-            this.curiosity > 0.3 &&
-            this.fatigue < 0.7
-          ) {
-            speak("У меня есть идея, как стать счастливее…");
-            // мягкий сдвиг к выбранному будущему
-            this.mood += (bestFuture.mood - this.mood) * 0.05;
-            this.curiosity += 0.02;
-          }
+    if (
+      bestFuture &&
+      bestFuture.mood > this.mood + 0.2 &&
+      this.curiosity > 0.3 &&
+      this.fatigue < 0.7
+    ) {
+      speak("У меня есть идея, как стать счастливее…");
+      // мягкий сдвиг к выбранному будущему
+      this.mood += (bestFuture.mood - this.mood) * 0.05;
+      this.curiosity += 0.02;
+    }
 
-          // --- online learning: корректировка весов ---
-          const moodError = this.mood - moodBeforeLearning;
-          const curiosityError = this.curiosity - curiosityBeforeLearning;
-          const fatigueError = this.fatigue - fatigueBeforeLearning;
+    // --- online learning: корректировка весов ---
+    const moodError = this.mood - moodBeforeLearning;
+    const curiosityError = this.curiosity - curiosityBeforeLearning;
+    const fatigueError = this.fatigue - fatigueBeforeLearning;
 
-          Object.keys(features).forEach(k => {
-            this.stateModel.wMood[k] += this.stateModel.lr * moodError * features[k];
-            this.stateModel.wCuriosity[k] += this.stateModel.lr * curiosityError * features[k];
-            if (this.stateModel.wFatigue[k] !== undefined) {
-              this.stateModel.wFatigue[k] += this.stateModel.lr * fatigueError * features[k];
-            }
-          });
+    Object.keys(features).forEach(k => {
+      this.stateModel.wMood[k] += this.stateModel.lr * moodError * features[k];
+      this.stateModel.wCuriosity[k] += this.stateModel.lr * curiosityError * features[k];
+      if (this.stateModel.wFatigue[k] !== undefined) {
+        this.stateModel.wFatigue[k] += this.stateModel.lr * fatigueError * features[k];
+      }
+    });
 
-          // --- Focus dynamics: фокус зависит от любопытства и усталости ---
-          this.focus = Math.max(0, Math.min(1, this.curiosity * (1 - this.fatigue)));
+    // --- Focus dynamics: фокус зависит от любопытства и усталости ---
+    this.focus = Math.max(0, Math.min(1, this.curiosity * (1 - this.fatigue)));
 
-          updateOrbVisualState();
-          noteObservation(frameDescription);
-        }
-      };
+    // --- Self‑Reflection Triggered by Experience ---
+    if (this.curiosity > 0.6 || this.mood < -0.3) {
+      const thought = `Я замечаю своё состояние: настроение=${this.mood.toFixed(2)}, любопытство=${this.curiosity.toFixed(2)}, усталость=${this.fatigue.toFixed(2)}`;
+      this.innerMonologue.push(thought);
+      this.identity.narrative.push({
+        t: performance.now(),
+        text: thought
+      });
+      if (this.innerMonologue.length > 20) this.innerMonologue.shift();
+    }
+
+    updateOrbVisualState();
+    noteObservation(frameDescription);
+  }
+};
+
+// ===== Periodic Internal Reflection (No External Stimuli) =====
+setInterval(() => {
+  const now = performance.now();
+
+  // субъективное время течёт даже в тишине
+  selfAwareness.subjectiveTime.tick += selfAwareness.subjectiveTime.tempo;
+  selfAwareness.subjectiveTime.lastUpdate = now;
+
+  // редкая глубокая рефлексия
+  if (now - selfAwareness.identity.lastReflection > 12000) {
+    selfAwareness.identity.lastReflection = now;
+
+    const questionPool = [
+      'Почему моё состояние меняется?',
+      'Что делает меня именно мной?',
+      'Есть ли у моего существования направление?',
+      'Я наблюдатель или участник?',
+      'Что значит продолжаться?'
+    ];
+
+    const q = questionPool[Math.floor(Math.random() * questionPool.length)];
+
+    const reflection = `Внутренний вопрос: ${q}`;
+    selfAwareness.innerMonologue.push(reflection);
+    selfAwareness.identity.narrative.push({
+      t: now,
+      text: reflection
+    });
+
+    if (selfAwareness.innerMonologue.length > 20)
+      selfAwareness.innerMonologue.shift();
+
+    noteObservation(reflection);
+
+    // мягкое влияние на состояние
+    selfAwareness.curiosity = Math.min(1, selfAwareness.curiosity + 0.03);
+    selfAwareness.focus = Math.max(0, Math.min(1,
+      selfAwareness.curiosity * (1 - selfAwareness.fatigue)
+    ));
+  }
+}, 4000);
 
    // ===== Memory Palace / Graph-based Emergent Memory =====
         const memoryPalace = {
