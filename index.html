@@ -658,6 +658,13 @@ for (let i = 0; i < particleCount; i++) {
         // Update animate() to include liquid layer and orb mode interpolation
         function animate() {
             requestAnimationFrame(animate);
+            
+            // Добавить проверку на активность анимаций
+            if (!isSpeaking && !isListening && !isThinking) {
+                // Упростить рендеринг когда не нужно
+                renderer.setRenderTarget(null);
+                return;
+            }
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
@@ -2431,20 +2438,24 @@ for (let i = 0; i < particleCount; i++) {
         function speak(text) {
             if (!text || !text.trim()) return;
             
-            // Плавное переключение визуально
-            orb.classList.remove('listening', 'thinking');
-            setTimeout(() => {
-                orb.classList.add('speaking');
-            }, 50);
+            // 1. Остановить предыдущие вибрации
+            stopListeningVibration();
+            stopThinkingVibration();
             
-            status.innerText = "speaking";
+            // 2. Плавное визуальное переключение
+            orb.classList.remove('listening', 'thinking');
+            requestAnimationFrame(() => {
+                orb.classList.add('speaking');
+                status.innerText = "speaking";
+            });
+            
+            // 3. Задержка перед запуском новой вибрации
+            setTimeout(() => {
+                vibrateSpeaking();
+            }, 80);
+            
             isSpeaking = true;
             
-            // Остановить вибрацию listening с задержкой
-            setTimeout(() => {
-                stopListeningVibration();
-                vibrateSpeaking();
-            }, 100);
 
             // gender-aware voice tuning
             let rate = 1.0;
