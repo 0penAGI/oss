@@ -2451,246 +2451,227 @@ for (let i = 0; i < particleCount; i++) {
         let spokenLength = 0; // сколько символов уже отдано в речь
         let typingQueue = Promise.resolve();
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
-    let thinkingVibrationInterval = null;
-    let speakingVibrationInterval = null;
+let thinkingVibrationInterval = null;
+let speakingVibrationInterval = null;
 
-    function startThinkingVibration() {
+function startThinkingVibration() {
+    stopThinkingVibration();
+    if (tg?.HapticFeedback) {
+        thinkingVibrationInterval = setInterval(() => {
+            tg.HapticFeedback.impactOccurred('light');
+        }, 500);
+    } else if (navigator.vibrate) {
+        thinkingVibrationInterval = setInterval(() => {
+            navigator.vibrate([30, 170]);
+        }, 500);
+    }
+}
+
+function stopThinkingVibration() {
+    if (thinkingVibrationInterval) {
+        clearInterval(thinkingVibrationInterval);
+        thinkingVibrationInterval = null;
+    }
+}
+
+function vibrateSpeaking() {
+    stopThinkingVibration();
+    stopSpeakingVibration();
+
+    if (tg?.HapticFeedback) {
+        speakingVibrationInterval = setInterval(() => {
+            const levels = ['light', 'light', 'medium'];
+            tg.HapticFeedback.impactOccurred(levels[Math.floor(Math.random() * levels.length)]);
+        }, 200 + Math.random() * 150);
+    } else if (navigator.vibrate) {
+        speakingVibrationInterval = setInterval(() => {
+            navigator.vibrate([15, 10]);
+        }, 250);
+    }
+}
+
+function stopSpeakingVibration() {
+    if (speakingVibrationInterval) {
+        clearInterval(speakingVibrationInterval);
+        speakingVibrationInterval = null;
+    }
+}
+
+async function sendToBot(text) {
+    stopListeningVibration();
+    isThinking = true;
+    orb.classList.remove('listening');
+    orb.classList.add('thinking');
+    status.innerText = "processing stream";
+    let processingTimeout = setTimeout(() => {
+        status.innerText = "thinking";
+    }, 10000);
+    let researchingTimeout = setTimeout(() => {
+        status.innerText = "preparing answer";
+    }, 20000);
+    startThinkingVibration();
+
+    function splitForTyping(text) {
+        return text.match(/[\s\S]/g) || [];
+    }
+
+    transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+
+    const responseContainer = document.getElementById("current-response");
+    audioBuffer = "";
+    spokenLength = 0;
+    let speechStarted = false;
+    const speechDelayMs = 420;
+
+    try {
+        const userId = tg?.initDataUnsafe?.user?.id || 0;
+        let textWithContext = text;
+        if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+            textWithContext = text + " (" + latestCameraDescription + ")";
+        }
+        if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+
+        const response = await fetch(
+            'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
+            }
+        );
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        isThinking = false;
+        orb.classList.remove('thinking');
         stopThinkingVibration();
-        if (tg?.HapticFeedback) {
-            thinkingVibrationInterval = setInterval(() => {
-                tg.HapticFeedback.impactOccurred('light');
-            }, 500);
-        } else if (navigator.vibrate) {
-            thinkingVibrationInterval = setInterval(() => {
-                navigator.vibrate([30, 170]);
-            }, 500);
-        }
-    }
+        orb.classList.add('speaking');
+        status.innerText = "receiving data";
+        vibrateSpeaking();
 
-    function stopThinkingVibration() {
-        if (thinkingVibrationInterval) {
-            clearInterval(thinkingVibrationInterval);
-            thinkingVibrationInterval = null;
-        }
-    }
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-    function vibrateSpeaking() {
+            const chunk = decoder.decode(value, { stream: true });
+
+            // Печатание текста: дробим поток на символы
+            const letters = splitForTyping(chunk);
+            for (const char of letters) {
+                typingQueue = typingQueue.then(() =>
+                    typeWriterEffect(responseContainer, char)
+                );
+            }
+            if (/[.!?\n]/.test(chunk)) {
+                typingQueue = typingQueue.then(() =>
+                    new Promise(r => setTimeout(r, 180 + Math.random() * 220))
+                );
+            }
+
+            audioBuffer += chunk;
+
+            if (!speechStarted) {
+                speechStarted = true;
+                spokenLength = audioBuffer.length;
+                setTimeout(() => {
+                    speak(chunk);
+                }, 120);
+            }
+
+            if (speechStarted) {
+                const delta = audioBuffer.slice(spokenLength);
+                if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+                    spokenLength = audioBuffer.length;
+                    speak(delta);
+                }
+            }
+        }
+
+        responseContainer.classList.remove("typing-cursor");
+        status.innerText = "speaking";
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+        else if (navigator.vibrate) navigator.vibrate([60]);
+
+        const tail = audioBuffer.slice(spokenLength);
+        if (tail.trim().length > 0) {
+            speak(tail);
+        }
+
+    } catch (e) {
+        console.error(e);
+        status.innerText = "stream error";
+        orb.classList.remove('thinking');
+        orb.classList.remove('speaking');
+        isThinking = false;
+        isSpeaking = false;
         stopThinkingVibration();
         stopSpeakingVibration();
-    
-        if (tg?.HapticFeedback) {
-            // Более легкая и редкая вибрация
-            speakingVibrationInterval = setInterval(() => {
-                const levels = ['light', 'light', 'medium']; // 66% light, 33% medium
-                tg.HapticFeedback.impactOccurred(levels[Math.floor(Math.random() * levels.length)]);
-            }, 200 + Math.random() * 150); // 200-350ms между вибрациями
-        } else if (navigator.vibrate) {
-            speakingVibrationInterval = setInterval(() => {
-                navigator.vibrate([15, 10]); // Короткие импульсы
-            }, 250);
-        }
+        setTimeout(startListening, 2000);
+    } finally {
+        clearTimeout(processingTimeout);
+        clearTimeout(researchingTimeout);
     }
+}
 
-    function stopSpeakingVibration() {
-        if (speakingVibrationInterval) {
-            clearInterval(speakingVibrationInterval);
-            speakingVibrationInterval = null;
-        }
-    }
+// Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
+function typeWriterEffect(element, text) {
+    return new Promise((resolve) => {
+        const tokens = text.split(/(\s+)/);
+        let tokenIndex = 0;
 
-    async function sendToBot(text) {
-        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-        isThinking = true;
-        orb.classList.remove('listening');
-        orb.classList.add('thinking');
-        status.innerText = "processing stream";
-        // --- таймеры статуса для длинной обработки ---
-        let processingTimeout = setTimeout(() => {
-            status.innerText = "thinking";
-        }, 10000); // через 10 секунд
-
-        let researchingTimeout = setTimeout(() => {
-            status.innerText = "preparing answer";
-        }, 20000); // через 20 секунд
-        startThinkingVibration();
-
-        // Вспомогательная функция для разбивки текста на символы
-        function splitForTyping(text) {
-            // разбиваем поток на минимальные временные зерна
-            return text.match(/[\s\S]/g) || [];
-        }
-
-        // Подготовка UI с курсором
-        transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-
-        const responseContainer = document.getElementById("current-response");
-        audioBuffer = "";
-        spokenLength = 0;
-        // --- sDelay-driven speech sync ---
-        let speechStarted = false;
-        const speechDelayMs = 420; // базовая задержка «вязкого времени»
-
-        try {
-            const userId = tg?.initDataUnsafe?.user?.id || 0;
-            // Добавляем описание камеры в скобках, если оно есть
-            let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
-            }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
-
-            const response = await fetch(
-                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
-                    },
-                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
-                }
-            );
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            isThinking = false;
-            orb.classList.remove('thinking');
-            stopThinkingVibration();
-            orb.classList.add('speaking');
-            status.innerText = "receiving data";
-            vibrateSpeaking();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-
-                // Печатание текста: дробим поток на символы
-                const letters = splitForTyping(chunk);
-                for (const char of letters) {
-                    typingQueue = typingQueue.then(() =>
-                        typeWriterEffect(responseContainer, char)
-                    );
-                }
-                // Микропаузa на границах фраз
-                if (/[.!?\n]/.test(chunk)) {
-                    typingQueue = typingQueue.then(() =>
-                        new Promise(r => setTimeout(r, 180 + Math.random() * 220))
-                    );
-                }
-
-                // Копим для озвучки
-                audioBuffer += chunk;
-
-                if (!speechStarted) {
-                    speechStarted = true;
-
-                    // считаем первый чанк уже озвученным,
-                    // чтобы он не попал в delta и не сказалcя второй раз
-                    spokenLength = audioBuffer.length;
-
-                    setTimeout(() => {
-                        speak(chunk);
-                    }, 120);
-                }
-
-                if (speechStarted) {
-                    const delta = audioBuffer.slice(spokenLength);
-                    // более ранний порог — речь дышит вместе с печатью
-                    if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
-                        spokenLength = audioBuffer.length;
-                        speak(delta);
-                    }
-                }
+        function typeNextToken() {
+            if (tokenIndex >= tokens.length) {
+                resolve();
+                return;
             }
 
-            responseContainer.classList.remove("typing-cursor");
-            status.innerText = "speaking";
-            // One strong vibration at the end of receiving
-            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-            else if (navigator.vibrate) navigator.vibrate([60]);
-
-            // договариваем хвост, если он остался
-            const tail = audioBuffer.slice(spokenLength);
-            if (tail.trim().length > 0) {
-                speak(tail);
+            const token = tokens[tokenIndex++];
+            if (/^\s+$/.test(token)) {
+                const spaceSpan = document.createElement('span');
+                spaceSpan.textContent = token.replace(/ /g, '\u00A0');
+                spaceSpan.style.cssText = 'display:inline-block !important;';
+                element.appendChild(spaceSpan);
+                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                setTimeout(typeNextToken, 20);
+                return;
             }
 
-        } catch (e) {
-            console.error(e);
-            status.innerText = "stream error";
-            orb.classList.remove('thinking');
-            orb.classList.remove('speaking');
-            isThinking = false;
-            isSpeaking = false;
-            stopThinkingVibration();
-            stopSpeakingVibration();
-            setTimeout(startListening, 2000);
-        } finally {
-            clearTimeout(processingTimeout);
-            clearTimeout(researchingTimeout);
-        }
-    }
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'word';
+            wordSpan.style.cssText = 'white-space:nowrap !important; display:inline-block !important;';
+            element.appendChild(wordSpan);
 
-        // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
-                // ===== Типографский эффект по словам и буквам =====
-        function typeWriterEffect(element, text) {
-            return new Promise((resolve) => {
-                const tokens = text.split(/(\s+)/);
-                let tokenIndex = 0;
-
-                function typeNextToken() {
-                    if (tokenIndex >= tokens.length) {
-                        resolve();
-                        return;
-                    }
-
-                    const token = tokens[tokenIndex++];
-                    if (/^\s+$/.test(token)) {
-                        const spaceSpan = document.createElement('span');
-                        spaceSpan.textContent = token.replace(/ /g, '\u00A0');
-                        spaceSpan.style.cssText = 'display: inline-block !important;';
-                        element.appendChild(spaceSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        setTimeout(typeNextToken, 20);
-                        return;
-                    }
-
-                    const wordSpan = document.createElement('span');
-                    wordSpan.className = 'word';
-                    wordSpan.style.cssText = 'white-space: nowrap !important; display: inline-block !important;';
-                    element.appendChild(wordSpan);
-
-                    let charIndex = 0;
-                    function typeNextChar() {
-                        if (charIndex >= token.length) {
-                            setTimeout(typeNextToken, 30 + Math.random() * 50);
-                            return;
-                        }
-                        const ch = token[charIndex++];
-                        const charSpan = document.createElement('span');
-                        charSpan.className = 'glass-char';
-                        charSpan.textContent = ch;
-                        charSpan.style.cssText = 'display: inline-block !important;';
-                        wordSpan.appendChild(charSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-
-                        let delay = 15 + Math.random() * 30;
-                        if (/[.,!?]/.test(ch)) delay += 180;
-                        if (Math.random() < 0.15) delay += 80;
-
-                        setTimeout(typeNextChar, delay);
-                    }
-
-                    typeNextChar();
+            let charIndex = 0;
+            function typeNextChar() {
+                if (charIndex >= token.length) {
+                    setTimeout(typeNextToken, 30 + Math.random() * 50);
+                    return;
                 }
+                const ch = token[charIndex++];
+                const charSpan = document.createElement('span');
+                charSpan.className = 'glass-char';
+                charSpan.textContent = ch;
+                charSpan.style.cssText = 'display:inline-block !important;';
+                wordSpan.appendChild(charSpan);
+                element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                typeNextToken();
-            });
+                let delay = 15 + Math.random() * 30;
+                if (/[.,!?]/.test(ch)) delay += 180;
+                if (Math.random() < 0.15) delay += 80;
+
+                setTimeout(typeNextChar, delay);
+            }
+
+            typeNextChar();
         }
+
+        typeNextToken();
+    });
+}
         
         // Гуманизация текста: убирает лишние пробелы и добавляет паузы
         function humanizeText(text) {
