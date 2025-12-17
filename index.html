@@ -743,7 +743,7 @@ for (let i = 0; i < particleCount; i++) {
                 float a = 0.618;
                 for (int i = 0; i < 4; i++) {
                     v += a * noise(p);
-                    p *= 4.2;
+                    p *= 3.2;
                     a *= 0.5;
                 }
                 return v;
@@ -751,7 +751,7 @@ for (let i = 0; i < particleCount; i++) {
 
             void main() {
                 vec2 uv = vUv;
-                vec2 center = uv - 0.614;
+                vec2 center = uv - 0.314;
                 float r = length(center);
                 float t = time * 0.001;
 
@@ -763,7 +763,7 @@ for (let i = 0; i < particleCount; i++) {
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // subtle shimmer
-                float shimmer = sin(uv.y*12.0 + time*3.1 + curiosity*1.3) * 0.01;
+                float shimmer = sin(uv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
