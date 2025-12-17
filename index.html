@@ -223,31 +223,45 @@
         `;
 
         const fragmentShader = `
-            uniform float time;
-            const float PI = 3.141592653589793;
-            varying vec3 vColor;
+    uniform float time;
+    const float PI = 3.141592653589793;
+    varying vec3 vColor;
 
-            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
-                vec3 dir = normalize(p - vec3(0.5, 0.5, 0.0));
-                float d = length(dir);
-                float anim = time * 0.5;
-                if (d > 0.98 && d < 1.02) {
-                    float t = fract(sin(d * PI) * anim + c1.x);
-                    return mix(c1, c2, t);
-                } else {
-                    float t = fract(cos(d * PI) * anim + c2.y);
-                    return mix(c2, c3, t);
-                }
-            }
+    // мягкая циклическая палитра: розовый → голубой → тёмно‑космический → назад
+    vec3 bgPalette(float t) {
+        vec3 pink = vec3(0.9, 0.3, 0.6);
+        vec3 cyan = vec3(0.2, 0.7, 0.9);
+        vec3 deep = vec3(0.03, 0.04, 0.09);
 
-            void main() {
-                vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0.0, 0.7), vec3(0.2, 0.8, 1.0), vec3(0.3, 0.5, 1.0));
-                float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(color * vColor, alpha * 0.8);
-            }
-        `;
+        float a = smoothstep(0.0, 0.33, t) * (1.0 - smoothstep(0.33, 0.66, t));
+        float b = smoothstep(0.33, 0.66, t) * (1.0 - smoothstep(0.66, 1.0, t));
+        float c = smoothstep(0.66, 1.0, t);
+
+        vec3 col = pink * (1.0 - a) + cyan * a;
+        col = mix(col, deep, b);
+        col = mix(col, pink, c * 0.6);
+
+        return col;
+    }
+
+    void main() {
+        float dist = length(gl_PointCoord - vec2(0.5));
+        float alpha = smoothstep(0.5, 0.0, dist);
+
+        // медленный, невыгорающий луп
+        float loopT = fract(time * 0.035);
+        vec3 bg = bgPalette(loopT);
+
+        // лёгкая пульсация без ухода в белый
+        float breathe = 0.85 + 0.15 * sin(time * 0.6);
+        vec3 color = bg * vColor * breathe;
+
+        // защита от пережога
+        color = clamp(color, 0.0, 0.92);
+
+        gl_FragColor = vec4(color, alpha * 0.75);
+    }
+`;
 
         // === Fullscreen quad for feedback and blur ===
         const feedbackScene = new THREE.Scene();
