@@ -2276,6 +2276,14 @@ for (let i = 0; i < particleCount; i++) {
         orb.classList.remove('listening');
         orb.classList.add('thinking');
         status.innerText = "processing stream";
+        // --- таймеры статуса для длинной обработки ---
+        let processingTimeout = setTimeout(() => {
+            status.innerText = "thinking";
+        }, 10000); // через 10 секунд
+
+        let researchingTimeout = setTimeout(() => {
+            status.innerText = "researching";
+        }, 20000); // через 20 секунд
         startThinkingVibration();
 
         // Подготовка UI с курсором
@@ -2376,6 +2384,9 @@ for (let i = 0; i < particleCount; i++) {
             stopThinkingVibration();
             stopSpeakingVibration();
             setTimeout(startListening, 2000);
+        } finally {
+            clearTimeout(processingTimeout);
+            clearTimeout(researchingTimeout);
         }
     }
 
