@@ -763,13 +763,13 @@ for (let i = 0; i < particleCount; i++) {
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // subtle shimmer
-                float shimmer = sin(uv.y*12.0 + time*1.1 + curiosity*1.3) * 0.01;
+                float shimmer = sin(uv.y*12.0 + time*3.1 + curiosity*1.3) * 0.01;
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.004 + curiosity * 0.001;
-                float caG = 0.005;
-                float caB = 0.003 + energy * 0.001;
+                float caR = 0.008 + curiosity * 0.003;
+                float caG = 0.007;
+                float caB = 0.009 + energy * 0.003;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
