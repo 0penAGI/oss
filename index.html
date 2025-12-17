@@ -13,8 +13,8 @@
             box-sizing: border-box;
         }
         body {
-            background: #402346;
-            color: #402346;
+            background: #ee98ff;
+            color: #f1aaff;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
@@ -365,7 +365,7 @@
             vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
                 vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008)); 
                 float d = length(dir);
-                float anim = time * 0.5;
+                float anim = time * 0.3;
                 if (d > 0.98 && d < 1.02) {
                     float t = fract(sin(d * PI) * anim + c1.x);
                     return mix(c1, c2, t);
