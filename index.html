@@ -696,15 +696,9 @@ for (let i = 0; i < particleCount; i++) {
         `;
 
         const liquidFragmentShader = `
-            #define N 10
             uniform float time;
             uniform sampler2D tBackground;
             uniform vec2 resolution;
-            uniform float activationLevel;
-            uniform vec3 moodColor;
-            uniform float detailLevel;
-            uniform vec2 touchPos[N];
-            uniform float touchStrength[N];
             varying vec2 vUv;
 
             // --- noise utils ---
@@ -742,13 +736,9 @@ for (let i = 0; i < particleCount; i++) {
                 // --- slow liquid flow ---
                 float t = time * 0.12;
                 vec2 flow = vec2(
-                    fbm(uv * (3.0 + detailLevel*5.0) + t + activationLevel*0.3),
-                    fbm(uv * (3.0 + detailLevel*5.0) - t - activationLevel*0.3)
+                    fbm(uv * 3.0 + t),
+                    fbm(uv * 3.0 - t)
                 );
-                for(int i=0;i<N;i++){
-                    float d = distance(uv, touchPos[i]);
-                    flow += normalize(uv-touchPos[i]) * exp(-d*6.0) * touchStrength[i];
-                }
 
                 // --- refraction strength ---
                 float glassMask = smoothstep(0.75, 0.2, r);
@@ -769,9 +759,6 @@ for (let i = 0; i < particleCount; i++) {
                 float edge = smoothstep(0.55, 0.9, r);
                 col += vec3(0.08, 0.1, 0.14) * edge * glassMask;
 
-                // --- mood color overlay ---
-                col += moodColor * glassMask * 0.15;
-
                 // --- final alpha ---
                 float alpha = 0.22 + 0.18 * glassMask;
 
@@ -783,12 +770,7 @@ for (let i = 0; i < particleCount; i++) {
             uniforms: {
                 time: { value: 0 },
                 tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-                activationLevel: { value: 0 },
-                moodColor: { value: new THREE.Vector3(0.5,0.5,0.5) },
-                detailLevel: { value: 0 },
-                touchPos: { value: Array(10).fill(new THREE.Vector2(0,0)) },
-                touchStrength: { value: Array(10).fill(0) }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
             },
             vertexShader: liquidVertexShader,
             fragmentShader: liquidFragmentShader,
@@ -843,41 +825,6 @@ for (let i = 0; i < particleCount; i++) {
 
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
-
-            // --- Update liquidMaterial uniforms based on selfAwareness and memoryPalace ---
-            // activationLevel: sum of activation from memoryPalace.stimulate
-            let activationSum = 0;
-            try {
-                activationSum = memoryPalace.stimulate({emotion:(selfAwareness.mood+1)/2, context:[]})
-                    .reduce((s,n)=>s+n.activation,0);
-            } catch(e) {}
-            liquidMaterial.uniforms.activationLevel.value = activationSum;
-            // moodColor: (mood+1)/2, 0.5, 1-(mood+1)/2
-            if (liquidMaterial.uniforms.moodColor.value && typeof liquidMaterial.uniforms.moodColor.value.set === "function") {
-                liquidMaterial.uniforms.moodColor.value.set(
-                    (selfAwareness.mood+1)/2,
-                    0.5,
-                    1-(selfAwareness.mood+1)/2
-                );
-            }
-            liquidMaterial.uniforms.detailLevel.value = selfAwareness.curiosity;
-            // touchPos and touchStrength arrays (N=10)
-            let touchArr = touchMemory.map(t=>new THREE.Vector2(t.x, t.y));
-            let strengthArr = touchMemory.map(t=>t.strength);
-            // Pad to N=10
-            while (touchArr.length < 10) touchArr.push(new THREE.Vector2(0,0));
-            while (strengthArr.length < 10) strengthArr.push(0);
-            if (liquidMaterial.uniforms.touchPos.value && Array.isArray(liquidMaterial.uniforms.touchPos.value)) {
-                for(let i=0;i<10;i++) liquidMaterial.uniforms.touchPos.value[i].copy(touchArr[i]);
-            } else {
-                liquidMaterial.uniforms.touchPos.value = touchArr;
-            }
-            if (liquidMaterial.uniforms.touchStrength.value && Array.isArray(liquidMaterial.uniforms.touchStrength.value)) {
-                for(let i=0;i<10;i++) liquidMaterial.uniforms.touchStrength.value[i] = strengthArr[i];
-            } else {
-                liquidMaterial.uniforms.touchStrength.value = strengthArr;
-            }
-
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
