@@ -491,7 +491,7 @@ for (let i = 0; i < particleCount; i++) {
             noise(p * 7.0 - t * 0.6) * 0.4;
 
         float pulse = 0.5 + 0.5 * sin(t * 2.4 + swirl * 6.0);
-        pulse *= energy;
+        pulse *= (0.75 + 0.6 * audio);
 
         float shell = smoothstep(0.95, 0.2, r);
         float core = exp(-6.0 * r) * (0.8 + 0.8 * audio);
@@ -513,7 +513,7 @@ for (let i = 0; i < particleCount; i++) {
         // --- Micro‑speckle inner dust ---
         float speck = microSpeckle(p + swirl, t);
         vec3 speckColor = mix(vec3(1.0), base, 0.35);
-        glow += speckColor * speck * (0.4 + 0.6 * energy);
+        glow += speckColor * speck * (0.6 + audio);
 
         float alpha =
             0.35 +
