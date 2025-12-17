@@ -346,12 +346,9 @@
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv);
-                    float activity = clamp(length(oldCol.rgb), 0.0, 1.0);
-                    float localDecay = mix(decay, 1.0, activity * plasticity);
-                    vec4 learned = oldCol + learning * oldCol;
+                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
                     vec4 newCol = texture2D(tNew, vUv);
-                    gl_FragColor = max(oldCol * localDecay + learned * 0.05, newCol);
+                    gl_FragColor = max(oldCol * 0.96, newCol);
                 }
             `,
             transparent: true
