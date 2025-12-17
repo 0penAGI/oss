@@ -775,12 +775,12 @@ for (let i = 0; i < particleCount; i++) {
                 col.g = texture2D(tBackground, refractUV).g;
                 col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
 
-                float highlight = pow(1.0 - r, 3.0);
+                float highlight = pow(1.0 - r, 2.4);
                 col += vec3(0.12, 0.14, 0.22) * highlight * glassMask;
-                float edge = smoothstep(0.55, 0.9, r);
-                col += vec3(0.09, 0.1, 0.14) * edge * glassMask;
+                float edge = smoothstep(0.45, 0.9, r);
+                col += vec3(0.09, 0.1, 0.11) * edge * glassMask;
 
-                float alpha = 0.12 + 0.12 * glassMask;
+                float alpha = 0.15 + 0.15 * glassMask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
