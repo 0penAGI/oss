@@ -1524,16 +1524,7 @@ for (let i = 0; i < particleCount; i++) {
             if (!isSpeaking && !isThinking) {
                 startListening();
             }
-        const rect = canvas.getBoundingClientRect();
-        const uv = {
-          x: (event.clientX - rect.left) / rect.width,
-          y: 1.0 - (event.clientY - rect.top) / rect.height
-        };
-        feedbackMaterial.uniforms.learning.value = 0.4;
-        feedbackMaterial.uniforms.plasticity.value = Math.min(
-          1.0,
-          feedbackMaterial.uniforms.plasticity.value + 0.05
-        );
+        
         }
         orb.addEventListener('click', orbClickHandler);
         orbInteractive.addEventListener('click', orbClickHandler);
