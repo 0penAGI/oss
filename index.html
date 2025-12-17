@@ -833,12 +833,12 @@ for (let i = 0; i < particleCount; i++) {
 
                     // --- Liquid flow enhanced by energy and curiosity ---
                     vec2 flow = vec2(
-                        fbm(uv * 3.0 + t + energy * 0.5),
-                        fbm(uv * 3.0 - t + curiosity * 0.3)
+                        fbm(uv * 3.0 + t + energy * 0.1),
+                        fbm(uv * 3.0 - t + curiosity * 0.1)
                     );
 
                     float glassMask = smoothstep(0.75, 0.2, r);
-                    vec2 refractUV = uv + (flow - 0.5) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
+                    vec2 refractUV = uv + (flow - 0.5) * 0.01 * glassMask * (1.0 + skinMemory*0.5);
 
                     // subtle shimmer
                     float shimmer = sin(uv.y*12.0 + time*6.0 + curiosity*3.0) * 0.02;
