@@ -346,9 +346,25 @@
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+                    // текущая активность (память сама себя чувствует)
+                    vec4 prev = texture2D(tOld, vUv);
+                    float activity = length(prev.rgb);
+
+                    // локальный decay — активное живёт дольше
+                    float localDecay = mix(decay, 0.995, activity);
+                    vec4 oldCol = noiseBlur(tOld, vUv) * localDecay;
+
+                    // новый сигнал
                     vec4 newCol = texture2D(tNew, vUv);
-                    gl_FragColor = max(oldCol * 0.96, newCol);
+
+                    // хеббовская микро-пластичность
+                    float hebb = learning * plasticity * activity;
+                    newCol.rgb += hebb * newCol.rgb;
+
+                    // стохастическое забывание (анти-бетон)
+                    float forget = 1.0 - 0.015 * hash(vUv * resolution + time);
+
+                    gl_FragColor = max(oldCol * forget, newCol);
                 }
             `,
             transparent: true
