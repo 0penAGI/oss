@@ -366,122 +366,122 @@ for (let i = 0; i < particleCount; i++) {
             }
         `;
         const orbFragmentShader = `
-    uniform float time;
-    uniform float mode;
-    uniform float modeSmooth;
-    uniform float audioLevel;
-    varying vec3 vNormal;
-    varying vec3 vPosition;
+            uniform float time;
+            uniform float mode;
+            uniform float modeSmooth;
+            uniform float audioLevel;
+            varying vec3 vNormal;
+            varying vec3 vPosition;
 
-    // -------- Utilities --------
-    float fresnel(vec3 n, vec3 v, float p) {
-        return pow(1.0 - clamp(dot(n, v), 0.0, 1.0), p);
-    }
+            // -------- Utilities --------
+            float fresnel(vec3 n, vec3 v, float p) {
+                return pow(1.0 - clamp(dot(n, v), 0.0, 1.0), p);
+            }
 
-    float hash(vec3 p) {
-        p = fract(p * 0.3183099 + vec3(0.1,0.2,0.3));
-        p *= 17.0;
-        return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-    }
+            float hash(vec3 p) {
+                p = fract(p * 0.3183099 + vec3(0.1,0.2,0.3));
+                p *= 17.0;
+                return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+            }
 
-    float noise(vec3 p) {
-        vec3 i = floor(p);
-        vec3 f = fract(p);
-        f = f*f*(3.0-2.0*f);
-        return mix(
-            mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),
-                mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
-            mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
-                mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
-            f.z);
-    }
+            float noise(vec3 p) {
+                vec3 i = floor(p);
+                vec3 f = fract(p);
+                f = f*f*(3.0-2.0*f);
+                return mix(
+                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),
+                        mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                        mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
+                    f.z);
+            }
 
-    float sparkle(vec3 p, float t) {
-        vec3 q = p * 18.0;
-        float n = noise(floor(q));
-        float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
-        return step(0.965, n) * flicker;
-    }
+            float sparkle(vec3 p, float t) {
+                vec3 q = p * 18.0;
+                float n = noise(floor(q));
+                float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
+                return step(0.965, n) * flicker;
+            }
 
-    // --- Micro-speckle utility ---
-    float microSpeckle(vec3 p, float t) {
-        vec3 q = p * 22.0;
-        float n = noise(floor(q));
-        float flicker = 0.4 + 0.6 * sin(t * 7.0 + n * 6.28318);
-        float radial = smoothstep(0.95, 0.15, length(p));
-        return step(0.972, n) * flicker * radial;
-    }
+            // --- Micro-speckle utility ---
+            float microSpeckle(vec3 p, float t) {
+                vec3 q = p * 22.0;
+                float n = noise(floor(q));
+                float flicker = 0.4 + 0.6 * sin(t * 7.0 + n * 6.28318);
+                float radial = smoothstep(0.95, 0.15, length(p));
+                return step(0.972, n) * flicker * radial;
+            }
 
-    vec3 palette(float t) {
-        vec3 a = vec3(0.32, 0.24, 0.55);
-        vec3 b = vec3(0.48, 0.58, 0.68);
-        vec3 c = vec3(1.0, 1.0, 1.0);
-        vec3 d = vec3(0.15, 0.25, 0.45);
-        return a + b * cos(6.28318 * (c * t + d));
-    }
+            vec3 palette(float t) {
+                vec3 a = vec3(0.32, 0.24, 0.55);
+                vec3 b = vec3(0.48, 0.58, 0.68);
+                vec3 c = vec3(1.0, 1.0, 1.0);
+                vec3 d = vec3(0.15, 0.25, 0.45);
+                return a + b * cos(6.28318 * (c * t + d));
+            }
 
-    // -------- Core look --------
-    vec4 renderOrb(float t, vec3 n, vec3 p, float audio) {
-        vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0));
+            // -------- Core look --------
+            vec4 renderOrb(float t, vec3 n, vec3 p, float audio) {
+                vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0));
 
-        float r = length(p);
-        float f = fresnel(n, viewDir, 2.8);
+                float r = length(p);
+                float f = fresnel(n, viewDir, 2.8);
 
-        float swirl =
-            noise(p * 3.5 + t * 0.35) * 0.6 +
-            noise(p * 7.0 - t * 0.6) * 0.4;
+                float swirl =
+                    noise(p * 3.5 + t * 0.35) * 0.6 +
+                    noise(p * 7.0 - t * 0.6) * 0.4;
 
-        float pulse = 0.5 + 0.5 * sin(t * 2.4 + swirl * 6.0);
-        pulse *= (0.75 + 0.6 * audio);
+                float pulse = 0.5 + 0.5 * sin(t * 2.4 + swirl * 6.0);
+                pulse *= (0.75 + 0.6 * audio);
 
-        float shell = smoothstep(0.95, 0.2, r);
-        float core = exp(-6.0 * r) * (0.8 + 0.8 * audio);
+                float shell = smoothstep(0.95, 0.2, r);
+                float core = exp(-6.0 * r) * (0.8 + 0.8 * audio);
 
-        float phase = 0.05 * modeSmooth + t * 0.03;
-        float colorT = pulse + swirl * 0.4 + r + phase;
-        vec3 base = palette(colorT);
+                float phase = 0.05 * modeSmooth + t * 0.03;
+                float colorT = pulse + swirl * 0.4 + r + phase;
+                vec3 base = palette(colorT);
 
-        vec3 glow =
-            base * (0.6 + 0.7 * shell) +
-            vec3(0.9, 0.95, 1.2) * f * (0.8 + audio);
+                vec3 glow =
+                    base * (0.6 + 0.7 * shell) +
+                    vec3(0.9, 0.95, 1.2) * f * (0.8 + audio);
 
-        // Sparkle dust effect
-        float dust = sparkle(p + swirl, t) * shell;
-        glow += vec3(1.2, 1.3, 1.5) * dust * (0.4 + audio);
+                // Sparkle dust effect
+                float dust = sparkle(p + swirl, t) * shell;
+                glow += vec3(1.2, 1.3, 1.5) * dust * (0.4 + audio);
 
-        glow += base * core * 1.6;
+                glow += base * core * 1.6;
 
-        // --- Micro‑speckle inner dust ---
-        float speck = microSpeckle(p + swirl, t);
-        vec3 speckColor = mix(vec3(1.0), base, 0.35);
-        glow += speckColor * speck * (0.6 + audio);
+                // --- Micro‑speckle inner dust ---
+                float speck = microSpeckle(p + swirl, t);
+                vec3 speckColor = mix(vec3(1.0), base, 0.35);
+                glow += speckColor * speck * (0.6 + audio);
 
-        float alpha =
-            0.35 +
-            shell * 0.25 +
-            f * 0.25 +
-            core * 0.35;
+                float alpha =
+                    0.35 +
+                    shell * 0.25 +
+                    f * 0.25 +
+                    core * 0.35;
 
-        alpha *= (0.75 + 0.5 * audio);
+                alpha *= (0.75 + 0.5 * audio);
 
-        return vec4(glow, alpha);
-    }
+                return vec4(glow, alpha);
+            }
 
-    void main() {
-        float audio = clamp(audioLevel, 0.0, 1.0);
+            void main() {
+                float audio = clamp(audioLevel, 0.0, 1.0);
 
-        vec4 c0 = renderOrb(time, vNormal, vPosition, audio);
-        vec4 c1 = renderOrb(time + 2.3, vNormal, vPosition, audio * 0.8);
-        vec4 c2 = renderOrb(time - 1.7, vNormal, vPosition, audio * 1.1);
+                vec4 c0 = renderOrb(time, vNormal, vPosition, audio);
+                vec4 c1 = renderOrb(time + 2.3, vNormal, vPosition, audio * 0.8);
+                vec4 c2 = renderOrb(time - 1.7, vNormal, vPosition, audio * 1.1);
 
-        float m = clamp(modeSmooth, 0.0, 4.0) / 4.0;
+                float m = clamp(modeSmooth, 0.0, 4.0) / 4.0;
 
-        vec4 col = mix(c0, c1, smoothstep(0.0, 1.0, m));
-        col = mix(col, c2, m * m);
+                vec4 col = mix(c0, c1, smoothstep(0.0, 1.0, m));
+                col = mix(col, c2, m * m);
 
-        gl_FragColor = col;
-    }
-`;
+                gl_FragColor = col;
+            }
+        `;
         // Material with extended uniforms
         const orbMaterial = new THREE.ShaderMaterial({
             uniforms: {
