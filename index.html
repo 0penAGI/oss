@@ -91,6 +91,12 @@
             border: none;
         }
 
+        /* Prevent word breaks in transcript and glass-char */
+        #transcript, .glass-char {
+            word-break: keep-all;
+            white-space: pre-wrap;
+        }
+
         /* Code formatting for transcript code blocks */
         #transcript pre, #transcript code {
             font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
