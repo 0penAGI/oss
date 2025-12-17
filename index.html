@@ -2416,7 +2416,7 @@ for (let i = 0; i < particleCount; i++) {
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
         let spokenLength = 0; // сколько символов уже отдано в речь
-
+        let typingQueue = Promise.resolve();
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
     let thinkingVibrationInterval = null;
     let speakingVibrationInterval = null;
@@ -2530,7 +2530,9 @@ for (let i = 0; i < particleCount; i++) {
                 const chunk = decoder.decode(value, { stream: true });
 
                 // Печатание текста
-                typeWriterEffect(responseContainer, chunk);
+                typingQueue = typingQueue.then(() =>
+                    typeWriterEffect(responseContainer, chunk)
+                );
 
                 // Копим для озвучки
                 audioBuffer += chunk;
