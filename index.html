@@ -2565,6 +2565,18 @@ for (let i = 0; i < particleCount; i++) {
     
             // Начинаем озвучку с небольшой задержкой
             setTimeout(speakNext, 100);
+
+            // === Проверка глобального состояния синтеза речи ===
+            let checkEndTimer = setInterval(() => {
+                if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                    clearInterval(checkEndTimer);
+                    orb.classList.remove('speaking');
+                    isSpeaking = false;
+                    status.innerText = "listening";
+                    stopSpeakingVibration();
+                    setTimeout(startListening, 200);
+                }
+            }, 200);
         }
         
         // ambient обработчик теперь реализован выше
