@@ -192,25 +192,7 @@
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.1;
 
-
         const scene = new THREE.Scene();
-
-        // === Somatic Gesture Memory ===
-        const gestureRT = new THREE.WebGLRenderTarget(
-          window.innerWidth,
-          window.innerHeight,
-          { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat }
-        );
-
-        let lastGesture = null;
-        canvas.addEventListener('pointerdown', e => {
-          lastGesture = {
-            x: e.clientX / window.innerWidth,
-            y: 1.0 - e.clientY / window.innerHeight,
-            strength: 1.0,
-            t: performance.now()
-          };
-        });
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
         let targetEnergy = 0.25; // baseline listening
@@ -322,12 +304,7 @@
                 plasticity: { value: 0.25 }, // насколько след обучаем
                 learning:   { value: 0.0 },  // краткий импульс обучения
 
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-
-                // === Gesture memory ===
-                gestureTex: { value: gestureRT.texture },
-                gesturePos: { value: new THREE.Vector2(-1, -1) },
-                gestureStrength: { value: 0.0 },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -344,9 +321,6 @@
                 uniform float plasticity;
                 uniform float learning;
                 uniform vec2 resolution;
-                uniform sampler2D gestureTex;
-                uniform vec2 gesturePos;
-                uniform float gestureStrength;
 
                 // hash noise
                 float hash(vec2 p) {
@@ -371,12 +345,6 @@
                     col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
                     return col;
-                }
-
-                // === Gesture Field ("натёртость") ===
-                float gestureField(vec2 uv, vec2 gp, float s) {
-                    float d = distance(uv, gp);
-                    return exp(-d * 40.0) * s;
                 }
 
                 void main() {
@@ -407,10 +375,6 @@
                         1.0,
                         activity * learning * effectivePlasticity
                     );
-
-                    // === Gesture memory coloring ===
-                    float g = gestureField(vUv, gesturePos, gestureStrength);
-                    oldCol.rgb += vec3(0.15, 0.2, 0.25) * g;
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
@@ -743,39 +707,8 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
-
-            // --- Narrative Breathing ---
-            selfAwareness.breathIrregularity =
-              selfAwareness.sleeping ? 0.1 :
-              selfAwareness.dreaming ? 0.25 :
-              selfAwareness.curiosity > 0.7 ? 0.45 : 0.15;
-
-            const breathSpeed =
-              0.4 + selfAwareness.breathIrregularity +
-              Math.random() * selfAwareness.breathIrregularity * 0.2;
-
-            selfAwareness.breathPhase += 0.01 * breathSpeed;
-
-            // иногда «забываем» выдох
-            let breath = Math.sin(selfAwareness.breathPhase);
-            if (Math.random() < 0.002 * selfAwareness.breathIrregularity) {
-              breath = 0.0;
-            }
-
-            orbEnergy += (targetEnergy + breath * 0.2 - orbEnergy) * 0.06;
+            orbEnergy += (targetEnergy - orbEnergy) * 0.08;
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
-
-            // === Gesture update ===
-            if (lastGesture) {
-              const age = (performance.now() - lastGesture.t) / 1000;
-              const s = Math.max(0, 1.0 - age * 0.8);
-              feedbackMaterial.uniforms.gesturePos.value.set(lastGesture.x, lastGesture.y);
-              feedbackMaterial.uniforms.gestureStrength.value = s;
-              if (s <= 0.01) lastGesture = null;
-            } else {
-              feedbackMaterial.uniforms.gestureStrength.value = 0.0;
-            }
-
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
@@ -804,26 +737,20 @@ for (let i = 0; i < particleCount; i++) {
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-            gestureRT.setSize(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
 
         // ====== Self-Awareness Layer ======
-let selfAwareness = {
+        let selfAwareness = {
         mood: 0, // -1 грусть, +1 радость
         curiosity: 0, // 0..1, как активно ищем детали
         lastObservations: [],
         dreaming: false,
-        sleeping: false,
         lastDream: null,
-        lastSleep: 0,
         fatigue: 0, // 0..1, новая переменная усталости
         focus: 0.5, // 0..1, фокус внимания
-        // === Неритмичное дыхание ===
-        breathPhase: 0,
-        breathIrregularity: 0.0,
         // === Long‑Term Identity & Temporal Self ===
          identity: {
             name: 'Self',
@@ -864,36 +791,7 @@ let selfAwareness = {
                     .map(f => Math.random() > 0.5 ? f : f.split('').reverse().join(''))
                     .join('|');
                 },
-        enterSleepMode() {
-            this.sleeping = true;
-            this.lastSleep = performance.now();
-
-            // во сне не генерируем новые мысли
-            this.innerMonologue.push("…сознание реорганизуется…");
-            if (this.innerMonologue.length > 20) this.innerMonologue.shift();
-
-            // реорганизация Memory Palace
-            this.memoryPalace?.reorganizeDuringSleep?.();
-        },
-
           analyzeFrame(frameDescription) {
-            const now = performance.now();
-
-            // вход в сон при простое
-            if (
-                !frameDescription &&
-                this.fatigue > 0.6 &&
-                this.curiosity < 0.2 &&
-                !this.sleeping
-            ) {
-                this.enterSleepMode();
-                return;
-            }
-
-            // выход из сна при новом опыте
-            if (frameDescription && this.sleeping) {
-                this.sleeping = false;
-            }
             this.lastObservations.push(frameDescription);
             // --- извлечение признаков (features) ---
             let faceCount = 0;
@@ -1086,38 +984,6 @@ let selfAwareness = {
 
    // ===== Memory Palace / Graph-based Emergent Memory =====
         const memoryPalace = {
-            reorganizeDuringSleep() {
-                if (!this.clusters) return;
-
-                // ослабляем редкие связи
-                this.links.forEach(link => {
-                    link.weight *= 0.95;
-                });
-
-                // усиливаем внутрикластерные связи
-                this.clusters.forEach(cluster => {
-                    cluster.nodes.forEach(a => {
-                        cluster.nodes.forEach(b => {
-                            if (a !== b) {
-                                this.strengthenLink?.(a, b, 0.02);
-                            }
-                        });
-                    });
-                });
-
-                // эмоциональный резонанс между кластерами
-                for (let i = 0; i < this.clusters.length; i++) {
-                    for (let j = i + 1; j < this.clusters.length; j++) {
-                        const ca = this.clusters[i];
-                        const cb = this.clusters[j];
-                        const er = 1 - Math.abs(ca.emotion - cb.emotion);
-
-                        if (er > 0.7) {
-                            this.createFragileLink?.(ca, cb, er * 0.05);
-                        }
-                    }
-                }
-            },
             nodes: new Map(),
             emotionalClusters: [],
 
@@ -1539,91 +1405,29 @@ let selfAwareness = {
             const bufferSize = 2 * audioCtx.sampleRate;
             const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
             const data = buffer.getChannelData(0);
-
-            // Шум с более свободной спектральной структурой (random walk)
-            let last = 0;
-            let drift = 0;
+            // Генерируем мягкий, атмосферный шум с плавной огибающей
             for (let i = 0; i < bufferSize; i++) {
-                drift += (Math.random() - 0.5) * 0.002;
-                drift = Math.max(-0.05, Math.min(0.05, drift));
-                last = last * 0.96 + drift;
-                data[i] = last;
+                data[i] = (Math.random() * 2 - 1) * 0.1; // уменьшена громкость
+                if (i > 0) data[i] = 0.95 * data[i - 1] + 0.05 * data[i]; // плавное сглаживание
             }
-
             const source = audioCtx.createBufferSource();
             source.buffer = buffer;
             source.loop = true;
-
             const gainNode = audioCtx.createGain();
-            gainNode.gain.value = 0.08 + Math.random() * 0.08;
-
+            gainNode.gain.value = 0.1;
             const filter = audioCtx.createBiquadFilter();
-            const filter2 = audioCtx.createBiquadFilter();
-
-            // LFO для живой модуляции
-            const lfo = audioCtx.createOscillator();
-            const lfoGain = audioCtx.createGain();
-            lfo.frequency.value = 0.02 + Math.random() * 0.08;
-            lfoGain.gain.value = 200 + Math.random() * 800;
-            lfo.connect(lfoGain).connect(filter.frequency);
-
-            // Медленный дыхательный LFO громкости
-            const ampLFO = audioCtx.createOscillator();
-            const ampGain = audioCtx.createGain();
-            ampLFO.frequency.value = 0.01 + Math.random() * 0.03;
-            ampGain.gain.value = 0.04;
-            ampLFO.connect(ampGain).connect(gainNode.gain);
-
             switch(type) {
-                case 'rain':
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 1200;
-                    filter.Q.value = 0.6;
-                    filter2.type = 'highpass';
-                    filter2.frequency.value = 400;
-                    break;
-                case 'ocean':
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 500;
-                    filter.Q.value = 0.4;
-                    filter2.type = 'lowpass';
-                    filter2.frequency.value = 900;
-                    break;
-                case 'forest':
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 900;
-                    filter.Q.value = 1.2;
-                    filter2.type = 'highpass';
-                    filter2.frequency.value = 250;
-                    break;
-                case 'wind':
-                    filter.type = 'highpass';
-                    filter.frequency.value = 600;
-                    filter.Q.value = 0.7;
-                    filter2.type = 'bandpass';
-                    filter2.frequency.value = 300;
-                    break;
-                case 'night':
-                    filter.type = 'lowpass';
-                    filter.frequency.value = 350;
-                    filter.Q.value = 0.3;
-                    filter2.type = 'lowpass';
-                    filter2.frequency.value = 700;
-                    break;
-                default:
-                    filter.type = 'bandpass';
-                    filter.frequency.value = 800;
-                    filter.Q.value = 0.8;
-                    filter2.type = 'allpass';
-                    break;
+                case 'rain': filter.type='highpass'; filter.frequency.value=1000; gainNode.gain.value=0.15; break;
+                case 'ocean': filter.type='lowpass'; filter.frequency.value=400; gainNode.gain.value=0.12; break;
+                case 'forest': filter.type='bandpass'; filter.frequency.value=800; gainNode.gain.value=0.1; break;
+                case 'jungle': filter.type='bandpass'; filter.frequency.value=1200; gainNode.gain.value=0.13; break;
+                case 'wind': filter.type='highpass'; filter.frequency.value=600; gainNode.gain.value=0.08; break;
+                case 'night': filter.type='lowpass'; filter.frequency.value=500; gainNode.gain.value=0.07; break;
+                case 'river': filter.type='bandpass'; filter.frequency.value=700; gainNode.gain.value=0.11; break;
+                default: filter.type='allpass'; gainNode.gain.value=0.1; break;
             }
-
-            source.connect(filter).connect(filter2).connect(gainNode).connect(audioCtx.destination);
-
-            lfo.start();
-            ampLFO.start();
-
-            return { source, gainNode, lfo, ampLFO };
+            source.connect(filter).connect(gainNode).connect(audioCtx.destination);
+            return { source, gainNode };
         }
 
         function playAmbient(type) {
