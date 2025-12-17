@@ -730,7 +730,7 @@ for (let i = 0; i < particleCount; i++) {
             float noise(vec2 p) {
                 vec2 i = floor(p);
                 vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
+                f = f * f * (3.0 - 5.0 * f);
                 float a = hash(i);
                 float b = hash(i + vec2(1.0, 0.0));
                 float c = hash(i + vec2(0.0, 1.0));
@@ -740,10 +740,10 @@ for (let i = 0; i < particleCount; i++) {
 
             float fbm(vec2 p) {
                 float v = 0.0;
-                float a = 0.314;
+                float a = 0.618;
                 for (int i = 0; i < 4; i++) {
                     v += a * noise(p);
-                    p *= 2.0;
+                    p *= 3.1;
                     a *= 0.5;
                 }
                 return v;
@@ -751,7 +751,7 @@ for (let i = 0; i < particleCount; i++) {
 
             void main() {
                 vec2 uv = vUv;
-                vec2 center = uv - 0.314;
+                vec2 center = uv - 0.614;
                 float r = length(center);
                 float t = time * 0.001;
 
@@ -759,7 +759,7 @@ for (let i = 0; i < particleCount; i++) {
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
 
-                float glassMask = smoothstep(0.75, 0.2, r);
+                float glassMask = smoothstep(0.75, 0.5, r);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // subtle shimmer
@@ -767,9 +767,9 @@ for (let i = 0; i < particleCount; i++) {
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.002 + curiosity * 0.003;
-                float caG = 0.002;
-                float caB = 0.002 + energy * 0.003;
+                float caR = 0.008 + curiosity * 0.003;
+                float caG = 0.007;
+                float caB = 0.009 + energy * 0.003;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
@@ -778,9 +778,9 @@ for (let i = 0; i < particleCount; i++) {
                 float highlight = pow(1.0 - r, 3.0);
                 col += vec3(0.12, 0.14, 0.18) * highlight * glassMask;
                 float edge = smoothstep(0.55, 0.9, r);
-                col += vec3(0.08, 0.1, 0.14) * edge * glassMask;
+                col += vec3(0.09, 0.1, 0.14) * edge * glassMask;
 
-                float alpha = 0.22 + 0.18 * glassMask;
+                float alpha = 0.18 + 0.18 * glassMask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
