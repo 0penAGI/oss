@@ -697,6 +697,7 @@ for (let i = 0; i < particleCount; i++) {
             orbMaterial.uniforms.mode.value = targetMode;
         }
 
+        
         // === Liquid Glass Layer ===
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
@@ -712,6 +713,10 @@ for (let i = 0; i < particleCount; i++) {
             uniform float time;
             uniform sampler2D tBackground;
             uniform vec2 resolution;
+            uniform float mood;
+            uniform float curiosity;
+            uniform float fatigue;
+            uniform float skinMemory;
             varying vec2 vUv;
 
             // --- noise utils ---
@@ -749,13 +754,13 @@ for (let i = 0; i < particleCount; i++) {
                 // --- slow liquid flow ---
                 float t = time * 0.12;
                 vec2 flow = vec2(
-                    fbm(uv * 3.0 + t),
-                    fbm(uv * 3.0 - t)
+                    fbm(uv * 3.0 + t + curiosity * 0.5),
+                    fbm(uv * 3.0 - t + mood * 0.3)
                 );
 
                 // --- refraction strength ---
                 float glassMask = smoothstep(0.75, 0.2, r);
-                vec2 refractUV = uv + (flow - 0.5) * 0.03 * glassMask;
+                vec2 refractUV = uv + (flow - 0.5) * 0.03 * (1.0 + skinMemory * 0.6 - fatigue * 0.5);
 
                 // --- chromatic aberration (subtle, dark-safe) ---
                 float ca = 0.0025 * glassMask;
@@ -783,7 +788,11 @@ for (let i = 0; i < particleCount; i++) {
             uniforms: {
                 time: { value: 0 },
                 tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                mood: { value: 0.0 },
+                curiosity: { value: 0.0 },
+                fatigue: { value: 0.0 },
+                skinMemory: { value: 0.0 }
             },
             vertexShader: liquidVertexShader,
             fragmentShader: liquidFragmentShader,
@@ -827,6 +836,12 @@ for (let i = 0; i < particleCount; i++) {
                 skinMemory += t.strength * Math.exp(-dist * 6.0);
             }
             skinMemory = Math.min(1.0, skinMemory);
+
+            // Update liquidMaterial uniforms from selfAwareness and skinMemory
+            liquidMaterial.uniforms.mood.value = selfAwareness.mood;
+            liquidMaterial.uniforms.curiosity.value = selfAwareness.curiosity;
+            liquidMaterial.uniforms.fatigue.value = selfAwareness.fatigue;
+            liquidMaterial.uniforms.skinMemory.value = skinMemory;
 
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
