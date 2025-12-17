@@ -198,6 +198,26 @@
         let targetEnergy = 0.25; // baseline listening
         let responseInertia = 0.08; // базовая инерция реакции (чем меньше — тем медленнее)
 
+        // === Телесная память жестов ===
+        const touchMemory = [];
+        const MAX_TOUCH_POINTS = 32;
+        // === Обработка кликов по канвасу для телесной памяти ===
+        renderer.domElement.addEventListener('pointerdown', (event) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width;
+            const y = 1.0 - (event.clientY - rect.top) / rect.height;
+
+            touchMemory.push({
+                x,
+                y,
+                strength: 1.0
+            });
+
+            if (touchMemory.length > MAX_TOUCH_POINTS) {
+                touchMemory.shift();
+            }
+        });
+
         // === Shader as Brain Interface ===
         // Шейдер напрямую отражает когнитивное состояние
         function updateOrbVisualState() {
@@ -702,6 +722,15 @@ for (let i = 0; i < particleCount; i++) {
         function animate() {
             requestAnimationFrame(animate);
 
+            // --- Затухание телесной памяти ---
+            for (let i = touchMemory.length - 1; i >= 0; i--) {
+                touchMemory[i].strength *= 0.992; // медленное заживление
+
+                if (touchMemory[i].strength < 0.02) {
+                    touchMemory.splice(i, 1);
+                }
+            }
+
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
 
@@ -721,7 +750,19 @@ for (let i = 0; i < particleCount; i++) {
             orbMaterial.uniforms.mode.value = targetMode;
             // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
+
+            // --- Суммарный телесный след ---
+            let skinMemory = 0.0;
+            for (const t of touchMemory) {
+                const dx = t.x - 0.5;
+                const dy = t.y - 0.5;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                skinMemory += t.strength * Math.exp(-dist * 6.0);
+            }
+            skinMemory = Math.min(1.0, skinMemory);
+
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
+            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
