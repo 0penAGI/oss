@@ -767,9 +767,9 @@ for (let i = 0; i < particleCount; i++) {
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.008 + curiosity * 0.003;
+                float caR = 0.008 + curiosity * 0.008;
                 float caG = 0.007;
-                float caB = 0.009 + energy * 0.003;
+                float caB = 0.009 + energy * 0.008;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
@@ -780,7 +780,7 @@ for (let i = 0; i < particleCount; i++) {
                 float edge = smoothstep(0.45, 0.9, r);
                 col += vec3(0.09, 0.1, 0.11) * edge * glassMask;
 
-                float alpha = 0.15 + 0.15 * glassMask;
+                float alpha = 0.16 + 0.16 * glassMask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
