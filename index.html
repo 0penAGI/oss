@@ -89,13 +89,22 @@
             backdrop-filter: none;
             box-shadow: none;
             border: none;
+    
+            /* Важные правила для предотвращения разрыва слов */
+            word-break: keep-all !important;     /* не разрывать слова */
+            overflow-wrap: break-word !important; /* переносить только по целым словам */
+            hyphens: manual !important;           /* отключить автоматические переносы */
+            white-space: pre-wrap !important;     /* сохранять пробелы и переносы строк */
         }
+
 
         /* Дополнительно для контейнера ответа, чтобы он вёл себя предсказуемо */
         #current-response {
-            word-break: normal;
-            overflow-wrap: break-word;
-            white-space: pre-wrap;
+            word-break: keep-all !important;
+            overflow-wrap: break-word !important;
+            hyphens: manual !important;
+            white-space: pre-wrap !important;
+            display: inline;
         }
 
         /* Code formatting for transcript code blocks */
@@ -149,17 +158,19 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
+        /* Для отдельных символов с анимацией: */
         .glass-char {
             display: inline-block;
             opacity: 0;
             filter: blur(6px);
             transform: translateY(6px) scale(0.96);
-            /* Для transcript и отдельных символов */
-            word-break: keep-all;      /* не разрывать слова */
-            overflow-wrap: normal;     /* обычное поведение переноса */
-            white-space: pre-wrap;     /* переносы строк сохраняются */
-            display: inline-block;     /* для правильной анимации символов */
             animation: glassIn 420ms ease-out forwards;
+    
+            /* Правила для корректного отображения текста */
+            word-break: keep-all !important;
+            overflow-wrap: normal !important;
+            white-space: normal !important;
+            hyphens: none !important;
         }
 
         @keyframes glassIn {
@@ -174,6 +185,12 @@
                 transform: translateY(0) scale(1);
             }
         }
+        /* Для слов внутри типографского эффекта: */
+        .word {
+            white-space: nowrap !important;
+            display: inline-block !important;
+        }
+
     </style>
     <style>
     .soul-orb {
@@ -2622,7 +2639,7 @@ for (let i = 0; i < particleCount; i++) {
                 // ===== Типографский эффект по словам и буквам =====
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                const tokens = text.split(/(\s+)/); // разделяем на слова и пробелы
+                const tokens = text.split(/(\s+)/);
                 let tokenIndex = 0;
 
                 function typeNextToken() {
@@ -2632,22 +2649,19 @@ for (let i = 0; i < particleCount; i++) {
                     }
 
                     const token = tokens[tokenIndex++];
-                    // если это пробелы
                     if (/^\s+$/.test(token)) {
                         const spaceSpan = document.createElement('span');
-                        spaceSpan.textContent = token.replace(/ /g, '\u00A0'); // небьющийся пробел
-                        spaceSpan.style.display = 'inline-block';
+                        spaceSpan.textContent = token.replace(/ /g, '\u00A0');
+                        spaceSpan.style.cssText = 'display: inline-block !important;';
                         element.appendChild(spaceSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
                         setTimeout(typeNextToken, 20);
                         return;
                     }
 
-                    // слово
                     const wordSpan = document.createElement('span');
                     wordSpan.className = 'word';
-                    wordSpan.style.whiteSpace = 'nowrap';
-                    wordSpan.style.display = 'inline-block';
+                    wordSpan.style.cssText = 'white-space: nowrap !important; display: inline-block !important;';
                     element.appendChild(wordSpan);
 
                     let charIndex = 0;
@@ -2660,12 +2674,13 @@ for (let i = 0; i < particleCount; i++) {
                         const charSpan = document.createElement('span');
                         charSpan.className = 'glass-char';
                         charSpan.textContent = ch;
+                        charSpan.style.cssText = 'display: inline-block !important;';
                         wordSpan.appendChild(charSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                        let delay = 22 + Math.random() * 30;
+                        let delay = 15 + Math.random() * 30;
                         if (/[.,!?]/.test(ch)) delay += 180;
-                        if (Math.random() < 0.08) delay += 80;
+                        if (Math.random() < 0.15) delay += 80;
 
                         setTimeout(typeNextChar, delay);
                     }
