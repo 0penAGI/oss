@@ -13,8 +13,8 @@
             box-sizing: border-box;
         }
         body {
-            background: #aaa;
-            color: #aaa;
+            background: #402346;
+            color: #402346;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             display: flex;
             flex-direction: column;
@@ -709,7 +709,7 @@ for (let i = 0; i < particleCount; i++) {
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.3);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.01);
             }
         `;
 
