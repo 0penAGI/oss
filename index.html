@@ -196,9 +196,33 @@
             animation: appearWord 0.42s ease forwards;
         }
 
-@keyframes appearWord {
-    to { opacity: 1; transform: translateY(0); }
-}
+        @keyframes appearWord {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Запретить выделение для интерактивного орба */
+        #orb-interactive, #orb {
+            user-select: none;       /* стандарт */
+            -webkit-user-select: none; /* Safari/Chrome */
+            -moz-user-select: none;    /* Firefox */
+            -ms-user-select: none;     /* IE10+ */
+        }
+
+        /* Статус и транскрипт остаются выделяемыми */
+        #status, #transcript, #current-response {
+            user-select: none; /* статус не выделяем */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Только транскрипт остаётся выделяемым */
+        #transcript {
+            user-select: text;
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+        }
 
     </style>
     <style>
