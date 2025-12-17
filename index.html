@@ -2446,20 +2446,19 @@ for (let i = 0; i < particleCount; i++) {
             orb.dispatchEvent(clickEvent);
         }
 
-        // Говорит текст с добавлением случайных пауз, вздохов и пульсацией речи
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
-    
+
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
             stopSpeakingVibration();
             recognition.abort();
-    
+
             // 2. Плавное визуальное переключение с анимацией
             orb.classList.remove('listening', 'thinking');
-    
+
             // Используем requestAnimationFrame для плавности
             requestAnimationFrame(() => {
                 orb.classList.add('speaking');
@@ -2517,25 +2516,28 @@ for (let i = 0; i < particleCount; i++) {
 
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    // Финальное плавное переключение в listening состояние
-                    setTimeout(() => {
-                        requestAnimationFrame(() => {
-                            orb.classList.remove('speaking');
-                            isSpeaking = false;
-                            status.innerText = "listening";
-                            stopSpeakingVibration();
+                    // Ждём реального окончания TTS, а не печати
+                    const waitForSpeechEnd = setInterval(() => {
+                        if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                            clearInterval(waitForSpeechEnd);
 
-                            // Легкая вибрация для индикации перехода
-                            if (tg?.HapticFeedback) {
-                                tg.HapticFeedback.impactOccurred('light');
-                            }
+                            requestAnimationFrame(() => {
+                                orb.classList.remove('speaking');
+                                isSpeaking = false;
+                                stopSpeakingVibration();
 
-                            // Запуск listening с задержкой для плавности
-                            setTimeout(() => {
-                                startListening();
-                            }, 600);
-                        });
-                    }, 100);
+                                status.innerText = "listening";
+
+                                if (tg?.HapticFeedback) {
+                                    tg.HapticFeedback.impactOccurred('light');
+                                }
+
+                                setTimeout(() => {
+                                    startListening();
+                                }, 400);
+                            });
+                        }
+                    }, 120);
                     return;
                 }
 
@@ -2558,7 +2560,7 @@ for (let i = 0; i < particleCount; i++) {
                 if (currentVoice) utter.voice = currentVoice;
 
                 utter.onstart = () => {
-                        // Легкая пульсация вместо интенсивной вибрации
+                    // Легкая пульсация вместо интенсивной вибрации
                     if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
                     speakingVibrationInterval = setInterval(() => {
                         if (tg?.HapticFeedback) {
@@ -2570,8 +2572,7 @@ for (let i = 0; i < particleCount; i++) {
                 utter.onend = () => {
                     // Останавливаем вибрацию в конце каждой фразы
                     stopSpeakingVibration();
-                    
-                // Плавный переход к следующей фразе
+                    // Плавный переход к следующей фразе
                     setTimeout(speakNext, 60 + Math.random() * 90);
                 };
 
@@ -2587,23 +2588,9 @@ for (let i = 0; i < particleCount; i++) {
                 }, utterQueue.length * 20);
                 utterQueue.push(utter);
             }
-    
+
             // Начинаем озвучку с небольшой задержкой
             setTimeout(speakNext, 100);
-
-            // === Проверка глобального состояния синтеза речи ===
-            let checkEndTimer = setInterval(() => {
-                if (!speechSynthesis.speaking && !speechSynthesis.pending) {
-                    clearInterval(checkEndTimer);
-                    requestAnimationFrame(() => {
-                        orb.classList.remove('speaking');
-                        isSpeaking = false;
-                        status.innerText = "listening";
-                        stopSpeakingVibration();
-                        setTimeout(startListening, 200);
-                    });
-                }
-            }, 200);
         }
         
         // ambient обработчик теперь реализован выше
