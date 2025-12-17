@@ -2004,13 +2004,22 @@ for (let i = 0; i < particleCount; i++) {
 
         function startListening() {
             if (isSpeaking || isThinking) return;
+            
+            // Плавное переключение визуального состояния
+            orb.classList.remove('speaking', 'thinking');
+            setTimeout(() => {
+                orb.classList.add('listening');
+            }, 100);
+            
+            status.innerText = "listening";
+            
+            // Задержка перед запуском вибрации
+            setTimeout(() => {
+                startListeningVibration();
+            }, 150);
+            
             try {
                 recognition.start();
-                orb.classList.add('listening');
-                orb.classList.remove('thinking');
-                status.innerText = "listening";
-                startListeningVibration(); // включаем лёгкое дыхание
-                stopThinkingVibration();    // убеждаемся, что thinking vibration отключена
             } catch {}
         }
         
