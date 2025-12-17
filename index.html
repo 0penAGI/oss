@@ -2496,20 +2496,22 @@ for (let i = 0; i < particleCount; i++) {
                 if (idx >= enhancedFragments.length) {
                     // Финальное плавное переключение в listening состояние
                     setTimeout(() => {
-                        orb.classList.remove('speaking');
-                        isSpeaking = false;
-                        status.innerText = "listening";
-                        stopSpeakingVibration();
+                        requestAnimationFrame(() => {
+                            orb.classList.remove('speaking');
+                            isSpeaking = false;
+                            status.innerText = "listening";
+                            stopSpeakingVibration();
 
-                        // Легкая вибрация для индикации перехода
-                        if (tg?.HapticFeedback) {
-                            tg.HapticFeedback.impactOccurred('light');
-                        }
+                            // Легкая вибрация для индикации перехода
+                            if (tg?.HapticFeedback) {
+                                tg.HapticFeedback.impactOccurred('light');
+                            }
 
-                        // Запуск listening с задержкой для плавности
-                        setTimeout(() => {
-                            startListening();
-                        }, 300);
+                            // Запуск listening с задержкой для плавности
+                            setTimeout(() => {
+                                startListening();
+                            }, 300);
+                        });
                     }, 100);
                     return;
                 }
@@ -2570,11 +2572,13 @@ for (let i = 0; i < particleCount; i++) {
             let checkEndTimer = setInterval(() => {
                 if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                     clearInterval(checkEndTimer);
-                    orb.classList.remove('speaking');
-                    isSpeaking = false;
-                    status.innerText = "listening";
-                    stopSpeakingVibration();
-                    setTimeout(startListening, 200);
+                    requestAnimationFrame(() => {
+                        orb.classList.remove('speaking');
+                        isSpeaking = false;
+                        status.innerText = "listening";
+                        stopSpeakingVibration();
+                        setTimeout(startListening, 200);
+                    });
                 }
             }, 200);
         }
