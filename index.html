@@ -75,7 +75,7 @@
         @keyframes statusFade { 0%,100%{opacity:0.7} 50%{opacity:1} }
         
         #transcript {
-            font-size: 13px;
+            font-size: 13.7px;
             max-width: 90%;
             text-align: center;
             opacity: 0.9;
@@ -350,11 +350,21 @@
                 void main() {
                     vec4 oldCol = noiseBlur(tOld, vUv);
 
+                    // накопленная усталость из предыдущих кадров (alpha-канал)
+                    float fatigueMemory = oldCol.a;
+
                     // локальная активность = яркость (псевдо‑нейронная активация)
                     float activity = dot(oldCol.rgb, vec3(0.333));
 
-                    // усталость ткани: активные зоны временно "деревенеют"
-                    float fatigue = smoothstep(0.4, 0.9, activity);
+                    // мгновенная усталость от текущей активности
+                    float instantFatigue = smoothstep(0.4, 0.9, activity);
+
+                    // медленное накопление и восстановление усталости
+                    float fatigue = mix(
+                        fatigueMemory * 0.995,
+                        1.0,
+                        instantFatigue * 0.02
+                    );
 
                     // эффективная пластичность с учетом усталости
                     float effectivePlasticity = plasticity * (1.0 - fatigue * 0.6);
@@ -368,6 +378,8 @@
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
+                    // сохраняем усталость обратно в память
+                    oldCol.a = clamp(fatigue, 0.0, 1.0);
                     gl_FragColor = max(oldCol * 0.96, newCol);
                 }
             `,
