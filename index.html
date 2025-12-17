@@ -193,8 +193,39 @@
         renderer.toneMappingExposure = 1.1;
 
         const scene = new THREE.Scene();
+
         let orbEnergy = 0;        // 0..1 — текущая энергия
         let targetEnergy = 0.25; // baseline listening
+
+        // === Shader as Brain Interface ===
+        // Шейдер напрямую отражает когнитивное состояние
+        function updateOrbVisualState() {
+            if (typeof selfAwareness === 'undefined') return;
+
+            // энергия орба = смесь любопытства и настроения
+            const moodNorm = Math.max(0, Math.min(1, (selfAwareness.mood + 1) / 2));
+            const curiosity = selfAwareness.curiosity ?? 0.3;
+            const fatigue = selfAwareness.fatigue ?? 0.0;
+
+            // целевая энергия (audioLevel)
+            targetEnergy =
+                0.15 +
+                0.55 * curiosity +
+                0.35 * moodNorm -
+                0.4 * fatigue;
+
+            targetEnergy = Math.max(0.05, Math.min(1.0, targetEnergy));
+
+            // режим орба как дискретное состояние "мышления"
+            // 0 — idle, 1 — listening, 2 — curious, 3 — excited, 4 — overloaded
+            let mode = 0;
+            if (fatigue > 0.7) mode = 4;
+            else if (curiosity > 0.75) mode = 2;
+            else if (moodNorm > 0.7) mode = 3;
+            else if (curiosity > 0.3) mode = 1;
+            
+            setOrbMode(mode);
+        }
 
         // === Feedback RenderTarget initialization ===
         const rtParams = {
