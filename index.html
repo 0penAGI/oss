@@ -2419,28 +2419,31 @@ for (let i = 0; i < particleCount; i++) {
         }
 
         // Говорит текст с добавлением случайных пауз, вздохов и пульсацией речи
+        // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
-            
-            // 1. Остановить предыдущие вибрации
+    
+            // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
-            
-            // 2. Плавное визуальное переключение
+            stopSpeakingVibration();
+            recognition.abort();
+    
+            // 2. Плавное визуальное переключение с анимацией
             orb.classList.remove('listening', 'thinking');
+    
+            // Используем requestAnimationFrame для плавности
             requestAnimationFrame(() => {
                 orb.classList.add('speaking');
                 status.innerText = "speaking";
-            });
-            
-            // 3. Задержка перед запуском новой вибрации
-            setTimeout(() => {
-                vibrateSpeaking();
-            }, 80);
-            
-            isSpeaking = true;
-            
 
+                // 3. Запуск вибрации с небольшой задержкой для плавности
+                setTimeout(() => {
+                    vibrateSpeaking();
+                }, 50);
+            });
+
+            isSpeaking = true;
 
             // gender-aware voice tuning
             let rate = 1.0;
@@ -2451,15 +2454,12 @@ for (let i = 0; i < particleCount; i++) {
 
             // Гуманизация текста + разбиение на фрагменты
             const cleanText = humanizeText(text);
-            // Сначала разбиваем на предложения
             let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
-            // Для каждого предложения — возможно, дробим ещё на куски для пульсации
             let fragments = [];
+
             for (let s of sentences) {
-                // Иногда дробим длинные предложения на паузы по запятым/союзам/длинным словам
                 if (s.length > 80) {
                     let parts = s.split(/([,;:—-])/g).filter(Boolean);
-                    // склеиваем знаки препинания обратно
                     let buf = '';
                     for (let p of parts) {
                         buf += p;
@@ -2473,78 +2473,93 @@ for (let i = 0; i < particleCount; i++) {
                     fragments.push(s.trim());
                 }
             }
-            // Вставляем иногда вздохи и случайные паузы
-            // Вздохи — короткие аудио-фрагменты (можно заменить на "мм..." или "вздох" если нет аудио)
-            function randomBreath() {
-                // 40% шанс на вздох перед длинной фразой, 20% после
-                const breathVariants = [
-                    'a',  'o.', 'a..', 'ee..'
-                ];
-                return breathVariants[Math.floor(Math.random() * breathVariants.length)];
-            }
+
             let enhancedFragments = [];
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
-                // 30% шанс добавить вздох перед длинной фразой (>45)
-                if (frag.length > 45 && Math.random() < 0.3) {
-                    enhancedFragments.push(randomBreath());
-                }
+                // Меньше случайных пауз для быстрейшего перехода
                 enhancedFragments.push(frag);
-                // 18% шанс добавить вздох после фразы, если короткая
-                if (frag.length < 40 && Math.random() < 0.18) {
-                    enhancedFragments.push(randomBreath());
-                }
-                // 25% шанс добавить пустую паузу (эмулируется пустым utterance)
-                if (Math.random() < 0.25) {
+                if (i < fragments.length - 1 && Math.random() < 0.1) {
                     enhancedFragments.push('');
                 }
             }
-            // Пульсация речи — случайно варьируем rate и pitch для каждого utterance
+
             let idx = 0;
+            let utterQueue = [];
+
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    orb.classList.remove('speaking');
-                    isSpeaking = false;
-                    status.innerText = "listening";
-                    stopSpeakingVibration();
-                    vibrate('light');
-                    startListening();
+                    // Финальное плавное переключение в listening состояние
+                    setTimeout(() => {
+                        orb.classList.remove('speaking');
+                        isSpeaking = false;
+                        status.innerText = "listening";
+                        stopSpeakingVibration();
+
+                        // Легкая вибрация для индикации перехода
+                        if (tg?.HapticFeedback) {
+                            tg.HapticFeedback.impactOccurred('light');
+                        }
+
+                        // Запуск listening с задержкой для плавности
+                        setTimeout(() => {
+                            startListening();
+                        }, 300);
+                    }, 100);
                     return;
                 }
+
                 let s = enhancedFragments[idx];
                 idx++;
-                // Пауза: если пустая строка, просто ждем случайное время
+
                 if (!s || !s.trim()) {
-                    setTimeout(speakNext, 180 + Math.random() * 340);
+                    // Короткие паузы между фразами
+                    setTimeout(speakNext, 80 + Math.random() * 120);
                     return;
                 }
-                let localRate = rate * (0.96 + Math.random() * 0.16); // 0.96..1.12
-                let localPitch = pitch * (0.96 + Math.random() * 0.11); // 0.96..1.07
-                // Для вздохов — медленнее и выше/ниже
-                if (/^([мэоухвз]+\.{2,}|вздох|эм\.\.\.|ээ\.\.\.|ох\.\.\.|уф\.\.\.|хм\.\.\.)$/i.test(s)) {
-                    localRate *= 0.88 + Math.random() * 0.08;
-                    localPitch *= 1.12 + Math.random() * 0.22;
-                }
+
+                let localRate = rate * (0.98 + Math.random() * 0.08);
+                let localPitch = pitch * (0.98 + Math.random() * 0.06);
+
                 const utter = new SpeechSynthesisUtterance(s);
                 utter.lang = currentLang;
                 utter.rate = localRate;
                 utter.pitch = localPitch;
                 if (currentVoice) utter.voice = currentVoice;
+
                 utter.onstart = () => {
-                    vibrateSpeaking();
-                    // Автозапуск музыки по определённым фразам
-                    if (/включаю музыку|нажимаю шар|музыка включена/i.test(s)) {
-                        triggerOrbClick();
-                    }
+                        // Легкая пульсация вместо интенсивной вибрации
+                    if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
+                    speakingVibrationInterval = setInterval(() => {
+                        if (tg?.HapticFeedback) {
+                            tg.HapticFeedback.impactOccurred('light');
+                        }
+                    }, 300);
                 };
+
                 utter.onend = () => {
+                    // Останавливаем вибрацию в конце каждой фразы
                     stopSpeakingVibration();
-                    // Случайная пауза между utterances: 90-260 мс
-                    setTimeout(speakNext, 90 + Math.random() * 170);
+                    
+                // Плавный переход к следующей фразе
+                    setTimeout(speakNext, 60 + Math.random() * 90);
                 };
-                synth.speak(utter);
+
+                utter.onerror = (e) => {
+                    console.error('Speech error:', e);
+                    stopSpeakingVibration();
+                    setTimeout(speakNext, 100);
+                };
+
+                // Добавляем в очередь с небольшой задержкой для избежания наложения
+                setTimeout(() => {
+                    synth.speak(utter);
+                }, utterQueue.length * 20);
+                utterQueue.push(utter);
             }
-            speakNext();
+    
+            // Начинаем озвучку с небольшой задержкой
+            setTimeout(speakNext, 100);
         }
         
         // ambient обработчик теперь реализован выше
