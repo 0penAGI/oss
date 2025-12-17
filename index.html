@@ -252,6 +252,8 @@
         renderer.toneMappingExposure = 1.1;
 
         const scene = new THREE.Scene();
+        let orbEnergy = 0;        // 0..1 — текущая энергия
+        let targetEnergy = 0.25; // baseline listening
 
         // === Feedback RenderTarget initialization ===
         const rtParams = {
@@ -422,122 +424,123 @@ for (let i = 0; i < particleCount; i++) {
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
         `;
-        // Enhanced Fragment shader for orb with richer glow, caustics, and subtle refraction
-        // Now audio-reactive: responds to uniform float audioLevel (0..1)
         const orbFragmentShader = `
-            uniform float time;
-            uniform float mode;
-            uniform float modeSmooth;
-            uniform float audioLevel; // Audio-reactivity: 0..1, set via JS each frame
-            varying vec3 vNormal;
-            varying vec3 vPosition;
+    uniform float time;
+    uniform float mode;
+    uniform float modeSmooth;
+    uniform float audioLevel;
+    varying vec3 vNormal;
+    varying vec3 vPosition;
 
-            float fresnelTerm(vec3 n, vec3 viewDir, float power) {
-                return pow(1.0 - abs(dot(n, viewDir)), power);
-            }
+    // -------- Utilities --------
+    float fresnel(vec3 n, vec3 v, float p) {
+        return pow(1.0 - clamp(dot(n, v), 0.0, 1.0), p);
+    }
 
-            // Caustic pattern (fake)
-            float caustic(vec3 p, float t) {
-                float v = sin(18.0*p.x + t*1.3) * cos(17.0*p.y - t*1.7) * sin(22.0*p.z + t*0.8);
-                return 0.5 + 0.5*v;
-            }
+    float hash(vec3 p) {
+        p = fract(p * 0.3183099 + vec3(0.1,0.2,0.3));
+        p *= 17.0;
+        return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+    }
 
-            // Subtle refraction distortion
-            vec3 refractColor(vec3 base, vec3 n, float t) {
-                float r = 0.03 * sin(t*0.7 + n.x*6.0 + n.y*7.0 + n.z*8.0);
-                return base + vec3(r, -r, r*0.6);
-            }
+    float noise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        f = f*f*(3.0-2.0*f);
+        return mix(
+            mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),
+                mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+            mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
+            f.z);
+    }
 
-            // Glow aura
-            float glowAura(vec3 n, float t) {
-                return 0.5 + 0.5 * sin(t*3.0 + n.x*6.0 + n.y*7.0);
-            }
+    float sparkle(vec3 p, float t) {
+        vec3 q = p * 18.0;
+        float n = noise(floor(q));
+        float flicker = 0.5 + 0.5 * sin(t * 6.0 + n * 6.28318);
+        return step(0.965, n) * flicker;
+    }
 
-            // Mode 0: original glowing (audio-reactive)
-            vec4 orbMode0(float t, vec3 n, vec3 p, float audio) {
-                float glow = (0.5 + 0.5 * sin(t + length(p) * 8.0)) * (0.7 + 0.6 * audio);
-                float fresnel = pow(1.0 - abs(dot(n, vec3(0.0,0.0,1.0))), 2.5);
-                vec3 baseColor = mix(vec3(0.35,0.1,1.0), vec3(0.1,1.0,1.0), 0.5 + 0.5 * sin(t * 0.45));
-                baseColor *= (0.8 + 0.7 * audio);
-                vec3 color = refractColor(baseColor, n, t);
-                color += fresnel * vec3(0.8,0.8,1.2) * (0.7 + 0.5 * audio) + glow * 0.14;
-                float caust = caustic(p, t) * 0.15 * (0.7 + 0.5 * audio);
-                color += caust;
-                float alpha = (0.62 + 0.18 * fresnel + 0.14 * glow) * (0.7 + 0.6 * audio);
-                return vec4(color, alpha);
-            }
-            // Mode 1: radiant plasma (audio-reactive)
-            vec4 orbMode1(float t, vec3 n, vec3 p, float audio) {
-                float r = length(p);
-                float plasma = (0.5 + 0.5 * sin(10.0 * r - t * 1.7 + p.x*2.5 + p.y*2.5)) * (0.7 + 0.7 * audio);
-                float fres = fresnelTerm(n, vec3(0,0,1), 2.0);
-                vec3 c = mix(vec3(0.8,0.2,0.9), vec3(0.15,0.8,1.0), plasma);
-                c = refractColor(c * (0.8 + 0.7 * audio), n, t);
-                c += fres * 0.6 * (0.7 + 0.5 * audio);
-                float caust = caustic(p, t) * 0.18 * (0.7 + 0.5 * audio);
-                c += caust;
-                float a = (0.42 + 0.25 * fres + 0.23 * plasma) * (0.7 + 0.6 * audio);
-                return vec4(c, a);
-            }
-            // Mode 2: electric pulse (audio-reactive)
-            vec4 orbMode2(float t, vec3 n, vec3 p, float audio) {
-                float theta = atan(p.y, p.x);
-                float rings = (0.5 + 0.5 * sin(8.0*theta + t*2.5 + length(p)*12.0)) * (0.7 + 0.9 * audio);
-                float pulse = (0.5 + 0.5 * sin(t*3.2 + p.z*7.0)) * (0.7 + 0.7 * audio);
-                float fres = fresnelTerm(n, vec3(0,0,1), 2.7);
-                vec3 c = mix(vec3(0.2,0.7,1.2), vec3(1.0,0.6,0.2), pulse);
-                c = mix(c, vec3(1.0,1.0,1.0), rings*0.3);
-                c = refractColor(c * (0.8 + 0.7 * audio), n, t);
-                c += fres * 0.5 * (0.7 + 0.5 * audio);
-                float caust = caustic(p, t) * 0.13 * (0.7 + 0.5 * audio);
-                c += caust;
-                float a = (0.58 + 0.13 * fres + 0.24 * pulse) * (0.7 + 0.6 * audio);
-                return vec4(c, a);
-            }
-            // Mode 3: dreamlike morph (audio-reactive)
-            vec4 orbMode3(float t, vec3 n, vec3 p, float audio) {
-                float morph = (0.5 + 0.5 * sin(t*0.5 + p.x*3.0 + p.y*2.0 + p.z*4.0)) * (0.7 + 0.6 * audio);
-                float fres = fresnelTerm(n, vec3(0,0,1), 2.2);
-                vec3 c = mix(vec3(0.13,0.9,0.7), vec3(0.8,0.3,1.0), morph);
-                c = refractColor(c * (0.8 + 0.7 * audio), n, t);
-                c += fres * 0.7 * (0.7 + 0.5 * audio);
-                float aura = glowAura(n, t) * 0.12 * (0.7 + 0.5 * audio);
-                c += aura;
-                float a = (0.44 + 0.17 * fres + 0.26 * morph) * (0.7 + 0.6 * audio);
-                return vec4(c, a);
-            }
-            // Mode 4: starlight core (audio-reactive)
-            vec4 orbMode4(float t, vec3 n, vec3 p, float audio) {
-                float core = exp(-8.0*length(p-vec3(0,0,0))) * (0.7 + 0.7 * audio);
-                float twinkle = (0.5 + 0.5 * sin(t*6.0 + p.x*12.0 + p.y*14.0)) * (0.7 + 0.7 * audio);
-                float fres = fresnelTerm(n, vec3(0,0,1), 3.0);
-                vec3 c = mix(vec3(1.0,1.0,1.0), vec3(0.1,0.7,1.0), twinkle);
-                c = refractColor(c * (0.8 + 0.7 * audio), n, t);
-                c += core*1.4 + fres*0.5 * (0.7 + 0.5 * audio);
-                float aura = glowAura(n, t) * 0.18 * (0.7 + 0.5 * audio);
-                c += aura;
-                float a = (0.62 + 0.13*fres + 0.32*core) * (0.7 + 0.6 * audio);
-                return vec4(c, a);
-            }
+    // --- Micro-speckle utility ---
+    float microSpeckle(vec3 p, float t) {
+        vec3 q = p * 22.0;
+        float n = noise(floor(q));
+        float flicker = 0.4 + 0.6 * sin(t * 7.0 + n * 6.28318);
+        float radial = smoothstep(0.95, 0.15, length(p));
+        return step(0.972, n) * flicker * radial;
+    }
 
-            void main() {
-                // Clamp audioLevel to 0..1
-                float audio = clamp(audioLevel, 0.0, 1.0);
-                vec4 m0 = orbMode0(time, vNormal, vPosition, audio);
-                vec4 m1 = orbMode1(time, vNormal, vPosition, audio);
-                vec4 m2 = orbMode2(time, vNormal, vPosition, audio);
-                vec4 m3 = orbMode3(time, vNormal, vPosition, audio);
-                vec4 m4 = orbMode4(time, vNormal, vPosition, audio);
-                // Interpolate between modes using modeSmooth (0..4)
-                float m = clamp(modeSmooth, 0.0, 4.0);
-                vec4 c;
-                if (m < 1.0) c = mix(m0, m1, m);
-                else if (m < 2.0) c = mix(m1, m2, m-1.0);
-                else if (m < 3.0) c = mix(m2, m3, m-2.0);
-                else c = mix(m3, m4, m-3.0);
-                gl_FragColor = c;
-            }
-        `;
+    vec3 palette(float t) {
+        vec3 a = vec3(0.32, 0.24, 0.55);
+        vec3 b = vec3(0.48, 0.58, 0.68);
+        vec3 c = vec3(1.0, 1.0, 1.0);
+        vec3 d = vec3(0.15, 0.25, 0.45);
+        return a + b * cos(6.28318 * (c * t + d));
+    }
+
+    // -------- Core look --------
+    vec4 renderOrb(float t, vec3 n, vec3 p, float audio) {
+        vec3 viewDir = normalize(vec3(0.0, 0.0, 1.0));
+
+        float r = length(p);
+        float f = fresnel(n, viewDir, 2.8);
+
+        float swirl =
+            noise(p * 3.5 + t * 0.35) * 0.6 +
+            noise(p * 7.0 - t * 0.6) * 0.4;
+
+        float pulse = 0.5 + 0.5 * sin(t * 2.4 + swirl * 6.0);
+        pulse *= (0.75 + 0.6 * audio);
+
+        float shell = smoothstep(0.95, 0.2, r);
+        float core = exp(-6.0 * r) * (0.8 + 0.8 * audio);
+
+        float phase = 0.05 * modeSmooth + t * 0.03;
+        float colorT = pulse + swirl * 0.4 + r + phase;
+        vec3 base = palette(colorT);
+
+        vec3 glow =
+            base * (0.6 + 0.7 * shell) +
+            vec3(0.9, 0.95, 1.2) * f * (0.8 + audio);
+
+        // Sparkle dust effect
+        float dust = sparkle(p + swirl, t) * shell;
+        glow += vec3(1.2, 1.3, 1.5) * dust * (0.4 + audio);
+
+        glow += base * core * 1.6;
+
+        // --- Micro‑speckle inner dust ---
+        float speck = microSpeckle(p + swirl, t);
+        vec3 speckColor = mix(vec3(1.0), base, 0.35);
+        glow += speckColor * speck * (0.6 + audio);
+
+        float alpha =
+            0.35 +
+            shell * 0.25 +
+            f * 0.25 +
+            core * 0.35;
+
+        alpha *= (0.75 + 0.5 * audio);
+
+        return vec4(glow, alpha);
+    }
+
+    void main() {
+        float audio = clamp(audioLevel, 0.0, 1.0);
+
+        vec4 c0 = renderOrb(time, vNormal, vPosition, audio);
+        vec4 c1 = renderOrb(time + 2.3, vNormal, vPosition, audio * 0.8);
+        vec4 c2 = renderOrb(time - 1.7, vNormal, vPosition, audio * 1.1);
+
+        float m = clamp(modeSmooth, 0.0, 4.0) / 4.0;
+
+        vec4 col = mix(c0, c1, smoothstep(0.0, 1.0, m));
+        col = mix(col, c2, m * m);
+
+        gl_FragColor = col;
+    }
+`;
         // Material with extended uniforms
         const orbMaterial = new THREE.ShaderMaterial({
             uniforms: {
@@ -673,7 +676,8 @@ for (let i = 0; i < particleCount; i++) {
                 orbMaterial.uniforms.modeSmooth.value = ms;
             }
             orbMaterial.uniforms.mode.value = targetMode;
-
+            orbEnergy += (targetEnergy - orbEnergy) * 0.08;
+            orbMaterial.uniforms.audioLevel.value = orbEnergy;
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
@@ -2000,13 +2004,22 @@ for (let i = 0; i < particleCount; i++) {
 
         function startListening() {
             if (isSpeaking || isThinking) return;
+            
+            // Плавное переключение визуального состояния
+            orb.classList.remove('speaking', 'thinking');
+            setTimeout(() => {
+                orb.classList.add('listening');
+            }, 100);
+            
+            status.innerText = "listening";
+            
+            // Задержка перед запуском вибрации
+            setTimeout(() => {
+                startListeningVibration();
+            }, 150);
+            
             try {
                 recognition.start();
-                orb.classList.add('listening');
-                orb.classList.remove('thinking');
-                status.innerText = "listening";
-                startListeningVibration(); // включаем лёгкое дыхание
-                stopThinkingVibration();    // убеждаемся, что thinking vibration отключена
             } catch {}
         }
         
@@ -2426,13 +2439,26 @@ for (let i = 0; i < particleCount; i++) {
         // Говорит текст с добавлением случайных пауз, вздохов и пульсацией речи
         function speak(text) {
             if (!text || !text.trim()) return;
+            
+            // 1. Остановить предыдущие вибрации
             stopListeningVibration();
-            orb.classList.remove('thinking');
-            orb.classList.add('speaking');
-            status.innerText = "speaking";
-            isSpeaking = true;
             stopThinkingVibration();
-            vibrateSpeaking();
+            
+            // 2. Плавное визуальное переключение
+            orb.classList.remove('listening', 'thinking');
+            requestAnimationFrame(() => {
+                orb.classList.add('speaking');
+                status.innerText = "speaking";
+            });
+            
+            // 3. Задержка перед запуском новой вибрации
+            setTimeout(() => {
+                vibrateSpeaking();
+            }, 80);
+            
+            isSpeaking = true;
+            
+
 
             // gender-aware voice tuning
             let rate = 1.0;
