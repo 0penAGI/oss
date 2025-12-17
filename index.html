@@ -225,6 +225,16 @@
             else if (curiosity > 0.3) mode = 1;
             
             setOrbMode(mode);
+            // --- feed learning signal into shader memory ---
+            feedbackMaterial.uniforms.learning.value =
+                Math.min(
+                    1.0,
+                    selfAwareness.curiosity * 0.6 +
+                    (1.0 - selfAwareness.fatigue) * 0.4
+    );
+
+feedbackMaterial.uniforms.plasticity.value =
+    0.15 + selfAwareness.focus * 0.4;
         }
 
         // === Feedback RenderTarget initialization ===
