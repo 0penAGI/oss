@@ -2618,13 +2618,10 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
-        // Новый typeWriterEffect — печатаем целыми словами, а внутри слова анимируем символы.
+        // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                // Разбиваем текст на слова и пробелы/переносы
                 const tokens = text.match(/(\s+|\S+|\n)/g) || [];
-
                 let tokenIndex = 0;
 
                 function typeNextToken() {
@@ -2632,59 +2629,47 @@ for (let i = 0; i < particleCount; i++) {
                         resolve();
                         return;
                     }
-
-                    const token = tokens[tokenIndex];
-                    tokenIndex++;
-
-                    // Создаём контейнер для токена (слова или пробела/переноса)
+                    const token = tokens[tokenIndex++];
                     const tokenSpan = document.createElement('span');
-                    tokenSpan.style.display = 'inline'; // важно: не inline-block, чтобы не ломать перенос
+                    tokenSpan.style.display = 'inline';
 
-                    if (/\s|\n/.test(token)) {
-                        // Пробелы и переносы — просто добавляем как текст
-                        tokenSpan.textContent = token === '\n' ? '\n' : token.replace(/ /g, '\u00A0');
+                    if (token === '\n') {
+                        tokenSpan.innerHTML = '<br>';
                         element.appendChild(tokenSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        setTimeout(typeNextToken, 20); // быстро пропускаем пробелы
+                        setTimeout(typeNextToken, 20);
                         return;
                     }
 
-                    // Это слово — печатаем посимвольно с анимацией
-                    let charIndex = 0;
-                    const word = token;
+                    if (/^\s+$/.test(token)) {
+                        tokenSpan.textContent = token.replace(/ /g, '\u00A0');
+                        element.appendChild(tokenSpan);
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        setTimeout(typeNextToken, 20);
+                        return;
+                    }
 
+                    let charIndex = 0;
                     function typeNextChar() {
-                        if (charIndex >= word.length) {
-                            // Слово допечатано — переходим к следующему токену
+                        if (charIndex >= token.length) {
                             setTimeout(typeNextToken, 30 + Math.random() * 50);
                             return;
                         }
-
-                        const ch = word[charIndex];
+                        if (!tokenSpan.parentElement) element.appendChild(tokenSpan);
+                        const ch = token[charIndex++];
                         const charSpan = document.createElement('span');
                         charSpan.textContent = ch;
                         charSpan.className = 'glass-char';
-
-                        // Ключ: не задаём white-space/pre/word-break на отдельных символах
-                        // Всё управление переносами — на уровне родительского контейнера
-                        if (!tokenSpan.parentElement) element.appendChild(tokenSpan); // добавляем контейнер один раз
                         tokenSpan.appendChild(charSpan);
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                        charIndex++;
-
-                        // Задержка в зависимости от символа
                         let delay = 22 + Math.random() * 30;
                         if (/[.,!?]/.test(ch)) delay += 180;
-                        if (ch === '\n') delay += 200;
                         if (Math.random() < 0.08) delay += 80;
-
                         setTimeout(typeNextChar, delay);
                     }
-
                     typeNextChar();
                 }
-
                 typeNextToken();
             });
         }
