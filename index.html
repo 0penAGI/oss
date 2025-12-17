@@ -268,43 +268,43 @@
                 }
             `,
             fragmentShader: `
-    varying vec2 vUv;
-    uniform sampler2D tOld;
-    uniform sampler2D tNew;
-    uniform float decay;
-    uniform vec2 resolution;
+                varying vec2 vUv;
+                uniform sampler2D tOld;
+                uniform sampler2D tNew;
+                uniform float decay;
+                uniform vec2 resolution;
 
-    // hash noise
-    float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
-    }
+                // hash noise
+                float hash(vec2 p) {
+                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
+                }
 
-    vec2 noiseDir(vec2 uv) {
-        float n = hash(uv * resolution);
-        float a = n * 6.28318530718;
-        return vec2(cos(a), sin(a));
-    }
+                vec2 noiseDir(vec2 uv) {
+                    float n = hash(uv * resolution);
+                    float a = n * 6.28318530718;
+                    return vec2(cos(a), sin(a));
+                }
 
-    vec4 noiseBlur(sampler2D tex, vec2 uv) {
-        vec2 px = 1.0 / resolution;
-        vec2 dir = noiseDir(uv);
+                vec4 noiseBlur(sampler2D tex, vec2 uv) {
+                    vec2 px = 1.0 / resolution;
+                    vec2 dir = noiseDir(uv);
 
-        vec4 col = vec4(0.0);
-        col += texture2D(tex, uv) * 0.314;
-        col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-        col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
-        col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
+                    vec4 col = vec4(0.0);
+                    col += texture2D(tex, uv) * 0.314;
+                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
+                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
-        return col;
-    }
+                    return col;
+                }
 
-    void main() {
-        vec4 oldCol = noiseBlur(tOld, vUv) * decay;
-        vec4 newCol = texture2D(tNew, vUv);
-        gl_FragColor = max(oldCol * 0.96, newCol);
-    }
-`,
+                void main() {
+                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+                    vec4 newCol = texture2D(tNew, vUv);
+                    gl_FragColor = max(oldCol * 0.96, newCol);
+                }
+            `,
             transparent: true
         });
 
