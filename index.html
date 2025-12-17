@@ -96,6 +96,7 @@
             word-break: keep-all;
             white-space: pre-wrap;
             overflow-wrap: normal;
+            display: inline-block;     /* для правильной анимации символов */
         }
 
         /* Code formatting for transcript code blocks */
@@ -150,6 +151,11 @@
             opacity: 0;
             filter: blur(6px);
             transform: translateY(6px) scale(0.96);
+            /* Для transcript и отдельных символов */
+            word-break: keep-all;      /* не разрывать слова */
+            overflow-wrap: normal;     /* обычное поведение переноса */
+            white-space: pre-wrap;     /* переносы строк сохраняются */
+            display: inline-block;     /* для правильной анимации символов */
             animation: glassIn 420ms ease-out forwards;
         }
 
@@ -2630,10 +2636,10 @@ for (let i = 0; i < particleCount; i++) {
         // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-            let i = 0;
+                let i = 0;
 
                 function nextDelay(char) {
-                let base = 22;
+                    let base = 22;
                     if (/[.,!?]/.test(char)) base += 120;
                     if (/\n/.test(char)) base += 180;
                     if (Math.random() < 0.08) base += 60;
@@ -2648,7 +2654,7 @@ for (let i = 0; i < particleCount; i++) {
 
                     const span = document.createElement('span');
                     let ch = text[i];
-                    if (ch === ' ') ch = '\u00A0'; // небьющийся пробел
+                    if (ch === ' ') ch = '\u00A0'; // заменяем пробел на небьющийся
                     span.textContent = ch;
                     span.className = 'glass-char';
 
@@ -2665,7 +2671,7 @@ for (let i = 0; i < particleCount; i++) {
                 }
 
                 type();
-            });     
+            });
         }
         
         // Гуманизация текста: убирает лишние пробелы и добавляет паузы
