@@ -200,15 +200,23 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* --- запрет выделения всего экрана --- */
-        html, body {
-            user-select: none;
+        /* Запретить выделение для интерактивного орба */
+        #orb-interactive, #orb {
+            user-select: none;       /* стандарт */
+            -webkit-user-select: none; /* Safari/Chrome */
+            -moz-user-select: none;    /* Firefox */
+            -ms-user-select: none;     /* IE10+ */
+        }
+
+        /* Статус и транскрипт остаются выделяемыми */
+        #status, #transcript, #current-response {
+            user-select: none; /* статус не выделяем */
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
         }
 
-        /* Оставляем только транскрипт выделяемым */
+        /* Только транскрипт остаётся выделяемым */
         #transcript {
             user-select: text;
             -webkit-user-select: text;
@@ -216,53 +224,6 @@
             -ms-user-select: text;
         }
 
-        /* Фантомный орб — pointer-only */
-        #orb-interactive {
-            width: 170px;           /* совпадает с орбом */
-            height: 170px;
-            background: transparent;
-            cursor: pointer;
-            pointer-events: auto;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;            /* выше остальных визуальных элементов */
-            border-radius: 50%;      /* чтобы зона была круглая */
-        }
-
-    </style>
-    <style>
-        /* --- запрет выделения всего экрана --- */
-        html, body {
-            user-select: none;
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-        }
-
-        /* Оставляем только транскрипт выделяемым */
-        #transcript {
-            user-select: text;
-            -webkit-user-select: text;
-            -moz-user-select: text;
-            -ms-user-select: text;
-        }
-
-        /* Фантомный орб — pointer-only */
-        #orb-interactive {
-            width: 170px;           /* совпадает с орбом */
-            height: 170px;
-            background: transparent;
-            cursor: pointer;
-            pointer-events: auto;
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 20;            /* выше остальных визуальных элементов */
-            border-radius: 50%;      /* чтобы зона была круглая */
-        }
     </style>
     <style>
     .soul-orb {
@@ -291,7 +252,20 @@
         <div id="status">resonating</div>
         <div id="transcript"></div>
     </div>
-   
+    <style>
+        #orb-interactive {
+            position: absolute;
+            left: 50%;
+            top: 20%;
+            width: 200px;
+            height: 200px;
+            transform: translate(-50%, -50%);
+            z-index: 10; /* orb всегда поверх шейдера и текста */
+            cursor: pointer;
+            background: transparent;
+            /* pointer-events: auto; */
+        }
+    </style>
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
@@ -868,24 +842,29 @@ for (let i = 0; i < particleCount; i++) {
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // --- Unified animate() with single patch for all shaders ---
+        // Update animate() to include liquid layer and orb mode interpolation
         function animate() {
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
-                touchMemory[i].strength *= 0.992; 
-                if (touchMemory[i].strength < 0.02) touchMemory.splice(i, 1);
+                touchMemory[i].strength *= 0.992; // медленное заживление
+
+                if (touchMemory[i].strength < 0.02) {
+                    touchMemory.splice(i, 1);
+                }
             }
 
             material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
 
+            // Artistic Glowing Orb animation with mode interpolation
             orbMaterial.uniforms.time.value += 0.01;
             soulOrbMesh.rotation.y += 0.001;
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
+            // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
 
             // --- Суммарный телесный след ---
@@ -898,32 +877,54 @@ for (let i = 0; i < particleCount; i++) {
             }
             skinMemory = Math.min(1.0, skinMemory);
 
-            // --- Minimal patch: unify shader uniforms ---
-            const curiosity = selfAwareness.curiosity ?? 0;
-            const fatigue = selfAwareness.fatigue ?? 0;
-            const energy = orbEnergy;
-
-            orbMaterial.uniforms.audioLevel.value = energy + skinMemory * 0.03;
-            feedbackMaterial.uniforms.learning.value = Math.min(1, curiosity * 0.6 + (1 - fatigue) * 0.4);
-            feedbackMaterial.uniforms.plasticity.value = 0.15 + selfAwareness.focus * 0.4;
-            liquidMaterial.uniforms.energy.value = energy;
-            liquidMaterial.uniforms.curiosity.value = curiosity;
-            liquidMaterial.uniforms.skinMemory.value = skinMemory;
-            liquidMaterial.uniforms.flow.value.copy(flow);
-
-            // Render scene into feedback buffer
+            orbMaterial.uniforms.audioLevel.value = orbEnergy;
+            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
+            // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
             renderer.render(scene, camera);
 
+            // смешиваем прошлый кадр + новый
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
             renderer.setRenderTarget(null);
+
+            // --- Liquid Glass Layer flow calculation ---
+            // Calculate target flow based on current time, orbEnergy, and curiosity
+            const t = liquidMaterial.uniforms.time.value * 0.005;
+            // Use the same fbm as in shader for consistency
+            function jsFbm(p) {
+                let v = 0.0;
+                let a = 0.5;
+                let _p = p.slice();
+                for (let i = 0; i < 4; i++) {
+                    v += a * (Math.sin(_p[0]*12.9898 + _p[1]*78.233 + i*0.1) * 43758.5453 % 1);
+                    _p[0] *= 2.0; _p[1] *= 2.0;
+                    a *= 0.5;
+                }
+                return v - Math.floor(v);
+            }
+            // Use Math.random for demo; ideally, match shader noise
+            let targetFlow = new THREE.Vector2(
+                Math.random(), // jsFbm([0.5 * 3.0 + t + orbEnergy * 0.5, 0.5 * 3.0]),
+                Math.random()  // jsFbm([0.5 * 3.0 - t + (selfAwareness?.curiosity ?? 0.0) * 0.3, 0.5 * 3.0])
+            );
+            // Interpolate prevFlow towards targetFlow
+            prevFlow.lerp(targetFlow, 0.08);
+            flow.copy(prevFlow);
+            // Pass to shader
+            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
+            liquidMaterial.uniforms.flow.value.copy(flow);
+
+            // animate the liquid glass layer
+            liquidMaterial.uniforms.time.value += 0.01;
             renderer.render(feedbackScene, feedbackCamera);
 
-            // swap buffers
-            [feedbackRT1, feedbackRT2] = [feedbackRT2, feedbackRT1];
+            // swap
+            const tmp = feedbackRT1;
+            feedbackRT1 = feedbackRT2;
+            feedbackRT2 = tmp;
         }
         animate();
 
