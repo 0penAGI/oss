@@ -621,7 +621,7 @@ for (let i = 0; i < particleCount; i++) {
                 float dust = sparkle(p + swirl, t) * shell;
                 glow += vec3(1.2, 1.3, 1.5) * dust * (0.5 + audio);
 
-                glow += base * core * 1.6;
+                glow += base * core * 1.5;
 
                 // --- Micro‑speckle inner dust ---
                 float speck = microSpeckle(p + swirl, t);
@@ -709,7 +709,7 @@ for (let i = 0; i < particleCount; i++) {
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.021);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.03);
             }
         `;
 
