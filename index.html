@@ -2619,8 +2619,7 @@ for (let i = 0; i < particleCount; i++) {
     }
 
         // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
-        // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
-        // Новый typeWriterEffect — печатаем целыми словами, а внутри слова анимируем символы
+        // Новый typeWriterEffect — печатаем целыми словами, а внутри слова анимируем символы.
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
                 // Разбиваем текст на слова и пробелы/переносы
@@ -2668,9 +2667,8 @@ for (let i = 0; i < particleCount; i++) {
 
                         // Ключ: не задаём white-space/pre/word-break на отдельных символах
                         // Всё управление переносами — на уровне родительского контейнера
+                        if (!tokenSpan.parentElement) element.appendChild(tokenSpan); // добавляем контейнер один раз
                         tokenSpan.appendChild(charSpan);
-
-                        element.appendChild(tokenSpan); // добавляем контейнер слова сразу
                         element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
                         charIndex++;
