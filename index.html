@@ -311,7 +311,7 @@
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
         feedbackScene.add(quad);
 
-        const particleCount = window.innerWidth < 768 ? 10000 : 15000;
+        const particleCount = window.innerWidth < 768 ? 5555 : 15000;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
         const colors = new Float32Array(particleCount * 3);
