@@ -2639,7 +2639,7 @@ for (let i = 0; i < particleCount; i++) {
                 // ===== Типографский эффект по словам и буквам =====
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                const tokens = text.split(/(\s+)/);
+                const tokens = text.split(/(\s+)/); // разделяем на слова и пробелы
                 let tokenIndex = 0;
 
                 function typeNextToken() {
@@ -2650,6 +2650,7 @@ for (let i = 0; i < particleCount; i++) {
 
                     const token = tokens[tokenIndex++];
                     if (/^\s+$/.test(token)) {
+                        // пробелы оставляем как неразрывные
                         const spaceSpan = document.createElement('span');
                         spaceSpan.textContent = token.replace(/ /g, '\u00A0');
                         spaceSpan.style.cssText = 'display: inline-block !important;';
@@ -2659,33 +2660,26 @@ for (let i = 0; i < particleCount; i++) {
                         return;
                     }
 
+                    // слово целиком с плавным появлением
                     const wordSpan = document.createElement('span');
                     wordSpan.className = 'word';
-                    wordSpan.style.cssText = 'white-space: nowrap !important; display: inline-block !important;';
+                    wordSpan.textContent = token;
+                    wordSpan.style.cssText = `
+                        white-space: nowrap !important;
+                        display: inline-block !important;
+                        opacity: 0;
+                        transition: opacity 0.25s ease-in;
+                    `;
                     element.appendChild(wordSpan);
+                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                    let charIndex = 0;
-                    function typeNextChar() {
-                        if (charIndex >= token.length) {
-                            setTimeout(typeNextToken, 30 + Math.random() * 50);
-                            return;
-                        }
-                        const ch = token[charIndex++];
-                        const charSpan = document.createElement('span');
-                        charSpan.className = 'glass-char';
-                        charSpan.textContent = ch;
-                        charSpan.style.cssText = 'display: inline-block !important;';
-                        wordSpan.appendChild(charSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    // плавное появление
+                    requestAnimationFrame(() => {
+                        wordSpan.style.opacity = 1;
+                    });
 
-                        let delay = 15 + Math.random() * 30;
-                        if (/[.,!?]/.test(ch)) delay += 180;
-                        if (Math.random() < 0.15) delay += 80;
-
-                        setTimeout(typeNextChar, delay);
-                    }
-
-                    typeNextChar();
+                    // задержка перед следующим словом
+                    setTimeout(typeNextToken, 150 + Math.random() * 120);
                 }
 
                 typeNextToken();
