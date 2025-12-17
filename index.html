@@ -289,6 +289,11 @@
                 tOld: { value: null },
                 tNew: { value: null },
                 decay: { value: 0.96 },
+
+                // --- synaptic memory ---
+                plasticity: { value: 0.25 }, // насколько след обучаем
+                learning:   { value: 0.0 },  // краткий импульс обучения
+
                 resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
             },
             vertexShader: `
@@ -331,7 +336,16 @@
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv) * decay;
+                    vec4 oldCol = noiseBlur(tOld, vUv);
+
+                    // --- synaptic plasticity ---
+                    float activity = length(oldCol.rgb);     // активность "нейрона"
+                    float adaptiveDecay = mix(decay, 0.995, activity * plasticity);
+
+                    // кратковременное обучение (вспышки внимания)
+                    adaptiveDecay = mix(adaptiveDecay, 1.02, learning);
+
+                    oldCol *= adaptiveDecay;
                     vec4 newCol = texture2D(tNew, vUv);
                     gl_FragColor = max(oldCol * 0.96, newCol);
                 }
