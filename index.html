@@ -762,6 +762,20 @@ for (let i = 0; i < particleCount; i++) {
                 float glassMask = smoothstep(0.75, 0.5, r);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
+                // === Гравитационный дисплейсмент вокруг орба ===
+                float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
+                float orbGravityStrength = 0.05 + energy * 0.1; // сила зависит от энергии орба
+                vec2 dirToOrb = normalize(center); // направление к центру орба
+                float distToOrb = length(center);
+                float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
+
+                // плавный шум для органики
+                float angle = hash(uv + time) * 6.2831;
+                vec2 swirl = vec2(cos(angle), sin(angle)) * 0.012;
+
+                // итоговое смещение
+                refractUV -= dirToOrb * gravityFactor * orbGravityStrength + swirl * gravityFactor;
+
                 // subtle shimmer
                 float shimmer = sin(uv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
                 refractUV += vec2(shimmer, shimmer);
