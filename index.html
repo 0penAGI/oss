@@ -2216,6 +2216,23 @@ for (let i = 0; i < particleCount; i++) {
         // Append transcript with full Markdown/code support, triple backticks and Prism.js highlighting
         // Новый вариант appendTranscript: корректная обработка блоков кода с обратными кавычками и Prism.js
         function appendTranscript(text) {
+            // CSS: предотвращаем разрыв слов для transcriptDiv и .glass-char
+            transcriptDiv.style.wordBreak = 'keep-all';
+            transcriptDiv.style.whiteSpace = 'pre-wrap';
+            transcriptDiv.style.overflowWrap = 'break-word';
+            // Также для .glass-char (через элемент style)
+            if (!document.getElementById('glass-char-nobreak-style')) {
+                const style = document.createElement('style');
+                style.id = 'glass-char-nobreak-style';
+                style.innerHTML = `
+                    #transcript, #transcript .glass-char {
+                        word-break: keep-all !important;
+                        white-space: pre-wrap !important;
+                        overflow-wrap: break-word !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
             // Utility to escape HTML
             function escapeHTML(str) {
                 return str.replace(/[&<>"']/g, ch =>
