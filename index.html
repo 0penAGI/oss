@@ -2635,60 +2635,30 @@ for (let i = 0; i < particleCount; i++) {
         }
     }
 
-        // Новый typeWriterEffect — слова не разрываются, переносы строк через <br>, внутри слова анимация символов
-                // ===== Типографский эффект по словам и буквам =====
+        // Новый typeWriterEffect: печать слов целиком без разрыва
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                const tokens = text.split(/(\s+)/);
-                let tokenIndex = 0;
+                const tokens = text.split(/(\s+)/); // слова + пробелы
+                let index = 0;
 
-                function typeNextToken() {
-                    if (tokenIndex >= tokens.length) {
+                function typeNext() {
+                    if (index >= tokens.length) {
                         resolve();
                         return;
                     }
 
-                    const token = tokens[tokenIndex++];
-                    if (/^\s+$/.test(token)) {
-                        const spaceSpan = document.createElement('span');
-                        spaceSpan.textContent = token.replace(/ /g, '\u00A0');
-                        spaceSpan.style.cssText = 'display: inline-block !important;';
-                        element.appendChild(spaceSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        setTimeout(typeNextToken, 20);
-                        return;
-                    }
+                    const token = tokens[index++];
+                    const span = document.createElement('span');
+                    span.textContent = token.replace(/ /g, '\u00A0'); // неразрывный пробел
+                    span.style.cssText = 'white-space: pre-wrap; display: inline-block;';
+                    element.appendChild(span);
+                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
 
-                    const wordSpan = document.createElement('span');
-                    wordSpan.className = 'word';
-                    wordSpan.style.cssText = 'white-space: nowrap !important; display: inline-block !important;';
-                    element.appendChild(wordSpan);
-
-                    let charIndex = 0;
-                    function typeNextChar() {
-                        if (charIndex >= token.length) {
-                            setTimeout(typeNextToken, 30 + Math.random() * 50);
-                            return;
-                        }
-                        const ch = token[charIndex++];
-                        const charSpan = document.createElement('span');
-                        charSpan.className = 'glass-char';
-                        charSpan.textContent = ch;
-                        charSpan.style.cssText = 'display: inline-block !important;';
-                        wordSpan.appendChild(charSpan);
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-
-                        let delay = 15 + Math.random() * 30;
-                        if (/[.,!?]/.test(ch)) delay += 180;
-                        if (Math.random() < 0.15) delay += 80;
-
-                        setTimeout(typeNextChar, delay);
-                    }
-
-                    typeNextChar();
+                    // небольшая пауза между словами
+                    setTimeout(typeNext, 50 + Math.random() * 80);
                 }
 
-                typeNextToken();
+                typeNext();
             });
         }
         
