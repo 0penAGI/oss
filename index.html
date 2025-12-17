@@ -92,11 +92,17 @@
         }
 
         /* Prevent word breaks in transcript and glass-char */
-        #transcript, .glass-char {
+        #transcript .glass-char {
+            word-break: keep-all !important;      /* не разрывать слова */
+            overflow-wrap: anywhere;              /* разрешить перенос в любом месте, НО только если слово не помещается целиком */
+            hyphens: none;                        /* отключить автоматические дефисы */
+            white-space: pre-wrap;                /* сохранять переносы строк и пробелы, переносить по необходимости */
+        }
+        /* Дополнительно для контейнера ответа, чтобы он вёл себя предсказуемо */
+        #current-response {
             word-break: keep-all;
+            overflow-wrap: anywhere;
             white-space: pre-wrap;
-            overflow-wrap: normal;
-            display: inline-block;     /* для правильной анимации символов */
         }
 
         /* Code formatting for transcript code blocks */
@@ -111,6 +117,10 @@
             overflow-x: auto;
             box-shadow: 0 2px 8px rgba(0,0,0,0.12);
             text-align: left;
+            word-break: keep-all !important;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+            hyphens: none;
         }
         #transcript pre {
             white-space: pre-wrap;
