@@ -311,7 +311,7 @@
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
         feedbackScene.add(quad);
 
-        const particleCount = window.innerWidth < 768 ? 8000 : 15000;
+        const particleCount = window.innerWidth < 768 ? 10000 : 15000;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
         const colors = new Float32Array(particleCount * 3);
@@ -2493,32 +2493,10 @@ for (let i = 0; i < particleCount; i++) {
             let utterQueue = [];
 
             function speakNext() {
-                if (idx >= enhancedFragments.length) {
-                    // Финальное плавное переключение в listening состояние
-                    setTimeout(() => {
-                        orb.classList.remove('speaking');
-                        isSpeaking = false;
-                        status.innerText = "listening";
-                        stopSpeakingVibration();
+                if (idx >= enhancedFragments.length) return;
 
-                        // Легкая вибрация для индикации перехода
-                        if (tg?.HapticFeedback) {
-                            tg.HapticFeedback.impactOccurred('light');
-                        }
-
-                        // Запуск listening с задержкой для плавности
-                        setTimeout(() => {
-                            startListening();
-                        }, 300);
-                    }, 100);
-                    return;
-                }
-
-                let s = enhancedFragments[idx];
-                idx++;
-
+                let s = enhancedFragments[idx++];
                 if (!s || !s.trim()) {
-                    // Короткие паузы между фразами
                     setTimeout(speakNext, 80 + Math.random() * 120);
                     return;
                 }
@@ -2533,20 +2511,15 @@ for (let i = 0; i < particleCount; i++) {
                 if (currentVoice) utter.voice = currentVoice;
 
                 utter.onstart = () => {
-                        // Легкая пульсация вместо интенсивной вибрации
+                    // Лёгкая пульсация вместо интенсивной вибрации
                     if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
                     speakingVibrationInterval = setInterval(() => {
-                        if (tg?.HapticFeedback) {
-                            tg.HapticFeedback.impactOccurred('light');
-                        }
+                        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
                     }, 300);
                 };
 
                 utter.onend = () => {
-                    // Останавливаем вибрацию в конце каждой фразы
                     stopSpeakingVibration();
-                    
-                // Плавный переход к следующей фразе
                     setTimeout(speakNext, 60 + Math.random() * 90);
                 };
 
@@ -2556,16 +2529,21 @@ for (let i = 0; i < particleCount; i++) {
                     setTimeout(speakNext, 100);
                 };
 
-                // Добавляем в очередь с небольшой задержкой для избежания наложения
-                setTimeout(() => {
-                    synth.speak(utter);
-                }, utterQueue.length * 20);
+                setTimeout(() => synth.speak(utter), utterQueue.length * 20);
                 utterQueue.push(utter);
             }
-    
-            // Начинаем озвучку с небольшой задержкой
-            setTimeout(speakNext, 100);
-        }
+
+            // --- Глобальный чек окончания речи для устранения лагов ---
+            let checkEndTimer = setInterval(() => {
+                if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                    clearInterval(checkEndTimer);
+                    orb.classList.remove('speaking');
+                    isSpeaking = false;
+                    status.innerText = "listening";
+                    stopSpeakingVibration();
+                    setTimeout(startListening, 200);
+                }
+            }, 200);
         
         // ambient обработчик теперь реализован выше
         
