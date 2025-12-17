@@ -390,17 +390,6 @@
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.z = 5;
 
-        // === Global Uniforms for minimal update ===
-        const globalUniforms = {
-            time: { value: 0 },
-            mood: { value: 0 },
-            curiosity: { value: 0 },
-            fatigue: { value: 0 },
-            skinMemory: { value: 0 },
-            energy: { value: 0 },
-            flow: new THREE.Vector2(0.55, 0.55)
-        };
-
         // XDust шейдер для частиц
         const vertexShader = `
             attribute float size;
@@ -879,56 +868,39 @@ for (let i = 0; i < particleCount; i++) {
         function animate() {
             requestAnimationFrame(animate);
 
-            // === Minimal global uniform update ===
-            globalUniforms.time.value += 0.01;
-            globalUniforms.mood.value = selfAwareness.mood;
-            globalUniforms.curiosity.value = selfAwareness.curiosity;
-            globalUniforms.fatigue.value = selfAwareness.fatigue;
-
-            let skinMem = 0;
-            for (const t of touchMemory) {
-                const dx = t.x - 0.168;
-                const dy = t.y - 0.168;
-                skinMem += t.strength * Math.exp(-6*(dx*dx+dy*dy));
-            }
-            globalUniforms.skinMemory.value = Math.min(1, skinMem);
-
-            const targetFlow = new THREE.Vector2(Math.random(), Math.random());
-            globalUniforms.flow.lerp(targetFlow, 0.08);
-
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
                 touchMemory[i].strength *= 0.992; // медленное заживление
+
                 if (touchMemory[i].strength < 0.02) {
                     touchMemory.splice(i, 1);
                 }
             }
 
-            // === Use global uniforms for shaders ===
-            // Particles (XDust): time
-            material.uniforms.time.value = globalUniforms.time.value;
+            material.uniforms.time.value += 0.01;
             particles.rotation.y += 0.0002;
 
             // Artistic Glowing Orb animation with mode interpolation
-            orbMaterial.uniforms.time.value = globalUniforms.time.value;
+            orbMaterial.uniforms.time.value += 0.01;
             soulOrbMesh.rotation.y += 0.001;
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
             // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
-            globalUniforms.energy.value = orbEnergy;
 
-            // --- Orb shader: use global energy ---
-            orbMaterial.uniforms.audioLevel.value = globalUniforms.energy.value;
+            // --- Суммарный телесный след ---
+            let skinMemory = 0.0;
+            for (const t of touchMemory) {
+                const dx = t.x - 0.168;
+                const dy = t.y - 0.168;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                skinMemory += t.strength * Math.exp(-dist * 6.0);
+            }
+            skinMemory = Math.min(1.0, skinMemory);
 
-            // --- Liquid Glass Layer: use global uniforms ---
-            liquidMaterial.uniforms.time.value = globalUniforms.time.value;
-            liquidMaterial.uniforms.energy.value = globalUniforms.energy.value;
-            liquidMaterial.uniforms.curiosity.value = globalUniforms.curiosity.value;
-            liquidMaterial.uniforms.skinMemory.value = globalUniforms.skinMemory.value;
-            liquidMaterial.uniforms.flow.value.copy(globalUniforms.flow);
-
+            orbMaterial.uniforms.audioLevel.value = orbEnergy;
+            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
             // рендер частиц в новый буфер
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
@@ -940,7 +912,35 @@ for (let i = 0; i < particleCount; i++) {
 
             renderer.setRenderTarget(null);
 
+            // --- Liquid Glass Layer flow calculation ---
+            // Calculate target flow based on current time, orbEnergy, and curiosity
+            const t = liquidMaterial.uniforms.time.value * 0.005;
+            // Use the same fbm as in shader for consistency
+            function jsFbm(p) {
+                let v = 0.0;
+                let a = 0.5;
+                let _p = p.slice();
+                for (let i = 0; i < 4; i++) {
+                    v += a * (Math.sin(_p[0]*12.9898 + _p[1]*78.233 + i*0.1) * 43758.5453 % 1);
+                    _p[0] *= 2.0; _p[1] *= 2.0;
+                    a *= 0.5;
+                }
+                return v - Math.floor(v);
+            }
+            // Use Math.random for demo; ideally, match shader noise
+            let targetFlow = new THREE.Vector2(
+                Math.random(), // jsFbm([0.5 * 3.0 + t + orbEnergy * 0.5, 0.5 * 3.0]),
+                Math.random()  // jsFbm([0.5 * 3.0 - t + (selfAwareness?.curiosity ?? 0.0) * 0.3, 0.5 * 3.0])
+            );
+            // Interpolate prevFlow towards targetFlow
+            prevFlow.lerp(targetFlow, 0.08);
+            flow.copy(prevFlow);
+            // Pass to shader
+            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
+            liquidMaterial.uniforms.flow.value.copy(flow);
+
             // animate the liquid glass layer
+            liquidMaterial.uniforms.time.value += 0.01;
             renderer.render(feedbackScene, feedbackCamera);
 
             // swap
