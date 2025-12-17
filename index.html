@@ -677,11 +677,24 @@ for (let i = 0; i < particleCount; i++) {
         // === Orb Mode JS Logic ===
         let currentMode = 0;
         let targetMode = 0;
+
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
         orbMaterial.uniforms.modeSmooth.value = currentMode;
+
         function setOrbMode(mode) {
-            targetMode = Math.max(0, Math.min(4, mode|0));
+            targetMode = Math.max(0, Math.min(4, Math.floor(mode)));
+        }
+
+        // Smooth interpolation of mode in the animation loop
+        function updateOrbModeSmooth() {
+            let ms = orbMaterial.uniforms.modeSmooth.value;
+            if (Math.abs(ms - targetMode) > 0.001) {
+                ms += (targetMode - ms) * 0.12;
+                if (Math.abs(ms - targetMode) < 0.01) ms = targetMode;
+                orbMaterial.uniforms.modeSmooth.value = ms;
+            }
+            orbMaterial.uniforms.mode.value = targetMode;
         }
 
         // === Liquid Glass Layer ===
@@ -801,15 +814,7 @@ for (let i = 0; i < particleCount; i++) {
             soulOrbMesh.rotation.y += 0.001;
 
             // Smoothly interpolate orb mode
-            // modeSmooth approaches targetMode with smoothing
-            let ms = orbMaterial.uniforms.modeSmooth.value;
-            if (Math.abs(ms - targetMode) > 0.001) {
-                ms += (targetMode - ms) * 0.12;
-                // Snap if very close
-                if (Math.abs(ms - targetMode) < 0.01) ms = targetMode;
-                orbMaterial.uniforms.modeSmooth.value = ms;
-            }
-            orbMaterial.uniforms.mode.value = targetMode;
+            updateOrbModeSmooth();
             // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
 
