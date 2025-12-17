@@ -709,7 +709,7 @@ for (let i = 0; i < particleCount; i++) {
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0168);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0173);
             }
         `;
 
@@ -743,7 +743,7 @@ for (let i = 0; i < particleCount; i++) {
                 float a = 0.618;
                 for (int i = 0; i < 4; i++) {
                     v += a * noise(p);
-                    p *= 3.1;
+                    p *= 4.2;
                     a *= 0.5;
                 }
                 return v;
@@ -776,7 +776,7 @@ for (let i = 0; i < particleCount; i++) {
                 col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
 
                 float highlight = pow(1.0 - r, 3.0);
-                col += vec3(0.12, 0.14, 0.18) * highlight * glassMask;
+                col += vec3(0.12, 0.14, 0.22) * highlight * glassMask;
                 float edge = smoothstep(0.55, 0.9, r);
                 col += vec3(0.09, 0.1, 0.14) * edge * glassMask;
 
