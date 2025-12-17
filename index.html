@@ -697,159 +697,173 @@ for (let i = 0; i < particleCount; i++) {
             orbMaterial.uniforms.mode.value = targetMode;
         }
 
-        // === Liquid Glass Layer ===
-        const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
+// === Liquid Glass Layer Enhanced ===
+const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
-        const liquidVertexShader = `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
-            }
-        `;
+const liquidVertexShader = `
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+    }
+`;
 
-        const liquidFragmentShader = `
-            uniform float time;
-            uniform sampler2D tBackground;
-            uniform vec2 resolution;
-            varying vec2 vUv;
+const liquidFragmentShader = `
+    uniform float time;
+    uniform sampler2D tBackground;
+    uniform vec2 resolution;
+    uniform float curiosity;
+    uniform float mood;
+    uniform float fatigue;
+    varying vec2 vUv;
 
-            // --- noise utils ---
-            float hash(vec2 p) {
-                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-            }
+    // --- noise utils ---
+    float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
 
-            float noise(vec2 p) {
-                vec2 i = floor(p);
-                vec2 f = fract(p);
-                f = f * f * (3.0 - 2.0 * f);
-                float a = hash(i);
-                float b = hash(i + vec2(1.0, 0.0));
-                float c = hash(i + vec2(0.0, 1.0));
-                float d = hash(i + vec2(1.0, 1.0));
-                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-            }
+    float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f*f*(3.0-2.0*f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+    }
 
-            float fbm(vec2 p) {
-                float v = 0.0;
-                float a = 0.5;
-                for (int i = 0; i < 4; i++) {
-                    v += a * noise(p);
-                    p *= 2.0;
-                    a *= 0.5;
-                }
-                return v;
-            }
-
-            void main() {
-                vec2 uv = vUv;
-                vec2 center = uv - 0.5;
-                float r = length(center);
-
-                // --- slow liquid flow ---
-                float t = time * 0.12;
-                vec2 flow = vec2(
-                    fbm(uv * 3.0 + t),
-                    fbm(uv * 3.0 - t)
-                );
-
-                // --- refraction strength ---
-                float glassMask = smoothstep(0.75, 0.2, r);
-                vec2 refractUV = uv + (flow - 0.5) * 0.03 * glassMask;
-
-                // --- chromatic aberration (subtle, dark-safe) ---
-                float ca = 0.0025 * glassMask;
-                vec3 col;
-                col.r = texture2D(tBackground, refractUV + vec2(ca, 0.0)).r;
-                col.g = texture2D(tBackground, refractUV).g;
-                col.b = texture2D(tBackground, refractUV - vec2(ca, 0.0)).b;
-
-                // --- specular highlight ---
-                float highlight = pow(1.0 - r, 3.0);
-                col += vec3(0.12, 0.14, 0.18) * highlight * glassMask;
-
-                // --- edge glow (dark, no burn) ---
-                float edge = smoothstep(0.55, 0.9, r);
-                col += vec3(0.08, 0.1, 0.14) * edge * glassMask;
-
-                // --- final alpha ---
-                float alpha = 0.22 + 0.18 * glassMask;
-
-                gl_FragColor = vec4(col, alpha);
-            }
-        `;
-
-        const liquidMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                tBackground: { value: feedbackRT2.texture },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-            },
-            vertexShader: liquidVertexShader,
-            fragmentShader: liquidFragmentShader,
-            transparent: true
-        });
-
-        const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
-        feedbackScene.add(liquidMesh);
-
-        // Update animate() to include liquid layer and orb mode interpolation
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // --- Затухание телесной памяти ---
-            for (let i = touchMemory.length - 1; i >= 0; i--) {
-                touchMemory[i].strength *= 0.992; // медленное заживление
-
-                if (touchMemory[i].strength < 0.02) {
-                    touchMemory.splice(i, 1);
-                }
-            }
-
-            material.uniforms.time.value += 0.01;
-            particles.rotation.y += 0.0002;
-
-            // Artistic Glowing Orb animation with mode interpolation
-            orbMaterial.uniforms.time.value += 0.01;
-            soulOrbMesh.rotation.y += 0.001;
-
-            // Smoothly interpolate orb mode
-            updateOrbModeSmooth();
-            // живой отклик с микро‑нерешительностью
-            orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
-
-            // --- Суммарный телесный след ---
-            let skinMemory = 0.0;
-            for (const t of touchMemory) {
-                const dx = t.x - 0.5;
-                const dy = t.y - 0.5;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                skinMemory += t.strength * Math.exp(-dist * 6.0);
-            }
-            skinMemory = Math.min(1.0, skinMemory);
-
-            orbMaterial.uniforms.audioLevel.value = orbEnergy;
-            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
-            // рендер частиц в новый буфер
-            renderer.setRenderTarget(feedbackRT2);
-            renderer.clear();
-            renderer.render(scene, camera);
-
-            // смешиваем прошлый кадр + новый
-            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
-            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
-
-            renderer.setRenderTarget(null);
-            // animate the liquid glass layer
-            liquidMaterial.uniforms.time.value += 0.01;
-            renderer.render(feedbackScene, feedbackCamera);
-
-            // swap
-            const tmp = feedbackRT1;
-            feedbackRT1 = feedbackRT2;
-            feedbackRT2 = tmp;
+    float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for(int i=0;i<4;i++){
+            v += a * noise(p);
+            p *= 2.0;
+            a *= 0.5;
         }
-        animate();
+        return v;
+    }
+
+    void main() {
+        vec2 uv = vUv;
+        vec2 center = uv - 0.5;
+        float r = length(center);
+
+        // --- flow enhanced by curiosity and mood ---
+        float t = time * (0.1 + 0.05 * (1.0 - fatigue));
+        vec2 flow = vec2(
+            fbm(uv * 3.0 + t + curiosity * 2.0),
+            fbm(uv * 3.0 - t + mood * 1.5)
+        );
+
+        // --- micro-nerve jitter from curiosity ---
+        flow += (vec2(hash(uv + time), hash(uv - time)) - 0.5) * 0.02 * curiosity;
+
+        // --- refraction strength ---
+        float glassMask = smoothstep(0.75, 0.2, r);
+        vec2 refractUV = uv + (flow - 0.5) * 0.03 * glassMask;
+
+        // --- chromatic aberration ---
+        float ca = 0.0025 * glassMask;
+        vec3 col;
+        col.r = texture2D(tBackground, refractUV + vec2(ca,0)).r;
+        col.g = texture2D(tBackground, refractUV).g;
+        col.b = texture2D(tBackground, refractUV - vec2(ca,0)).b;
+
+        // --- color shift by mood/fatigue ---
+        vec3 moodCol = mix(vec3(0.2,0.3,0.6), vec3(1.0,0.6,0.2), (mood+1.0)/2.0);
+        col *= mix(1.0, moodCol, 0.35);
+        col *= 1.0 - fatigue * 0.5;
+
+        // --- specular & edge ---
+        float highlight = pow(1.0 - r, 3.0);
+        col += vec3(0.12,0.14,0.18) * highlight * glassMask;
+        float edge = smoothstep(0.55,0.9,r);
+        col += vec3(0.08,0.1,0.14) * edge * glassMask;
+
+        float alpha = 0.22 + 0.18 * glassMask;
+        gl_FragColor = vec4(col, alpha);
+    }
+`;
+
+const liquidMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+        time: { value: 0 },
+        tBackground: { value: feedbackRT2.texture },
+        resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+        curiosity: { value: 0 },
+        mood: { value: 0 },
+        fatigue: { value: 0 }
+    },
+    vertexShader: liquidVertexShader,
+    fragmentShader: liquidFragmentShader,
+    transparent: true
+});
+
+const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
+feedbackScene.add(liquidMesh);
+
+// --- Animate update ---
+function animate() {
+    requestAnimationFrame(animate);
+
+    // --- Затухание телесной памяти ---
+    for (let i = touchMemory.length - 1; i >= 0; i--) {
+        touchMemory[i].strength *= 0.992; // медленное заживление
+        if (touchMemory[i].strength < 0.02) {
+            touchMemory.splice(i, 1);
+        }
+    }
+
+    material.uniforms.time.value += 0.01;
+    particles.rotation.y += 0.0002;
+
+    // Artistic Glowing Orb animation with mode interpolation
+    orbMaterial.uniforms.time.value += 0.01;
+    soulOrbMesh.rotation.y += 0.001;
+
+    // Smoothly interpolate orb mode
+    updateOrbModeSmooth();
+    // живой отклик с микро‑нерешительностью
+    orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
+
+    // --- Суммарный телесный след ---
+    let skinMemory = 0.0;
+    for (const t of touchMemory) {
+        const dx = t.x - 0.5;
+        const dy = t.y - 0.5;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        skinMemory += t.strength * Math.exp(-dist * 6.0);
+    }
+    skinMemory = Math.min(1.0, skinMemory);
+
+    orbMaterial.uniforms.audioLevel.value = orbEnergy;
+    orbMaterial.uniforms.audioLevel.value += skinMemory * 0.08;
+    // рендер частиц в новый буфер
+    renderer.setRenderTarget(feedbackRT2);
+    renderer.clear();
+    renderer.render(scene, camera);
+
+    // смешиваем прошлый кадр + новый
+    feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+    feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+
+    // feed selfAwareness state into liquid shader
+    liquidMaterial.uniforms.curiosity.value = selfAwareness.curiosity ?? 0;
+    liquidMaterial.uniforms.mood.value = selfAwareness.mood ?? 0;
+    liquidMaterial.uniforms.fatigue.value = selfAwareness.fatigue ?? 0;
+
+    liquidMaterial.uniforms.time.value += 0.01;
+
+    renderer.setRenderTarget(null);
+    renderer.render(feedbackScene, feedbackCamera);
+
+    // swap feedbackRTs
+    const tmp = feedbackRT1;
+    feedbackRT1 = feedbackRT2;
+    feedbackRT2 = tmp;
+}
+animate();
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
