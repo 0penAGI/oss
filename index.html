@@ -91,13 +91,6 @@
             border: none;
         }
 
-        /* Prevent word breaks in transcript and glass-char */
-        #transcript .glass-char {
-            word-break: keep-all !important;      /* не разрывать слова */
-            overflow-wrap: anywhere;              /* разрешить перенос в любом месте, НО только если слово не помещается целиком */
-            hyphens: none;                        /* отключить автоматические дефисы */
-            white-space: pre-wrap;                /* сохранять переносы строк и пробелы, переносить по необходимости */
-        }
         /* Дополнительно для контейнера ответа, чтобы он вёл себя предсказуемо */
         #current-response {
             word-break: keep-all;
@@ -2644,43 +2637,74 @@ for (let i = 0; i < particleCount; i++) {
 
         // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
         // Плавный тайпрайтер-эффект для чанков (без разрыва слов)
+        // Новый typeWriterEffect — печатаем целыми словами, а внутри слова анимируем символы
         function typeWriterEffect(element, text) {
             return new Promise((resolve) => {
-                let i = 0;
+                // Разбиваем текст на слова и пробелы/переносы
+                const tokens = text.match(/(\s+|\S+|\n)/g) || [];
 
-                function nextDelay(char) {
-                    let base = 22;
-                    if (/[.,!?]/.test(char)) base += 120;
-                    if (/\n/.test(char)) base += 180;
-                    if (Math.random() < 0.08) base += 60;
-                    return base + Math.random() * 40;
-                }
+                let tokenIndex = 0;
 
-                function type() {
-                    if (i >= text.length) {
+                function typeNextToken() {
+                    if (tokenIndex >= tokens.length) {
                         resolve();
                         return;
                     }
 
-                    const span = document.createElement('span');
-                    let ch = text[i];
-                    if (ch === ' ') ch = '\u00A0'; // заменяем пробел на небьющийся
-                    span.textContent = ch;
-                    span.className = 'glass-char';
+                    const token = tokens[tokenIndex];
+                    tokenIndex++;
 
-                    // CSS для предотвращения разрыва слов
-                    span.style.whiteSpace = 'pre';
-                    span.style.wordBreak = 'keep-all';
-                    span.style.overflowWrap = 'normal';
+                    // Создаём контейнер для токена (слова или пробела/переноса)
+                    const tokenSpan = document.createElement('span');
+                    tokenSpan.style.display = 'inline'; // важно: не inline-block, чтобы не ломать перенос
 
-                    element.appendChild(span);
-                    element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    if (/\s|\n/.test(token)) {
+                        // Пробелы и переносы — просто добавляем как текст
+                        tokenSpan.textContent = token === '\n' ? '\n' : token.replace(/ /g, '\u00A0');
+                        element.appendChild(tokenSpan);
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        setTimeout(typeNextToken, 20); // быстро пропускаем пробелы
+                        return;
+                    }
 
-                    i++;
-                    setTimeout(type, nextDelay(text[i - 1]));
+                    // Это слово — печатаем посимвольно с анимацией
+                    let charIndex = 0;
+                    const word = token;
+
+                    function typeNextChar() {
+                        if (charIndex >= word.length) {
+                            // Слово допечатано — переходим к следующему токену
+                            setTimeout(typeNextToken, 30 + Math.random() * 50);
+                            return;
+                        }
+
+                        const ch = word[charIndex];
+                        const charSpan = document.createElement('span');
+                        charSpan.textContent = ch;
+                        charSpan.className = 'glass-char';
+
+                        // Ключ: не задаём white-space/pre/word-break на отдельных символах
+                        // Всё управление переносами — на уровне родительского контейнера
+                        tokenSpan.appendChild(charSpan);
+
+                        element.appendChild(tokenSpan); // добавляем контейнер слова сразу
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+
+                        charIndex++;
+
+                        // Задержка в зависимости от символа
+                        let delay = 22 + Math.random() * 30;
+                        if (/[.,!?]/.test(ch)) delay += 180;
+                        if (ch === '\n') delay += 200;
+                        if (Math.random() < 0.08) delay += 80;
+
+                        setTimeout(typeNextChar, delay);
+                    }
+
+                    typeNextChar();
                 }
 
-                type();
+                typeNextToken();
             });
         }
         
