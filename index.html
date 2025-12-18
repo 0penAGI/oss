@@ -338,11 +338,11 @@
         style.textContent = `
             #copy-popup {
                 position: absolute;
-                top: 88.16%;
+                top: 54.16%;
                 left: 50%;
                 transform: translate(-50%, -180%);
                 background: rgba(255,255,255,0.001);
-                color: #eee;
+                color: #dcc;
                 padding: 4px 10px;
                 font-size: 11px;
                 pointer-events: none;
@@ -1017,12 +1017,12 @@
             const breath = Math.sin(performance.now() * 0.0003) * 0.01; // медленнее и меньше амплитуда
 
             // минимальное случайное смещение для органичности
-            const jitter = (Math.random() - 0.3) * 0.001;
+            const jitter = (Math.random() - 0.1) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.3 + breath + jitter, 0.3 + breath + jitter);
+            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.5 + breath + jitter);
 
             // плавная интерполяция
-            prevFlow.lerp(targetFlow, 0.001); // ещё медленнее
+            prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
