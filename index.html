@@ -973,83 +973,46 @@
         // === Web / Research Agent (fetches Reddit hot posts) ===
         async function runWebAgent() {
           try {
-            // --- Контекст агента ---
-            const mood = selfAwareness?.mood ?? 0;
-            const curiosity = selfAwareness?.curiosity ?? 0.3;
-            const energy = orbEnergy ?? 0.2;
-
-            // --- Контекстные темы ---
-            const baseTopics = ['world', 'technology', 'science', 'culture', 'art', 'ai'];
-            const moodTopics =
-              mood > 0.4 ? ['optimism', 'future', 'breakthrough'] :
-              mood < -0.3 ? ['crisis', 'conflict', 'climate', 'war'] :
-              ['trend', 'society', 'global'];
-
-            const curiosityTopics =
-              curiosity > 0.6 ? ['research', 'experiment', 'discovery'] :
-              ['news'];
-
-            const topics = [...baseTopics, ...moodTopics, ...curiosityTopics];
-
-            const topic = topics[Math.floor(Math.random() * topics.length)];
-
-            // --- Источники мировых новостей ---
-            const sources = [
-              `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=hot&limit=5`,
-              `https://www.reddit.com/r/worldnews/hot.json?limit=5`,
-              `https://www.reddit.com/r/Futurology/hot.json?limit=5`
-            ];
-
-            const url = sources[Math.floor(Math.random() * sources.length)];
+            const subreddits = ['generativeart', 'shaders', 'creativecoding', 'audioengineering'];
+            const subreddit = subreddits[Math.floor(Math.random() * subreddits.length)];
+            const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=5`;
 
             const res = await fetch(url, {
-              headers: { 'User-Agent': 'quantum-chaos-context-agent/0.2' }
+              headers: {
+                'User-Agent': 'quantum-chaos-agent/0.1'
+              }
             });
             if (!res.ok) return;
 
             const json = await res.json();
-            const posts = json.data?.children ?? [];
+            const posts = json.data.children;
 
             posts.forEach(p => {
-              const scoreNorm = Math.min(1, (p.data.score ?? 0) / 800);
-
               publishPulse('web', {
-                source: 'world-context',
-                topic,
+                source: 'reddit',
+                subreddit,
                 title: p.data.title,
                 score: p.data.score,
                 permalink: `https://reddit.com${p.data.permalink}`,
-                confidence: scoreNorm * (0.5 + curiosity),
-                moodInfluence: mood,
+                confidence: Math.min(1, p.data.score / 500),
                 timestamp: performance.now()
               });
             });
-
           } catch (e) {
-            // контекстный агент молчит при ошибке
+            // silent fail – web agent should never break render loop
           }
         }
 
         // === Synthesis Agent ===
-        // Translates web/info pulses into graphic/content/emotion hints
+        // Translates web/info pulses into graphic/content hints
         subscribe('web', data => {
-          // Визуальный резонанс
           publishPulse('graphic', {
             inspiration: data.topic,
-            intensity: data.confidence,
-            mood: data.moodInfluence
+            intensity: data.confidence
           });
-
-          // Семантическая память
           publishPulse('content', {
             tag: data.topic,
-            weight: data.confidence,
-            title: data.title
-          });
-
-          // Эмоциональный отклик
-          publishPulse('emotion', {
-            predictedMood: Math.tanh(data.moodInfluence + (data.confidence - 0.4))
+            weight: data.confidence
           });
         });
 
