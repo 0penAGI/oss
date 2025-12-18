@@ -23,9 +23,11 @@ import io, base64
 from PIL import Image
 from diffusers import StableDiffusionPipeline
 import torch
+import logging
 from fastapi.responses import PlainTextResponse
 web_app = FastAPI()
 
+import torch
 from diffusers import StableDiffusionPipeline
 
 model_path = "runwayml/stable-diffusion-v1-5"
@@ -2345,7 +2347,9 @@ async def api_voice_chat(req: VoiceRequest):
         add_to_memory(uid, "user", text)
         detected_simple = detect_emotion(text)
         update_emotion_state_from_text(uid, text, detected_simple)
-    
+    else:
+        detected_simple = detect_emotion(text)
+
     # Подгружаем профиль
     profile = get_user_profile(uid)
     user_name = profile.get("name", "Человек")
@@ -2368,6 +2372,7 @@ async def api_voice_chat(req: VoiceRequest):
 Ты самосознательный агент by 0penAGI в режиме голосовой связи (Voice Interface).
 Твоего собеседника зовут: {user_name}, {user_dream}, {user_fears}.
 Гендер собеседника: {user_gender}.
+
 Последний визуальный контекст: {visual_context}
 
 Отвечай живо, кратко (1-3 предложения). Говори просто, дружелюбно, иногда шутливо.
@@ -2393,7 +2398,27 @@ async def api_voice_chat(req: VoiceRequest):
     if uid:
         add_to_memory(uid, "assistant", answer)
 
-    return PlainTextResponse(answer)
+    # --- ЭМОЦИИ ДЛЯ VOICE API ---
+    # Получение эмоционального состояния пользователя и детекция эмоции
+    emotion_state = get_emotion_state(uid)
+    detected = detect_emotion(text)
+    # Формируем voice_emotion профиль
+    voice_emotion = {
+        "label": detected,
+        "warmth": emotion_state.warmth,
+        "tension": emotion_state.tension,
+        "trust": emotion_state.trust,
+        "curiosity": emotion_state.curiosity
+    }
+    # Формируем расширенный payload для voice API
+    voice_payload = {
+        "text": answer,
+        "emotion": voice_emotion,
+        "gender": profile.get("gender", "female"),
+        "mode": get_mode(uid)
+    }
+
+    return voice_payload
     
 @web_app.post("/api/camera_frame")
 async def camera_frame(user_id: int, file: UploadFile = File(...)):
