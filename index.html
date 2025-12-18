@@ -970,68 +970,34 @@
           }
         }
 
-        // === Web / Research Agent (expanded: Reddit + world/news, soft context) ===
+        // === Web / Research Agent (fetches Reddit hot posts) ===
         async function runWebAgent() {
           try {
-            // --- derive soft context from recent memory ---
-            const recent = microMemory.slice(-6);
-            const contextWords = recent
-              .map(m => m.d?.inspiration || m.d?.tag)
-              .filter(Boolean);
-
-            const contextHint = contextWords[Math.floor(Math.random() * contextWords.length)] || 'technology';
-
-            // --- REDDIT ---
             const subreddits = ['generativeart', 'shaders', 'creativecoding', 'audioengineering'];
             const subreddit = subreddits[Math.floor(Math.random() * subreddits.length)];
-            const redditURL = `https://www.reddit.com/r/${subreddit}/hot.json?limit=4`;
+            const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=5`;
 
-            const redditRes = await fetch(redditURL, {
-              headers: { 'User-Agent': 'quantum-chaos-agent/0.2' }
+            const res = await fetch(url, {
+              headers: {
+                'User-Agent': 'quantum-chaos-agent/0.1'
+              }
             });
+            if (!res.ok) return;
 
-            if (redditRes.ok) {
-              const redditJson = await redditRes.json();
-              redditJson.data.children.forEach(p => {
-                publishPulse('web', {
-                  source: 'reddit',
-                  context: contextHint,
-                  title: p.data.title,
-                  score: p.data.score,
-                  permalink: `https://reddit.com${p.data.permalink}`,
-                  confidence: Math.min(1, p.data.score / 500),
-                  timestamp: performance.now()
-                });
+            const json = await res.json();
+            const posts = json.data.children;
+
+            posts.forEach(p => {
+              publishPulse('web', {
+                source: 'reddit',
+                subreddit,
+                title: p.data.title,
+                score: p.data.score,
+                permalink: `https://reddit.com${p.data.permalink}`,
+                confidence: Math.min(1, p.data.score / 500),
+                timestamp: performance.now()
               });
-            }
-
-            // --- WORLD / NEWS (RSS bridge, no auth) ---
-            const newsURL =
-              `https://api.allorigins.win/raw?url=` +
-              encodeURIComponent(`https://news.google.com/rss/search?q=${encodeURIComponent(contextHint)}`);
-
-            const newsRes = await fetch(newsURL);
-            if (newsRes.ok) {
-              const text = await newsRes.text();
-              const parser = new DOMParser();
-              const xml = parser.parseFromString(text, 'text/xml');
-              const items = [...xml.querySelectorAll('item')].slice(0, 4);
-
-              items.forEach(item => {
-                const title = item.querySelector('title')?.textContent;
-                const link = item.querySelector('link')?.textContent;
-                if (!title || !link) return;
-
-                publishPulse('web', {
-                  source: 'news',
-                  context: contextHint,
-                  title,
-                  permalink: link,
-                  confidence: 0.4,
-                  timestamp: performance.now()
-                });
-              });
-            }
+            });
           } catch (e) {
             // silent fail – web agent should never break render loop
           }
