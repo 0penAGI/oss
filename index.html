@@ -796,8 +796,9 @@
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         // Uniforms for flow interpolation
-        let prevFlow = new THREE.Vector2(0.55, 0.55);
-        let flow = new THREE.Vector2(0.55, 0.55);
+        let prevFlow = new THREE.Vector2(0.5, 0.5);
+        let flow = new THREE.Vector2(0.5, 0.5);
+        let flowVelocity = new THREE.Vector2(0.0, 0.0); // инерция потока
 
         const liquidVertexShader = `
             varying vec2 vUv;
@@ -1010,18 +1011,26 @@
 
             // Итоговое целевое смещение с subtle swirl
             let targetFlow = new THREE.Vector2(
-                0.5 + breath + audioPulse + swirl + shimmer,
-                0.5 + breath + audioPulse + swirl - shimmer
+                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 + shimmer * 0.4,
+                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 - shimmer * 0.4
             );
 
-            // Плавная интерполяция потока
-            prevFlow.lerp(targetFlow, 0.02);  // медленно, чтобы сохранить «дыхание»
+            // --- вязкая динамика вместо дерганья ---
+            const viscosity = 0.92;   // чем ближе к 1 — тем «желе»
+            const attraction = 0.015; // притяжение к цели
+
+            flowVelocity.multiplyScalar(viscosity);
+            flowVelocity.add(
+                targetFlow.clone().sub(prevFlow).multiplyScalar(attraction)
+            );
+
+            prevFlow.add(flowVelocity);
             flow.copy(prevFlow);
-            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
+
             liquidMaterial.uniforms.flow.value.copy(flow);
 
             // Медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.05;
+            liquidMaterial.uniforms.time.value += 0.025;
 
             renderer.render(feedbackScene, feedbackCamera);
 
