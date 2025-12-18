@@ -975,15 +975,80 @@
             publishPulse('ux', { prediction: true, mood: possibleMood });
         });
 
-        // Audio Agent: adapts sound/music to emotion/context/prediction
+        // --- Audio Agent: плавное включение/выключение музыки с fade и стабилизацией по среднему mood ---
+        // Глобальные переменные для аудиоуправления
+        let audioTargetVolume = 0;   // Целевой уровень громкости (0..1)
+        let audioCurrentVolume = 0;  // Текущий уровень громкости (0..1)
+        let lastAudioChangeTime = 0; // Время последнего изменения состояния музыки
+        let moodHistory = [];        // История последних mood для усреднения
+        const MOOD_HISTORY_SECONDS = 2.5; // Окно для усреднения (сек)
+        const AUDIO_COOLDOWN = 2.5; // Минимальное время между сменами состояния музыки (сек)
+
+        // Функция для обновления громкости музыки с плавным fade
+        function updateAudioVolume() {
+            // Плавная интерполяция к целевому значению
+            audioCurrentVolume += (audioTargetVolume - audioCurrentVolume) * 0.09;
+            // Если есть музыкальный движок — применяем
+            if (typeof setMusicVolume === 'function') {
+                setMusicVolume(audioCurrentVolume);
+            } else if (typeof musicGainNode !== 'undefined') {
+                // Web Audio API
+                musicGainNode.gain.value = audioCurrentVolume;
+            } else if (typeof musicAudio !== 'undefined') {
+                // HTMLAudioElement
+                musicAudio.volume = audioCurrentVolume;
+            }
+            // Если музыка выключена и громкость почти 0 — останавливаем полностью
+            if (typeof stopMusic === 'function' && audioTargetVolume < 0.05 && audioCurrentVolume < 0.06 && musicPlaying) {
+                stopMusic();
+            }
+        }
+
+        // Основная подписка Audio Agent
         subscribe('audio', data => {
-            // Example: adjust ambient/music based on mood/context
+            // Добавляем mood в историю
+            const now = performance.now();
+            if (typeof data.mood === 'number') {
+                moodHistory.push({ t: now, mood: data.mood });
+            }
+            // Удаляем устаревшие значения
+            const cutoff = now - MOOD_HISTORY_SECONDS * 1000;
+            moodHistory = moodHistory.filter(m => m.t >= cutoff);
+            // Считаем средний mood за последнее окно
+            let avgMood = 0;
+            if (moodHistory.length > 0) {
+                avgMood = moodHistory.reduce((a, b) => a + b.mood, 0) / moodHistory.length;
+            }
+
+            // --- Пороговые значения для включения/выключения музыки ---
+            const fadeInThreshold = 0.22;
+            const fadeOutThreshold = -0.22;
+            const nowSec = now / 1000;
+            const timeSinceLastChange = (now - lastAudioChangeTime) / 1000;
+
+            // --- Стабилизация: меняем состояние только если прошло достаточно времени ---
+            if (timeSinceLastChange > AUDIO_COOLDOWN) {
+                if (avgMood > fadeInThreshold && audioTargetVolume < 0.5) {
+                    // Включить музыку с fade-in
+                    audioTargetVolume = 1.0;
+                    if (typeof startMusic === 'function' && !musicPlaying) startMusic();
+                    lastAudioChangeTime = now;
+                } else if (avgMood < fadeOutThreshold && audioTargetVolume > 0.05) {
+                    // Отключить музыку с fade-out
+                    audioTargetVolume = 0.0;
+                    lastAudioChangeTime = now;
+                }
+            }
+            // --- Тематическая смена музыки по настроению (опционально) ---
             if (typeof playAmbient === 'function' && data.mood !== undefined) {
-                if (data.mood > 0.3) playAmbient('jungle');
-                else if (data.mood < -0.3) playAmbient('night');
+                if (avgMood > 0.3) playAmbient('jungle');
+                else if (avgMood < -0.3) playAmbient('night');
                 else playAmbient('forest');
             }
         });
+
+        // --- Запустить цикл плавного fade аудио ---
+        setInterval(updateAudioVolume, 80);
 
         // Emotion/Context Agent: integrates mood/context, triggers audio/graphic/content
         subscribe('emotion', data => {
