@@ -2981,6 +2981,30 @@
             // Добавляем внутренние заметки self-awareness
             if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
+            // Gather extended context for payload
+            const recentNotes = internalNotes.slice(-8);
+            const musicContext = {
+                genre: currentGenre,
+                genome: musicGenome,
+                aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
+                playing: !!musicPlaying
+            };
+            const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
+                ? memoryPalace.getRecentNodes(8)
+                : [];
+            const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
+
+            const payload = {
+                user_id: userId,
+                text: textWithContext,
+                gender: userGender,
+                lang: currentLang,
+                notes: recentNotes,
+                music: musicContext,
+                memory: memoryContext,
+                self_awareness: selfAwarenessContext
+            };
+
             const response = await fetch(
                 'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
                 {
@@ -2989,7 +3013,7 @@
                         'Content-Type': 'application/json',
                         'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
+                    body: JSON.stringify(payload)
                 }
             );
 
