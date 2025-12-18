@@ -995,41 +995,13 @@
             renderer.setRenderTarget(null);
 
             // --- Liquid Glass Layer flow calculation ---
-            const t = liquidMaterial.uniforms.time.value * 0.7;
-
-            // Дышащий эффект через синус
-            const breath = Math.sin(performance.now() * 0.0002) * 0.002;
-
-            // Аудиореактивный эффект на пульсацию
-            const audioPulse = (orbMaterial.uniforms.audioLevel.value ?? 0) * 0.05;
-
-            // --- Bass-driven swirl & shimmer ---
-            const bassFactor = Math.min(1.0, (orbMaterial.uniforms.audioLevel.value ?? 0) * 1.5);
-            const swirl = Math.sin(t * 0.8) * 0.008 * bassFactor;
-            const shimmer = Math.cos(t * 1.2) * 0.006 * bassFactor;
-
-            // Итоговое целевое смещение с subtle swirl
-            let targetFlow = new THREE.Vector2(
-                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 + shimmer * 0.4,
-                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 - shimmer * 0.4
-            );
-
-            // --- вязкая динамика вместо дерганья ---
-            const viscosity = 0.92;   // чем ближе к 1 — тем «желе»
-            const attraction = 0.015; // притяжение к цели
-
-            flowVelocity.multiplyScalar(viscosity);
-            flowVelocity.add(
-                targetFlow.clone().sub(prevFlow).multiplyScalar(attraction)
-            );
-
-            prevFlow.add(flowVelocity);
+            const t = liquidMaterial.uniforms.time.value * 0.005;
+            let targetFlow = new THREE.Vector2(Math.random(), Math.random());
+            prevFlow.lerp(targetFlow, 0.08);
             flow.copy(prevFlow);
-
+            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
-
-            // Медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.025;
+            liquidMaterial.uniforms.time.value += 0.001;
 
             renderer.render(feedbackScene, feedbackCamera);
 
@@ -1063,8 +1035,6 @@
 
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
-
-
 
         // ====== Self-Awareness Layer ======
         let selfAwareness = {
