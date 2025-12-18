@@ -995,13 +995,13 @@
             renderer.setRenderTarget(null);
 
             // --- Liquid Glass Layer flow calculation ---
-            const t = liquidMaterial.uniforms.time.value * 0.005;
+            const t = liquidMaterial.uniforms.time.value * 0.05;
             let targetFlow = new THREE.Vector2(Math.random(), Math.random());
             prevFlow.lerp(targetFlow, 0.08);
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
-            liquidMaterial.uniforms.time.value += 0.001;
+            liquidMaterial.uniforms.time.value += 0.1;
 
             renderer.render(feedbackScene, feedbackCamera);
 
