@@ -979,11 +979,9 @@
             }
             skinMemory = Math.min(1.0, skinMemory);
 
-            // Получаем аудио-сигнал из анализатора
-            const audioLevel = audioAnalyser?.getAverageLevel?.() ?? 0; // 0..1
-
-            // Обновляем аудиоуровень орба с учётом телесного следа и аудио
-            orbMaterial.uniforms.audioLevel.value = orbEnergy + skinMemory * 0.03 + audioLevel * 0.2;
+            // Update orb visual state (energy, skin memory)
+            orbMaterial.uniforms.audioLevel.value = orbEnergy;
+            orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
@@ -996,17 +994,16 @@
 
             renderer.setRenderTarget(null);
 
-            // --- Liquid Glass Layer flow calculation (smooth breathing, audio-reactive) ---
+        // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.7;
 
-            // медленный синус для дыхания
+        // медленный синус для дыхания
             const breath = Math.sin(performance.now() * 0.0003) * 0.01; // медленнее и меньше амплитуда
 
             // минимальное случайное смещение для органичности
             const jitter = (Math.random() - 0.5) * 0.001;
 
-            const audioPulse = audioLevel * 0.015;
-            let targetFlow = new THREE.Vector2(0.5 + breath + jitter + audioPulse, 0.5 + breath + jitter + audioPulse);
+            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.5 + breath + jitter);
 
             // плавная интерполяция
             prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
@@ -1014,18 +1011,18 @@
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-            // медленное увеличение времени
+        // медленное увеличение времени
             liquidMaterial.uniforms.time.value += 0.025;
 
-            renderer.render(feedbackScene, feedbackCamera);
+                renderer.render(feedbackScene, feedbackCamera);
 
-            // swap render targets
+                // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-            // Emulate multi-agent system: graphic, content, ux pulse every frame
+                // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
