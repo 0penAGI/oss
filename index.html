@@ -970,49 +970,111 @@
           }
         }
 
-        // === Web / Research Agent (fetches Reddit hot posts) ===
+        // === Web / Research Agent (Reddit + World News by Context) ===
         async function runWebAgent() {
           try {
-            const subreddits = ['generativeart', 'shaders', 'creativecoding', 'audioengineering'];
+            // --- 1. Собираем контекст из microMemory и эмоционального фона ---
+            const recentTopics = microMemory
+              .slice(-8)
+              .map(m => m.d?.tag || m.d?.inspiration || m.d?.trends)
+              .flat()
+              .filter(Boolean);
+
+            const emotionBias =
+              orbMaterial?.uniforms?.modeSmooth?.value ?? Math.random();
+
+            const fallbackTopics = [
+              'AI', 'artificial intelligence',
+              'generative art',
+              'creative coding',
+              'music technology',
+              'digital culture',
+              'climate',
+              'science discovery'
+            ];
+
+            const topicPool = recentTopics.length > 0
+              ? recentTopics
+              : fallbackTopics;
+
+            const topic =
+              topicPool[Math.floor(Math.random() * topicPool.length)];
+
+            // --- 2. Reddit ---
+            const subreddits = ['worldnews', 'technology', 'artificial', 'science'];
             const subreddit = subreddits[Math.floor(Math.random() * subreddits.length)];
-            const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=5`;
+            const redditURL = `https://www.reddit.com/r/${subreddit}/hot.json?limit=3`;
 
-            const res = await fetch(url, {
-              headers: {
-                'User-Agent': 'quantum-chaos-agent/0.1'
-              }
-            });
-            if (!res.ok) return;
+            fetch(redditURL, {
+              headers: { 'User-Agent': 'quantum-chaos-agent/0.2' }
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(json => {
+                if (!json) return;
+                json.data.children.forEach(p => {
+                  publishPulse('web', {
+                    source: 'reddit',
+                    domain: 'community',
+                    topic,
+                    title: p.data.title,
+                    score: p.data.score,
+                    confidence: Math.min(1, p.data.score / 800),
+                    timestamp: performance.now()
+                  });
+                });
+              })
+              .catch(() => {});
 
-            const json = await res.json();
-            const posts = json.data.children;
+            // --- 3. World News (Google News RSS, CORS‑safe via text fetch) ---
+            const newsURL =
+              `https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en-US&gl=US&ceid=US:en`;
 
-            posts.forEach(p => {
-              publishPulse('web', {
-                source: 'reddit',
-                subreddit,
-                title: p.data.title,
-                score: p.data.score,
-                permalink: `https://reddit.com${p.data.permalink}`,
-                confidence: Math.min(1, p.data.score / 500),
-                timestamp: performance.now()
-              });
-            });
+            fetch(newsURL)
+              .then(r => r.text())
+              .then(txt => {
+                const matches = [...txt.matchAll(/<title>([^<]+)<\/title>/g)]
+                  .slice(1, 5);
+
+                matches.forEach(m => {
+                  publishPulse('web', {
+                    source: 'news',
+                    domain: 'world',
+                    topic,
+                    title: m[1],
+                    confidence: 0.45 + emotionBias * 0.2,
+                    timestamp: performance.now()
+                  });
+                });
+              })
+              .catch(() => {});
+
           } catch (e) {
-            // silent fail – web agent should never break render loop
+            // Web agent must never crash the system
           }
         }
 
         // === Synthesis Agent ===
-        // Translates web/info pulses into graphic/content hints
+        // Translates web/info pulses into graphic/content/emotion hints
         subscribe('web', data => {
           publishPulse('graphic', {
-            inspiration: data.topic,
-            intensity: data.confidence
+            inspiration: data.title || data.topic,
+            intensity: data.confidence,
+            source: data.source
           });
+
           publishPulse('content', {
             tag: data.topic,
+            headline: data.title,
+            source: data.source,
             weight: data.confidence
+          });
+
+          publishPulse('emotion', {
+            from: 'world',
+            predictedMood:
+              data.domain === 'world'
+                ? 0.15
+                : 0.05
           });
         });
 
