@@ -3560,15 +3560,32 @@ async function maybeQueryWorld(state) {
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                 }
-                stream = await navigator.mediaDevices.getUserMedia({
+
+                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: добавляем audio: true (даже если не используем звук с камеры)
+            stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode },
-                    audio: false
+                    audio: true  // <-- это сохраняет доступ к микрофону!
                 });
+
+                // Если не нужен звук с камеры — отключаем аудиотрек сразу
+                const audioTrack = stream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = false;
+                    audioTrack.stop(); // или просто отключить: audioTrack.enabled = false;
+                }
+
                 cameraVideo.srcObject = stream;
                 cameraVideo.style.display = 'block';
+                cameraEnabled = true;
+                startCameraAnalysisLoop();
             } catch (e) {
-                // Не показывать alert, чтобы не мешать UI
+                console.error("Ошибка доступа к камере:", e);
                 cameraVideo.style.display = 'none';
+
+                // Если пользователь отказал — пробуем хотя бы голос восстановить
+                setTimeout(() => {
+                    recognition.start().catch(() => {});
+                }, 1000);
             }
         }
 
