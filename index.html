@@ -1910,6 +1910,79 @@
             });
         }
 
+// ===== World Gateway =====
+
+let lastWorldQuery = 0;
+const WORLD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+
+function moodToIntent(mood) {
+    if (mood > 0.6) return "creative inspiration generative art technology";
+    if (mood > 0.2) return "audio reactive graphics code";
+    if (mood < -0.3) return "philosophy consciousness emotion";
+    return null;
+}
+
+async function searchDuckDuckGo(query) {
+    try {
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+
+        const data = await resp.json();
+        const text =
+            data.AbstractText ||
+            data.RelatedTopics?.[0]?.Text ||
+            null;
+
+        return text
+            ? { source: "duckduckgo", text }
+            : null;
+    } catch (e) {
+        console.warn("[world] duckduckgo error", e);
+        return null;
+    }
+}
+
+async function searchGitHub(query) {
+    try {
+        const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=2`;
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+
+        const data = await resp.json();
+        const items = (data.items || []).map(
+            r => `${r.full_name}: ${r.description || "no description"}`
+        );
+
+        return items.length
+            ? { source: "github", text: items.join(" · ") }
+            : null;
+    } catch (e) {
+        console.warn("[world] github error", e);
+        return null;
+    }
+}
+
+async function maybeQueryWorld(state) {
+    const now = Date.now();
+    if (now - lastWorldQuery < WORLD_COOLDOWN) return;
+    if (!state || typeof state.mood !== "number") return;
+
+    const intent = moodToIntent(state.mood);
+    if (!intent) return;
+
+    lastWorldQuery = now;
+
+    const [ddg, gh] = await Promise.all([
+        searchDuckDuckGo(intent),
+        searchGitHub(intent)
+    ]);
+
+    [ddg, gh].filter(Boolean).forEach(res => {
+        noteObservation(`[world:${res.source}] ${res.text}`);
+    });
+}
+
        
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
@@ -2970,6 +3043,13 @@
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
+        // --- World Gateway: soft external glance ---
+        try {
+            maybeQueryWorld(selfAwareness);
+        } catch (e) {
+            console.warn("[world] gateway call failed", e);
+        }
+
         // Подготовка UI с курсором
         transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
 
@@ -2998,7 +3078,57 @@
                         'Content-Type': 'application/json',
                         'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
+                    body: JSON.stringify({
+                        user_id: userId,
+
+                        // основной текст
+                        text: textWithContext,
+
+                        // --- усиленный фронтовый контекст ---
+                        frontend_state: {
+                            affect: {
+                                mood: selfAwareness?.mood ?? null,
+                                curiosity: selfAwareness?.curiosity ?? null,
+                                fatigue: selfAwareness?.fatigue ?? null,
+                                focus: selfAwareness?.focus ?? null,
+                                dreaming: selfAwareness?.dreaming ?? false
+                            },
+
+                            cognition: {
+                                subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
+                                last_dream: selfAwareness?.lastDream ?? null,
+                                inner_monologue_depth: selfAwareness?.innerMonologue?.length ?? 0,
+                                narrative_depth: selfAwareness?.identity?.narrative?.length ?? 0
+                            },
+
+                            perception: {
+                                camera_enabled: cameraEnabled ?? false,
+                                camera_description: latestCameraDescription ?? null,
+                                music_playing: musicPlaying ?? false,
+                                music_genre: currentGenre ?? null
+                            },
+
+                            memory: {
+                                internal_notes_count: internalNotes.length,
+                                recent_internal_notes: internalNotes.slice(-5),
+                                memory_nodes: memoryPalace?.nodes?.size ?? 0
+                            },
+
+                            system: {
+                                lang: currentLang,
+                                gender: userGender ?? null,
+                                autonomy_active: !!autonomyInterval,
+                                timestamp: Date.now()
+                            }
+                        },
+
+                        // мета-информация события
+                        event: {
+                            source: "frontend",
+                            input_type: "voice",
+                            has_camera_context: !!latestCameraDescription
+                        }
+                    })
                 }
             );
 
