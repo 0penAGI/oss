@@ -918,26 +918,15 @@
             content: [],
             ux: []
         };
-        const extendedAgentChannels = {
-            audio: [],
-            prediction: [],
-            emotion: []
-        };
 
         function publishPulse(agentType, payload) {
-            if (agentChannels[agentType]) {
-                agentChannels[agentType].forEach(cb => cb(payload));
-            } else if (extendedAgentChannels[agentType]) {
-                extendedAgentChannels[agentType].forEach(cb => cb(payload));
-            }
+            if (!agentChannels[agentType]) agentChannels[agentType] = [];
+            agentChannels[agentType].forEach(cb => cb(payload));
         }
 
         function subscribe(agentType, callback) {
-            if (agentChannels[agentType]) {
-                agentChannels[agentType].push(callback);
-            } else if (extendedAgentChannels[agentType]) {
-                extendedAgentChannels[agentType].push(callback);
-            }
+            if (!agentChannels[agentType]) agentChannels[agentType] = [];
+            agentChannels[agentType].push(callback);
         }
 
         // Frontend Orb subscriptions: update orbMaterial and mesh on agent pulses
@@ -954,19 +943,6 @@
         });
         subscribe('ux', data => {
             orbEnergy += 0.02 * data.interaction;
-        });
-        // --- Подписки на расширенные каналы ---
-        subscribe('audio', data => {
-            // Обновление аудиопульса
-            playAudioPulse(data.payload);
-        });
-        subscribe('prediction', data => {
-            // Реакция UI на предсказанную анимацию
-            triggerFutureAnimation(data.payload);
-        });
-        subscribe('emotion', data => {
-            // Коррекция визуальных пульсов на основе эмоционального анализа
-            orbEnergy += 0.02 * data.intensity;
         });
 
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
@@ -1042,7 +1018,7 @@
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-            // Emulate multi-agent system: graphic, content, ux pulse every frame
+                // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
@@ -1051,16 +1027,6 @@
             );
             agentChannels.ux.forEach(cb =>
                 cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
-            );
-            // --- Имитация пульсов новых агентов ---
-            extendedAgentChannels.audio.forEach(cb =>
-                cb({ payload: { volume: Math.random(), frequency: 0.5 + Math.random()*0.5 } })
-            );
-            extendedAgentChannels.prediction.forEach(cb =>
-                cb({ payload: { futureMode: Math.floor(Math.random()*5) } })
-            );
-            extendedAgentChannels.emotion.forEach(cb =>
-                cb({ intensity: Math.random() })
             );
         }
         animate();
