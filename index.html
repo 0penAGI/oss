@@ -41,14 +41,15 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -20px); /* поднятие на 50px относительно текущего */
+            transform: translate(-50%, -20px);
             width: 100%;
             padding: 20px;
-            z-index: 5; /* выше шейдера, но ниже интерактивного орба */
+            z-index: 5;
             display: flex;
             flex-direction: column;
             align-items: center;
             user-select: none;
+            background: rgba(0,0,0,0.15); /* прозрачный слой */
         }
         .soul-container {
             position: relative;
@@ -338,11 +339,11 @@
         style.textContent = `
             #copy-popup {
                 position: absolute;
-                top: 53.1%;
+                top: 53.16%;
                 left: 50%;
                 transform: translate(-50%, -180%);
                 background: rgba(255,255,255,0.001);
-                color: #888;
+                color: #ccc;
                 padding: 4px 10px;
                 font-size: 11px;
                 pointer-events: none;
