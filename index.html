@@ -2257,9 +2257,11 @@ async function maybeQueryWorld(state) {
                 currentGenre = genre;
             }
         }
-
+        let audioBusy = false;
         // --- Музыкальный слой с поддержкой жанров, расширенный ---
         function startMusic() {
+            
+            audioBusy = true;
             if (musicPlaying) return;
             musicPlaying = true;
             // --- Memory Palace: фиксируем музыку как событие ---
@@ -2612,6 +2614,7 @@ async function maybeQueryWorld(state) {
         }
 
         function stopMusic() {
+            audioBusy = false;
             musicPlaying = false;
             if (beatOsc) beatOsc.stop();
             if (midiSynth) midiSynth.stop();
@@ -3313,10 +3316,17 @@ async function maybeQueryWorld(state) {
             });
             orb.dispatchEvent(clickEvent);
         }
+            
+
 
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
+            if (audioBusy) {
+                // отложить речь, не накладывать
+                setTimeout(() => speak(text), 400);
+                return;
+            }
 
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
