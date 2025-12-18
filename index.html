@@ -2046,6 +2046,38 @@
         // === Музыкальные жанры ===
         let currentGenre = 'pop'; // 'pop', 'electro', 'ambient', 'jazz'
 
+        // === AI notes stream global buffer ===
+        let currentAINotes = [];
+        /**
+         * Обновить поток AI-нот (push).
+         * @param {Array<{freq:number, duration:number, velocity:number}>} newNotes
+         */
+        function pushAINotes(newNotes) {
+            currentAINotes.push(...newNotes);
+            // Ограничиваем длину буфера
+            if (currentAINotes.length > 50) currentAINotes.splice(0, currentAINotes.length - 50);
+        }
+
+        /**
+         * Интеграция потоковой генерации нот ИИ.
+         * @param {Array<{freq:number, duration:number, velocity:number}>} noteStream
+         */
+        function updateMusicFromAI(noteStream) {
+            if (!granularEngine) return;
+            noteStream.forEach(note => {
+                // note: { freq, duration, velocity }
+                const osc = musicCtx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(note.freq, musicCtx.currentTime);
+                const gain = musicCtx.createGain();
+                gain.gain.setValueAtTime(note.velocity, musicCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(granularEngine.output);
+                osc.start();
+                osc.stop(musicCtx.currentTime + note.duration);
+            });
+        }
+
         /**
          * Переключить музыкальный жанр.
          * @param {string} genre - pop, electro, ambient, jazz
@@ -2107,6 +2139,10 @@
                     granularEngine.output.connect(convolver);
                     granularEngine.output.connect(masterGain);
                     granularEngine.start();
+                    // --- AI notes integration: play AI notes if present ---
+                    if (window.currentAINotes && currentAINotes.length > 0) {
+                        updateMusicFromAI(currentAINotes);
+                    }
                 })
                 .catch(()=>{});
 
