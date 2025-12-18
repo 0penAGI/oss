@@ -3324,99 +3324,97 @@
         }
 
         let cameraAnalysisInterval = null;
+        // Новая версия analyzeAndSendCameraFrame с улучшенной стабильностью
         async function analyzeAndSendCameraFrame() {
-            if (
-                cameraEnabled &&
-                cameraVideo.style.display === 'block' &&
-                cameraVideo.readyState >= 2 &&
-                cameraVideo.videoWidth > 0 && cameraVideo.videoHeight > 0
-            ) {
+            if (!cameraEnabled) return;
+
+            try {
+                // Проверяем видимость и готовность видео/канваса
+                if (
+                    cameraVideo.style.display !== 'block' ||
+                    cameraVideo.readyState < 2 ||
+                    cameraVideo.videoWidth <= 0 || cameraVideo.videoHeight <= 0
+                ) return;
+
                 visionCanvas.width = cameraVideo.videoWidth;
                 visionCanvas.height = cameraVideo.videoHeight;
                 visionCtx.drawImage(cameraVideo, 0, 0, visionCanvas.width, visionCanvas.height);
-                // Анализ с помощью OpenCV.js (например, лица)
-                let faceDesc = '';
-                let faceCount = 0;
-                try {
-                    if (!opencvReady || !cascadeLoaded) {
-                        // Откладываем вызов, если OpenCV не готов
-                        pendingVisionFrames.push([visionCanvas, visionCanvas.width, visionCanvas.height]);
-                        return;
-                    }
-                    let src = cv.imread(visionCanvas);
-                    let gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-                    let faces = new cv.RectVector();
-                    let msize = new cv.Size(0, 0);
-                    faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
-                    faceCount = faces.size();
-                    if (faceCount === 0) {
-                        faceDesc = 'Обнаружено лиц: 0';
-                    } else if (faceCount === 1) {
-                        faceDesc = 'Обнаружено лиц: 1';
-                    } else {
-                        faceDesc = `Обнаружено лиц: ${faceCount}`;
-                    }
-                    src.delete();
-                    gray.delete();
-                    faces.delete();
-                    msize.delete();
-                } catch (e) {
-                    faceDesc = 'Ошибка анализа изображения.';
-                }
 
-                // Анализ объектов через TensorFlow.js
+                let faceDesc = '';
                 let objectsDesc = '';
                 let detectedObjectsRu = [];
+
+                // --- OpenCV.js face detection ---
+                try {
+                    if (opencvReady && cascadeLoaded) {
+                        let src = null, gray = null, faces = null, msize = null;
+                        try {
+                            src = cv.imread(visionCanvas);
+                            if (!src || src.empty()) throw new Error("Canvas пустой или некорректный");
+                            gray = new cv.Mat();
+                            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+                            faces = new cv.RectVector();
+                            msize = new cv.Size(0, 0);
+                            faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, msize, msize);
+                            let count = faces.size();
+                            faceDesc = count === 0 ? 'Обнаружено лиц: 0' : `Обнаружено лиц: ${count}`;
+                        } finally {
+                            if (src) src.delete();
+                            if (gray) gray.delete();
+                            if (faces) faces.delete();
+                            if (msize) msize.delete();
+                        }
+                    } else {
+                        faceDesc = 'Лиц не анализируем (OpenCV не готов).';
+                    }
+                } catch(e) {
+                    console.error("Ошибка анализа лица:", e);
+                    faceDesc = 'Ошибка анализа лица.';
+                }
+
+                // --- TensorFlow.js object detection ---
                 try {
                     await loadTensorFlowIfNeeded();
                     if (tfReady && tfModel) {
-                        // Используем visionCanvas как источник
-                        // tfModel.detect возвращает промис с массивом объектов
                         const predictions = await tfModel.detect(visionCanvas);
-                        // predictions: [{class, score, bbox}, ...]
-                        // Ищем интересующие объекты
                         for (const obj of OBJECTS_OF_INTEREST) {
-                            // Проверяем, есть ли среди predictions хотя бы один из en
                             const found = predictions.find(p =>
-                                obj.en.some(enName =>
-                                    (p.class || p.className || "").toLowerCase().includes(enName)
-                                ) && p.score > 0.35
+                                obj.en.some(enName => (p.class || p.className || "").toLowerCase().includes(enName))
+                                && p.score > 0.35
                             );
                             if (found) detectedObjectsRu.push(obj.ru);
                         }
-                        if (detectedObjectsRu.length > 0) {
-                            objectsDesc = 'видны: ' + detectedObjectsRu.join(', ');
-                        }
+                        if (detectedObjectsRu.length > 0) objectsDesc = 'видны: ' + detectedObjectsRu.join(', ');
                     }
-                } catch (e) {
-                    // ignore
+                } catch(e) {
+                    console.error("Ошибка анализа объектов:", e);
                 }
 
-                // Составляем итоговое описание
-                let description = faceDesc;
-                if (objectsDesc) description += '; ' + objectsDesc + '.';
-                else description += '.';
+                latestCameraDescription = faceDesc + (objectsDesc ? '; ' + objectsDesc + '.' : '.');
 
-                // Сохраняем описание в глобальную переменную
-                latestCameraDescription = description;
+                // Self-Awareness
+                try {
+                    selfAwareness.analyzeFrame(latestCameraDescription);
+                    orb.classList.add('reflecting');
+                    setTimeout(() => orb.classList.remove('reflecting'), 1500);
+                } catch(e) {
+                    console.error("Ошибка selfAwareness:", e);
+                }
 
-                // ====== Self-Awareness Layer: анализируем кадр ======
-                selfAwareness.analyzeFrame(description);
-                orb.classList.add('reflecting');
-                setTimeout(() => orb.classList.remove('reflecting'), 1500);
-
-                // Отправляем на ngrok endpoint
+                // Отправка на сервер
                 try {
                     const userId = tg?.initDataUnsafe?.user?.id || 0;
                     await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                        body: JSON.stringify({ user_id: userId, description })
+                        body: JSON.stringify({ user_id: userId, description: latestCameraDescription })
                     });
-                } catch (e) {
-                    // ignore
+                } catch(e) {
+                    console.error("Ошибка отправки описания камеры:", e);
                 }
+            } catch(e) {
+                // Ловим любые неожиданные ошибки, не даём циклу упасть
+                console.error("Ошибка в analyzeAndSendCameraFrame:", e);
             }
         }
         function startCameraAnalysisLoop() {
