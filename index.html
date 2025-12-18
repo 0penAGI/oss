@@ -912,14 +912,46 @@
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // Update animate() to include liquid layer and orb mode interpolation
+        // --- Multi-Agent System Integration ---
+        const agentChannels = {
+            graphic: [],
+            content: [],
+            ux: []
+        };
+
+        function publishPulse(agentType, payload) {
+            if (!agentChannels[agentType]) agentChannels[agentType] = [];
+            agentChannels[agentType].forEach(cb => cb(payload));
+        }
+
+        function subscribe(agentType, callback) {
+            if (!agentChannels[agentType]) agentChannels[agentType] = [];
+            agentChannels[agentType].push(callback);
+        }
+
+        // Frontend Orb subscriptions: update orbMaterial and mesh on agent pulses
+        subscribe('graphic', data => {
+            orbMaterial.uniforms.modeSmooth.value += (Math.random() - 0.5) * 0.1;
+            orbMaterial.uniforms.audioLevel.value += 0.01 * (data.motionSpeed * 10);
+        });
+        subscribe('content', data => {
+            soulOrbMesh.scale.set(
+                1 + 0.02 * Math.random(),
+                1 + 0.02 * Math.random(),
+                1 + 0.02 * Math.random()
+            );
+        });
+        subscribe('ux', data => {
+            orbEnergy += 0.02 * data.interaction;
+        });
+
+        // --- Animate with Multi-Agent Pulses and Orb Visual State ---
         function animate() {
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
-                touchMemory[i].strength *= 0.992; // медленное заживление
-
+                touchMemory[i].strength *= 0.992;
                 if (touchMemory[i].strength < 0.02) {
                     touchMemory.splice(i, 1);
                 }
@@ -947,54 +979,48 @@
             }
             skinMemory = Math.min(1.0, skinMemory);
 
+            // Update orb visual state (energy, skin memory)
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
-            // рендер частиц в новый буфер
+
+            // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
             renderer.render(scene, camera);
 
-            // смешиваем прошлый кадр + новый
+            // mix previous frame + new frame
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
             renderer.setRenderTarget(null);
 
             // --- Liquid Glass Layer flow calculation ---
-            // Calculate target flow based on current time, orbEnergy, and curiosity
             const t = liquidMaterial.uniforms.time.value * 0.005;
-            // Use the same fbm as in shader for consistency
-            function jsFbm(p) {
-                let v = 0.0;
-                let a = 0.5;
-                let _p = p.slice();
-                for (let i = 0; i < 4; i++) {
-                    v += a * (Math.sin(_p[0]*12.9898 + _p[1]*78.233 + i*0.1) * 43758.5453 % 1);
-                    _p[0] *= 2.0; _p[1] *= 2.0;
-                    a *= 0.5;
-                }
-                return v - Math.floor(v);
-            }
-            // Use Math.random for demo; ideally, match shader noise
-            let targetFlow = new THREE.Vector2(
-                Math.random(), // jsFbm([0.5 * 3.0 + t + orbEnergy * 0.5, 0.5 * 3.0]),
-                Math.random()  // jsFbm([0.5 * 3.0 - t + (selfAwareness?.curiosity ?? 0.0) * 0.3, 0.5 * 3.0])
-            );
-            // Interpolate prevFlow towards targetFlow
+            let targetFlow = new THREE.Vector2(Math.random(), Math.random());
             prevFlow.lerp(targetFlow, 0.08);
             flow.copy(prevFlow);
-            // Pass to shader
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
+            liquidMaterial.uniforms.time.value += 0.001;
 
-            // animate the liquid glass layer
-            liquidMaterial.uniforms.time.value += 0.01;
             renderer.render(feedbackScene, feedbackCamera);
 
-            // swap
+            // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
+
+            // --- Multi-Agent Pulses ---
+                // Emulate multi-agent system: graphic, content, ux pulse every frame
+            agentChannels.graphic.forEach(cb =>
+                cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
+            );
+            agentChannels.content.forEach(cb =>
+                cb({ assetId: crypto.randomUUID(), opacity: 0.5 + Math.random() * 0.5 })
+            );
+            agentChannels.ux.forEach(cb =>
+                cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
+            );
         }
         animate();
 
