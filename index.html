@@ -1415,7 +1415,49 @@
                         }
                     }
                 }
-            }
+            },
+
+            // === Забывание через interference (новые узлы размывают старые) ===
+            applyInterference(strength = 0.02) {
+                const newNodes = [...this.nodes.values()].filter(n => performance.now() - n.lastAccess < 3000);
+                this.nodes.forEach(node => {
+                    if (!newNodes.includes(node)) {
+                        node.activation *= (1 - strength);
+                    }
+                });
+            },
+
+            // === Мета-узлы: воспоминания о воспоминаниях ===
+            createMetaNode(nodeList) {
+                if (!nodeList || nodeList.length === 0) return;
+                const metaNode = {
+                    id: crypto.randomUUID(),
+                    type: 'meta',
+                    originalNodes: nodeList.map(n => n.id),
+                    emotion: nodeList.reduce((s, n) => s + (n.emotion ?? 0.5), 0) / nodeList.length,
+                    activation: 0,
+                    lastAccess: performance.now(),
+                    connections: []
+                };
+                this.addNode(metaNode);
+                nodeList.forEach(n => this.connect(metaNode.id, n.id, 0.5));
+            },
+
+            // === Consolidation: «окаменеваем» важные узлы со временем ===
+            consolidate(threshold = 1.5, decay = 0.995) {
+                this.nodes.forEach(node => {
+                    if (node.activation >= threshold) {
+                        node.activation *= 0.999;
+                    } else {
+                        node.activation *= decay;
+                    }
+                    if (node.connections) {
+                        node.connections.forEach(link => {
+                            link.weight *= decay;
+                        });
+                    }
+                });
+            },
         };
 
         // ===== Cross-Modal Learning: визуал ↔ музыка ↔ речь =====
@@ -1615,6 +1657,9 @@
 
             // --- Вставка в fullAutonomyLoop ---
             const echoFromPast = crossTemporalResonance();
+            // === Memory decay/interference and consolidation ===
+            memoryPalace.applyInterference(0.015);
+            memoryPalace.consolidate();
             if (echoFromPast.length > 0) {
                 soulOrbMesh.scale.set(
                     1 + 0.02 * echoFromPast.length,
