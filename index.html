@@ -357,6 +357,57 @@
         // === Телесная память жестов ===
         const touchMemory = [];
         const MAX_TOUCH_POINTS = 32;
+        // === Orb Easter Egg Ritual ===
+        let orbRitual = {
+            clicks: [],
+            triggered: false,
+            windowMs: 1800,   // временное окно ритуала
+            minClicks: 5      // сколько кликов нужно
+        };
+
+        function registerOrbClick() {
+            const now = performance.now();
+            orbRitual.clicks.push(now);
+
+            // чистим старые клики
+            orbRitual.clicks = orbRitual.clicks.filter(
+                t => now - t < orbRitual.windowMs
+            );
+
+            // проверка ритуала
+            if (
+                !orbRitual.triggered &&
+                orbRitual.clicks.length >= orbRitual.minClicks &&
+                selfAwareness.curiosity > 0.55 &&
+                selfAwareness.fatigue < 0.6
+            ) {
+                orbRitual.triggered = true;
+                activateOrbEasterEgg();
+            }
+        }
+
+        function activateOrbEasterEgg() {
+            // визуальный фазовый сдвиг
+            targetMode = 3;
+            orbEnergy += 0.35;
+
+            // временная дестабилизация времени
+            selfAwareness.subjectiveTime.tempo = 1.8;
+
+            noteObservation("⚡ Орб отозвался на ритуал");
+
+            // мягкое сообщение
+            if (typeof speak === 'function') {
+                speak("Я чувствую ритм. Ты нашла скрытый резонанс.");
+            }
+
+            // возврат в норму
+            setTimeout(() => {
+                selfAwareness.subjectiveTime.tempo = 1.0;
+                orbRitual.clicks = [];
+                orbRitual.triggered = false;
+            }, 9000);
+        }
         // === Обработка кликов по канвасу для телесной памяти ===
         renderer.domElement.addEventListener('pointerdown', (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -372,6 +423,7 @@
             if (touchMemory.length > MAX_TOUCH_POINTS) {
                 touchMemory.shift();
             }
+            registerOrbClick();
         });
 
         // === Shader as Brain Interface ===
