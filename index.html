@@ -912,28 +912,105 @@
         const liquidMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), liquidMaterial);
         feedbackScene.add(liquidMesh);
 
-        // --- Multi-Agent System Integration ---
+        // --- Multi-Agent System Integration (Extended Architecture) ---
+        // Agent channels for modular, cross-modal, and temporal interactions
+        // Data flow: Info Agent (sensor/observation) → Trend/Memory Agent (history, pattern) → Prediction Agent (future, what-if) → Audio Agent (music/sonic) → Emotion/Context Agent (affect, context) → Graphic, Content, UX
+        // Each agent can publish/subscribe to multiple modalities for cross-modal integration
         const agentChannels = {
             graphic: [],
             content: [],
-            ux: []
+            ux: [],
+            info: [],          // Info Agent: sensory/camera/observation
+            trend: [],         // Trend/Memory Agent: history and patterns
+            prediction: [],    // Prediction Agent: what-if, future, planning
+            audio: [],         // Audio Agent: music, sound, ambient
+            emotion: []        // Emotion/Context Agent: mood, context, affect
         };
 
+        /**
+         * Publish a pulse to an agent channel, triggering all subscribers.
+         * Example: publishPulse('info', {type:'camera', faces:2, objects:['cup']})
+         * @param {string} agentType
+         * @param {object} payload
+         */
         function publishPulse(agentType, payload) {
             if (!agentChannels[agentType]) agentChannels[agentType] = [];
             agentChannels[agentType].forEach(cb => cb(payload));
         }
 
+        /**
+         * Subscribe to an agent channel.
+         * Example: subscribe('emotion', data => { ... });
+         * @param {string} agentType
+         * @param {function} callback
+         */
         function subscribe(agentType, callback) {
             if (!agentChannels[agentType]) agentChannels[agentType] = [];
             agentChannels[agentType].push(callback);
         }
 
-        // Frontend Orb subscriptions: update orbMaterial and mesh on agent pulses
-        subscribe('graphic', data => {
-            orbMaterial.uniforms.modeSmooth.value += (Math.random() - 0.5) * 0.1;
-            orbMaterial.uniforms.audioLevel.value += 0.01 * (data.motionSpeed * 10);
+        // --- Agent Subscriptions (cross-modal integration) ---
+        // Info Agent: receives raw observations and emits to memory/trend agent
+        subscribe('info', data => {
+            // Forward to trend/memory agent
+            publishPulse('trend', { observation: data, timestamp: performance.now() });
         });
+
+        // Trend/Memory Agent: aggregates history, triggers prediction and emotion/context
+        subscribe('trend', data => {
+            // Example: compute moving average, detect novelty, etc.
+            const history = (window._trendHistory = window._trendHistory || []);
+            history.push(data.observation);
+            if (history.length > 20) history.shift();
+            // Forward to prediction and emotion/context agents
+            publishPulse('prediction', { history: [...history], last: data.observation });
+            publishPulse('emotion', { from: 'trend', history: [...history] });
+        });
+
+        // Prediction Agent: simulates/plans future, emits to emotion/context and ux
+        subscribe('prediction', data => {
+            // Example: predict possible state, plan action, etc.
+            const possibleMood = Math.random() * 2 - 1;
+            publishPulse('emotion', { from: 'prediction', predictedMood: possibleMood });
+            publishPulse('ux', { prediction: true, mood: possibleMood });
+        });
+
+        // Audio Agent: adapts sound/music to emotion/context/prediction
+        subscribe('audio', data => {
+            // Example: adjust ambient/music based on mood/context
+            if (typeof playAmbient === 'function' && data.mood !== undefined) {
+                if (data.mood > 0.3) playAmbient('jungle');
+                else if (data.mood < -0.3) playAmbient('night');
+                else playAmbient('forest');
+            }
+        });
+
+        // Emotion/Context Agent: integrates mood/context, triggers audio/graphic/content
+        subscribe('emotion', data => {
+            // Example: affect orb energy, trigger audio agent, update visuals
+            if (data.predictedMood !== undefined) {
+                orbEnergy += (data.predictedMood - orbEnergy) * 0.07;
+                publishPulse('audio', { mood: data.predictedMood });
+                publishPulse('graphic', { mood: data.predictedMood });
+            }
+            if (data.history) {
+                // Affect orb visuals based on history
+                orbMaterial.uniforms.modeSmooth.value += (Math.random() - 0.5) * 0.02;
+            }
+        });
+
+        // Graphic Agent: update orbMaterial and mesh on agent pulses
+        subscribe('graphic', data => {
+            if (data && data.mood !== undefined) {
+                orbMaterial.uniforms.modeSmooth.value += data.mood * 0.05 + (Math.random() - 0.5) * 0.03;
+                orbMaterial.uniforms.audioLevel.value += 0.01 * Math.abs(data.mood);
+            } else {
+                orbMaterial.uniforms.modeSmooth.value += (Math.random() - 0.5) * 0.1;
+                orbMaterial.uniforms.audioLevel.value += 0.01 * (data.motionSpeed ? data.motionSpeed * 10 : 0.1);
+            }
+        });
+
+        // Content Agent: update orb scale/content on agent pulses
         subscribe('content', data => {
             soulOrbMesh.scale.set(
                 1 + 0.02 * Math.random(),
@@ -941,11 +1018,17 @@
                 1 + 0.02 * Math.random()
             );
         });
+
+        // UX Agent: update orb energy/interactivity on agent pulses
         subscribe('ux', data => {
-            orbEnergy += 0.02 * data.interaction;
+            if (data && data.interaction !== undefined) {
+                orbEnergy += 0.02 * data.interaction;
+            } else if (data && data.prediction) {
+                orbEnergy += 0.01 * (data.mood ?? 0.1);
+            }
         });
 
-        // --- Animate with Multi-Agent Pulses and Orb Visual State ---
+        // --- Animation loop: integrates all agents and cross-modal feedback ---
         function animate() {
             requestAnimationFrame(animate);
 
@@ -1030,19 +1113,46 @@
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
-            // --- Multi-Agent Pulses ---
-                // Emulate multi-agent system: graphic, content, ux pulse every frame
+            // --- Multi-Agent Pulses (cross-modal, temporal, audio, emotion, etc.) ---
+            // Example: Info Agent pulse (camera/observation)
+            if (Math.random() < 0.12) {
+                publishPulse('info', {
+                    type: 'camera',
+                    faces: Math.floor(Math.random() * 4),
+                    objects: ['cup', 'book', 'plant'].filter(() => Math.random() < 0.4)
+                });
+            }
+            // Example: Audio Agent pulse (music/ambient)
+            if (Math.random() < 0.09) {
+                publishPulse('audio', {
+                    mood: orbEnergy * 2 - 1,
+                    ambient: true
+                });
+            }
+            // Example: Emotion Agent pulse (mood/context)
+            if (Math.random() < 0.08) {
+                publishPulse('emotion', {
+                    predictedMood: Math.sin(performance.now() * 0.0001)
+                });
+            }
+            // Example: UX Agent pulse (interactivity)
+            agentChannels.ux.forEach(cb =>
+                cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
+            );
+            // Example: Graphic and Content pulses (visual/semantic)
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
             agentChannels.content.forEach(cb =>
                 cb({ assetId: crypto.randomUUID(), opacity: 0.5 + Math.random() * 0.5 })
             );
-            agentChannels.ux.forEach(cb =>
-                cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
-            );
         }
         animate();
+
+        // --- Dataflow & Cross-Modal Integration Comments ---
+        // Data flows from Info Agent (camera/observation) → Trend/Memory Agent (history, novelty) → Prediction Agent (future) → Emotion/Context Agent (mood, affect) → Audio Agent (music/ambient) → Graphic/Content/UX.
+        // Each agent can trigger others, enabling cross-modal and multi-agent emergent behavior.
+        // Example: camera detects faces (info), trend agent updates history, prediction agent simulates new mood, emotion agent updates orb visuals & triggers audio agent for ambient, which in turn feeds back to orb visuals.
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
