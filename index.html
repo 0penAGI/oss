@@ -3331,7 +3331,8 @@ async function maybeQueryWorld(state) {
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
-            stopSpeakingVibration();
+            clearInterval(autonomyInterval);
+            stopListeningVibration();
             recognition.abort();
 
             // 2. Плавное визуальное переключение с анимацией
@@ -3349,7 +3350,7 @@ async function maybeQueryWorld(state) {
             });
 
             isSpeaking = true;
-
+            
             // gender-aware voice tuning
             let rate = 1.0;
             let pitch = 0.95;
@@ -3412,6 +3413,7 @@ async function maybeQueryWorld(state) {
 
                                 setTimeout(() => {
                                     startListening();
+                                    runAutonomy();
                                 }, 400);
                             });
                         }
