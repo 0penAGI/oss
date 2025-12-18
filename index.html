@@ -2158,19 +2158,19 @@ async function maybeQueryWorld(state) {
         let tapTimer = null;
 
         function orbClickHandler() {
-            vibrate('medium');
-            triggerAmbient();
 
-            // отслеживание частых тапов
-            tapCount++;
-            if (tapTimer) clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // сброс через 3 сек
+            // если активен ритуал — не мешаем
+            if (!orbRitual?.triggered) {
 
-            if (tapCount >= 5) {
-                // пасхалка
-                speak("Эй, ну всё! Хватит тыкать!");
-                tapCount = 0;
-                return;
+                tapCount++;
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
+
+                if (tapCount >= 5) {
+                    speak("Эй, ну всё! Хватит тыкать!");
+                    tapCount = 0;
+                    return;
+                }
             }
 
             if (typeof window.speechSynthesis?.resume === 'function') {
