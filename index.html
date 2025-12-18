@@ -3019,11 +3019,16 @@
             // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
             transcriptDiv.innerHTML = html;
-            // Prism.js highlighting
-            if (window.Prism && Prism.highlightAll) {
-                Prism.highlightAll();
-            } else if (window.Prism && Prism.highlightElement) {
-                transcriptDiv.querySelectorAll('code[class^="language-"], code[class*=" language-"]').forEach(function(block) {
+            // Prism.js: подсветка только новых code-блоков (динамически добавленных)
+            if (window.Prism) {
+                const blocks = transcriptDiv.querySelectorAll(
+                    'pre code[class^="language-"], pre code[class*=" language-"]'
+                );
+
+                blocks.forEach(block => {
+                    // Если Prism уже применялся — пропускаем
+                    if (block.querySelector('.token')) return;
+
                     Prism.highlightElement(block);
                 });
             }
