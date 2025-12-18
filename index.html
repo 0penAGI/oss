@@ -2248,11 +2248,12 @@ async function maybeQueryWorld(state) {
         let granularEngine = null;
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
-        masterGain.gain.value = 0.2;
-        let originalMasterGain = 0.2;
+        let originalMasterGain = 0.2;     // ← можно потом подкрутить до 0.15–0.18
         let isDucking = false;
 
-        masterGain.gain.value = originalMasterGain;
+        masterGain.gain.value = originalMasterGain; 
+
+
         // === Общий lowpass фильтр для всего микса ===
         let masterLP = musicCtx.createBiquadFilter();
         masterLP.type = 'lowpass';
@@ -2680,6 +2681,20 @@ async function maybeQueryWorld(state) {
             isDucking = false;
             masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
             masterGain.gain.setValueAtTime(0, musicCtx.currentTime);
+        }
+
+        function duckMusic() {
+            if (!musicPlaying || isDucking) return;
+            isDucking = true;
+            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
+            masterGain.gain.setTargetAtTime(0.04, musicCtx.currentTime, 0.15); // быстро до ~20%
+        }
+
+        function unduckMusic() {
+            if (!isDucking || !musicPlaying) return;
+            isDucking = false;
+            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
+            masterGain.gain.setTargetAtTime(originalMasterGain, musicCtx.currentTime, 0.4); // плавно назад за ~1.5 сек
         }
 
         // Расширенная автономность генерации под mood и curiosity
@@ -3397,6 +3412,7 @@ async function maybeQueryWorld(state) {
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
+            duckMusic(); // ← приглушаем музыку сразу при старте речи
             if (audioBusy) {
                 // отложить речь, не накладывать
                 setTimeout(() => speak(text), 400);
@@ -3485,6 +3501,8 @@ async function maybeQueryWorld(state) {
                                 if (tg?.HapticFeedback) {
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
+                                
+                                unduckMusic();
 
                                 setTimeout(() => {
                                     startListening();
