@@ -342,7 +342,7 @@
                 left: 50%;
                 transform: translate(-50%, -180%);
                 background: rgba(255,255,255,0.001);
-                color: #dcc;
+                color: #bbb;
                 padding: 4px 10px;
                 font-size: 11px;
                 pointer-events: none;
@@ -913,6 +913,8 @@
         feedbackScene.add(liquidMesh);
 
         // --- Multi-Agent System Integration (Extended Architecture) ---
+        // --- Audio playback state flag ---
+        let isAudioPlaying = false;
         // Agent channels for modular, cross-modal, and temporal interactions
         // Data flow: Info Agent (sensor/observation) → Trend/Memory Agent (history, pattern) → Prediction Agent (future, what-if) → Audio Agent (music/sonic) → Emotion/Context Agent (affect, context) → Graphic, Content, UX
         // Each agent can publish/subscribe to multiple modalities for cross-modal integration
@@ -1010,6 +1012,8 @@
 
         // Основная подписка Audio Agent
         subscribe('audio', data => {
+            if (isAudioPlaying) return;
+            isAudioPlaying = true;
             // Добавляем mood в историю
             const now = performance.now();
             if (typeof data.mood === 'number') {
@@ -1049,6 +1053,10 @@
                 else if (avgMood < -0.3) playAmbient('night');
                 else playAmbient('forest');
             }
+            setTimeout(() => {
+                fadeOutAudio?.(data.intensity ?? 0.4);
+                isAudioPlaying = false;
+            }, data.duration ?? 800);
         });
 
         // --- Запустить цикл плавного fade аудио ---
@@ -1234,12 +1242,13 @@
                     objects: ['cup', 'book', 'plant'].filter(() => Math.random() < 0.4)
                 });
             }
-            // Example: Audio Agent pulse (music/ambient)
-            if (Math.random() < 0.02) {
+            // --- Audio Agent (throttled, micro-fragments) ---
+            if (Math.random() < 0.025) {
                 publishPulse('audio', {
-                    mood: orbEnergy * 2 - 1,
-                    ambient: true
-                    
+                    mood: (orbEnergy * 2 - 1) * 0.6,
+                    ambient: true,
+                    duration: 400 + Math.random() * 600,
+                    intensity: 0.3 + Math.random() * 0.3
                 });
             }
             // Example: Emotion Agent pulse (mood/context)
