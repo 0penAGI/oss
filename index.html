@@ -2501,6 +2501,15 @@
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
+        musicCtx.onstatechange = () => {
+            if (musicCtx.state === 'closed') {
+                console.warn('[music] AudioContext was closed — recreating');
+                musicCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = musicCtx.createGain();
+                masterGain.gain.value = 0.2;
+                masterGain.connect(masterLP);
+            }
+        };
         // === Общий lowpass фильтр для всего микса ===
         let masterLP = musicCtx.createBiquadFilter();
         masterLP.type = 'lowpass';
@@ -2918,12 +2927,38 @@
         }
 
         function stopMusic() {
+            if (!musicPlaying) return;
             musicPlaying = false;
-            if (beatOsc) beatOsc.stop();
-            if (midiSynth) midiSynth.stop();
-            if (granularEngine) granularEngine.stop();
-        }
 
+            const now = musicCtx.currentTime;
+
+            // Плавный fade-out вместо убийства контекста
+            try {
+                masterGain.gain.cancelScheduledValues(now);
+                masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+                masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.8);
+            } catch(e){}
+
+            // Источники можно убивать — контекст нельзя
+            if (beatOsc) {
+                try { beatOsc.stop(now + 0.9); } catch(e){}
+                beatOsc = null;
+            }
+
+            if (midiSynth) {
+                try { midiSynth.stop?.(now + 0.9); } catch(e){}
+                midiSynth = null;
+            }
+
+            if (granularEngine) {
+                try { granularEngine.stop(); } catch(e){}
+                granularEngine = null;
+            }
+
+            // ❌ НИКОГДА:
+            // musicCtx.close()
+            // musicCtx.suspend()
+        }
         // Расширенная автономность генерации под mood и curiosity
         setInterval(() => {
             neuralMorph(musicGenome);
@@ -2944,6 +2979,7 @@
             if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
             if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
         }, 5000);
+        if (!musicPlaying) return;
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
