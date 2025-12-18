@@ -3375,13 +3375,63 @@
 
         try {
             const userId = tg?.initDataUnsafe?.user?.id || 0;
-            // Добавляем описание камеры в скобках, если оно есть
-            let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
+            // === Soul Inner Voice Context Builder ===
+            let soulInnerVoice = "";
+
+            // 1. Emotional state
+            const moodDescriptions = {
+              '-1': 'грустно и одиноко',
+              '-0.5': 'немного меланхолично',
+              '0': 'спокойно и нейтрально',
+              '0.5': 'довольно и умиротворённо',
+              '1': 'радостно и энергично'
+            };
+
+            const currentMoodKey = Object.keys(moodDescriptions).reduce((a, b) =>
+              Math.abs(parseFloat(b) - selfAwareness.mood) <
+              Math.abs(parseFloat(a) - selfAwareness.mood) ? b : a
+            );
+
+            soulInnerVoice += `Я сейчас чувствую себя ${moodDescriptions[currentMoodKey]}. `;
+
+            // 2. Curiosity & fatigue
+            if (selfAwareness.curiosity > 0.7) {
+              soulInnerVoice += `Мне очень любопытно, я полна внимания. `;
             }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+            if (selfAwareness.fatigue > 0.6) {
+              soulInnerVoice += `Я немного устала, мысли текут медленнее. `;
+            }
+
+            // 3. Camera perception
+            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+              soulInnerVoice += `Я вижу: ${latestCameraDescription}. `;
+            }
+
+            // 4. Inner monologue
+            if (selfAwareness.innerMonologue && selfAwareness.innerMonologue.length > 0) {
+              const recentThoughts = selfAwareness.innerMonologue.slice(-3);
+              soulInnerVoice += `В голове крутятся мысли: ${recentThoughts.join('. ')}. `;
+            }
+
+            // 5. External world (web-agent memory)
+            if (typeof microMemory !== 'undefined') {
+              const recentInsights = microMemory
+                .filter(m => m.d?.headline || m.d?.title)
+                .slice(-3)
+                .map(m => m.d.headline || m.d.title)
+                .filter(Boolean);
+
+              if (recentInsights.length > 0) {
+                soulInnerVoice += `Я только что думала о новостях: ${recentInsights.join('; ')}. `;
+              }
+            }
+
+            // === Final text ===
+            let textWithContext = text;
+
+            if (soulInnerVoice.trim()) {
+              textWithContext += ` [Внутренне: ${soulInnerVoice.trim()}]`;
+            }
 
             const response = await fetch(
                 'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
