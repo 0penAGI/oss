@@ -105,7 +105,8 @@
             word-break: keep-all !important;     /* не разрывать слова */
             overflow-wrap: break-word !important; /* переносить только по целым словам */
             hyphens: manual !important;           /* отключить автоматические переносы */
-            white-space: pre-wrap !important;     /* сохранять пробелы и переносы строк */
+            white-space: pre-wrap !important;
+            cursor: pointer;     /* сохранять пробелы и переносы строк */
         }
 
 
@@ -315,7 +316,14 @@
             navigator.clipboard.writeText(text)
                 .then(() => {
                     console.log('Текст скопирован в буфер обмена!');
-                    // Убираем подсветку, клик просто копирует текст
+                    // Мягкий визуальный flash при копировании
+                    transcriptDiv.style.transition = 'background 0.25s, color 0.25s';
+                    transcriptDiv.style.background = 'rgba(255,255,255,0.2)';
+                    transcriptDiv.style.color = 'rgba(255,255,255,1)';
+                    setTimeout(() => {
+                        transcriptDiv.style.background = 'transparent';
+                        transcriptDiv.style.color = 'rgba(255,255,255,0.6)';
+                    }, 250);
                 })
                 .catch(err => console.error('Ошибка копирования текста: ', err));
         });
