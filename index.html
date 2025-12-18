@@ -994,18 +994,29 @@
 
             renderer.setRenderTarget(null);
 
-            // --- Liquid Glass Layer flow calculation ---
-            const t = liquidMaterial.uniforms.time.value * 0.005;
-            let targetFlow = new THREE.Vector2(Math.random(), Math.random());
-            prevFlow.lerp(targetFlow, 0.08);
+        // --- Liquid Glass Layer flow calculation (breathing effect) ---
+            const t = liquidMaterial.uniforms.time.value * 0.7;
+
+        // медленный синус для дыхания
+            const breath = Math.sin(performance.now() * 0.0006) * 0.02;
+
+            // небольшое случайное смещение для органичности
+            const jitter = (Math.random() - 0.5) * 0.003;
+
+            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.5 + breath + jitter);
+
+            // плавная интерполяция
+            prevFlow.lerp(targetFlow, 0.02); // медленнее для мягкого дыхания
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
-            liquidMaterial.uniforms.time.value += 0.001;
 
-            renderer.render(feedbackScene, feedbackCamera);
+            // медленное увеличение времени
+            liquidMaterial.uniforms.time.value += 0.05;
 
-            // swap render targets
+                renderer.render(feedbackScene, feedbackCamera);
+
+                // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
