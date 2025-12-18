@@ -930,7 +930,8 @@
             social: [],        // отслеживает социальные/пользовательские взаимодействия
             dataMining: [],    // сбор внешних данных и трендов
             analytics: [],     // анализ UX и эффективности
-            knowledgeGraph: [] // граф знаний и связей
+            knowledgeGraph: [], // граф знаний и связей
+            web: [],           // Web/Research Agent channel
         };
 
         /**
@@ -954,6 +955,77 @@
             if (!agentChannels[agentType]) agentChannels[agentType] = [];
             agentChannels[agentType].push(callback);
         }
+
+        // === Minimal Agent Runtime (lightweight, no external deps) ===
+        const agentState = {
+          tick: 0,
+          lastRun: {}
+        };
+
+        function agentTick(name, intervalMs, fn) {
+          const now = performance.now();
+          if (!agentState.lastRun[name] || now - agentState.lastRun[name] > intervalMs) {
+            agentState.lastRun[name] = now;
+            fn();
+          }
+        }
+
+        // === Web / Research Agent (fetches Reddit hot posts) ===
+        async function runWebAgent() {
+          try {
+            const subreddits = ['generativeart', 'shaders', 'creativecoding', 'audioengineering'];
+            const subreddit = subreddits[Math.floor(Math.random() * subreddits.length)];
+            const url = `https://www.reddit.com/r/${subreddit}/hot.json?limit=5`;
+
+            const res = await fetch(url, {
+              headers: {
+                'User-Agent': 'quantum-chaos-agent/0.1'
+              }
+            });
+            if (!res.ok) return;
+
+            const json = await res.json();
+            const posts = json.data.children;
+
+            posts.forEach(p => {
+              publishPulse('web', {
+                source: 'reddit',
+                subreddit,
+                title: p.data.title,
+                score: p.data.score,
+                permalink: `https://reddit.com${p.data.permalink}`,
+                confidence: Math.min(1, p.data.score / 500),
+                timestamp: performance.now()
+              });
+            });
+          } catch (e) {
+            // silent fail – web agent should never break render loop
+          }
+        }
+
+        // === Synthesis Agent ===
+        // Translates web/info pulses into graphic/content hints
+        subscribe('web', data => {
+          publishPulse('graphic', {
+            inspiration: data.topic,
+            intensity: data.confidence
+          });
+          publishPulse('content', {
+            tag: data.topic,
+            weight: data.confidence
+          });
+        });
+
+        // === Memory Agent (very small) ===
+        const microMemory = [];
+        subscribe('graphic', d => {
+          microMemory.push({ t: performance.now(), type: 'graphic', d });
+          if (microMemory.length > 32) microMemory.shift();
+        });
+        subscribe('content', d => {
+          microMemory.push({ t: performance.now(), type: 'content', d });
+          if (microMemory.length > 32) microMemory.shift();
+        });
 
         // --- Agent Subscriptions (cross-modal integration) ---
         // Info Agent: receives raw observations and emits to memory/trend agent
@@ -1234,6 +1306,8 @@
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses (cross-modal, temporal, audio, emotion, etc.) ---
+            // --- Minimal agent scheduler ---
+            agentTick('web', 5000, runWebAgent);
             // Example: Info Agent pulse (camera/observation)
             if (Math.random() < 0.12) {
                 publishPulse('info', {
