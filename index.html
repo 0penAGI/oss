@@ -3130,11 +3130,11 @@ async function maybeQueryWorld(state) {
             const userId = tg?.initDataUnsafe?.user?.id || 0;
             // Добавляем описание камеры в скобках, если оно есть
             let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
+
+            // добавляем текстовый маркер внутреннего состояния (fallback для LLM)
+            if (internalNotes.length > 0) {
+                textWithContext += "\n[ВНУТРЕННЕ]: " + internalNotes.slice(-3).join(" | ");
             }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
             const response = await fetch(
                 'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
@@ -3149,6 +3149,20 @@ async function maybeQueryWorld(state) {
 
                         // основной текст
                         text: textWithContext,
+                        internal: {
+                            source: "ai",
+                            channel: "inner",
+                            marker: "Внутренне",
+                            stream: "self-awareness",
+                            notes: internalNotes.slice(-5),
+                            mood: selfAwareness?.mood ?? null,
+                            curiosity: selfAwareness?.curiosity ?? null,
+                            fatigue: selfAwareness?.fatigue ?? null,
+                            focus: selfAwareness?.focus ?? null,
+                            subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
+                            memory_nodes: memoryPalace?.nodes?.size ?? 0,
+                            timestamp: Date.now()
+                        },
 
                         // --- усиленный фронтовый контекст ---
                         frontend_state: {
