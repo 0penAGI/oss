@@ -2979,7 +2979,6 @@
             if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
             if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
         }, 5000);
-        if (!musicPlaying) return;
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
