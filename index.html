@@ -3093,6 +3093,44 @@ async function maybeQueryWorld(state) {
         }
     }
 
+    // ===== Агрегатор состояния фронта =====
+    function collectFrontendState() {
+        return {
+            affect: {
+                mood: selfAwareness?.mood ?? null,
+                curiosity: selfAwareness?.curiosity ?? null,
+                fatigue: selfAwareness?.fatigue ?? null,
+                focus: selfAwareness?.focus ?? null,
+                dreaming: selfAwareness?.dreaming ?? false
+            },
+
+            cognition: {
+                subjectiveTime: selfAwareness?.subjectiveTime?.tick ?? null,
+                lastDream: selfAwareness?.lastDream ?? null,
+                innerMonologueDepth: selfAwareness?.innerMonologue?.length ?? 0,
+                narrativeDepth: selfAwareness?.identity?.narrative?.length ?? 0
+            },
+
+            perception: {
+                lastCamera: latestCameraDescription ?? null,
+                cameraEnabled: typeof cameraEnabled !== 'undefined' ? cameraEnabled : false,
+                musicPlaying: musicPlaying ?? false,
+                genre: currentGenre ?? null
+            },
+
+            memory: {
+                nodesCount: memoryPalace?.nodes?.size ?? 0,
+                emotionalClusters: memoryPalace?.emotionalClusters?.length ?? 0,
+                recentObservations: selfAwareness?.lastObservations?.slice(-3) ?? []
+            },
+
+            system: {
+                time: Date.now(),
+                autonomyRunning: !!autonomyInterval
+            }
+        };
+    }
+
     async function sendToBot(text) {
         stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
         isThinking = true;
@@ -3147,52 +3185,20 @@ async function maybeQueryWorld(state) {
                     body: JSON.stringify({
                         user_id: userId,
 
-                        // основной текст
-                        text: textWithContext,
+                        type: "event",
 
-                        // --- усиленный фронтовый контекст ---
-                        frontend_state: {
-                            affect: {
-                                mood: selfAwareness?.mood ?? null,
-                                curiosity: selfAwareness?.curiosity ?? null,
-                                fatigue: selfAwareness?.fatigue ?? null,
-                                focus: selfAwareness?.focus ?? null,
-                                dreaming: selfAwareness?.dreaming ?? false
-                            },
+                        content: textWithContext,
 
-                            cognition: {
-                                subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
-                                last_dream: selfAwareness?.lastDream ?? null,
-                                inner_monologue_depth: selfAwareness?.innerMonologue?.length ?? 0,
-                                narrative_depth: selfAwareness?.identity?.narrative?.length ?? 0
-                            },
+                        source: "frontend",
 
-                            perception: {
-                                camera_enabled: cameraEnabled ?? false,
-                                camera_description: latestCameraDescription ?? null,
-                                music_playing: musicPlaying ?? false,
-                                music_genre: currentGenre ?? null
-                            },
+                        frontendState: collectFrontendState(),
 
-                            memory: {
-                                internal_notes_count: internalNotes.length,
-                                recent_internal_notes: internalNotes.slice(-5),
-                                memory_nodes: memoryPalace?.nodes?.size ?? 0
-                            },
-
-                            system: {
-                                lang: currentLang,
-                                gender: userGender ?? null,
-                                autonomy_active: !!autonomyInterval,
-                                timestamp: Date.now()
-                            }
-                        },
-
-                        // мета-информация события
-                        event: {
-                            source: "frontend",
-                            input_type: "voice",
-                            has_camera_context: !!latestCameraDescription
+                        meta: {
+                            lang: currentLang,
+                            gender: userGender ?? null,
+                            inputType: "voice",
+                            hasCameraContext: !!latestCameraDescription,
+                            timestamp: Date.now()
                         }
                     })
                 }
