@@ -338,11 +338,11 @@
         style.textContent = `
             #copy-popup {
                 position: absolute;
-                top: 86.16%;
+                top: 54.16%;
                 left: 50%;
                 transform: translate(-50%, -180%);
                 background: rgba(255,255,255,0.001);
-                color: #eee;
+                color: #dcc;
                 padding: 4px 10px;
                 font-size: 11px;
                 pointer-events: none;
@@ -357,57 +357,6 @@
         // === Телесная память жестов ===
         const touchMemory = [];
         const MAX_TOUCH_POINTS = 32;
-        // === Orb Easter Egg Ritual ===
-        let orbRitual = {
-            clicks: [],
-            triggered: false,
-            windowMs: 1800,   // временное окно ритуала
-            minClicks: 5      // сколько кликов нужно
-        };
-
-        function registerOrbClick() {
-            const now = performance.now();
-            orbRitual.clicks.push(now);
-
-            // чистим старые клики
-            orbRitual.clicks = orbRitual.clicks.filter(
-                t => now - t < orbRitual.windowMs
-            );
-
-            // проверка ритуала
-            if (
-                !orbRitual.triggered &&
-                orbRitual.clicks.length >= orbRitual.minClicks &&
-                selfAwareness.curiosity > 0.55 &&
-                selfAwareness.fatigue < 0.6
-            ) {
-                orbRitual.triggered = true;
-                activateOrbEasterEgg();
-            }
-        }
-
-        function activateOrbEasterEgg() {
-            // визуальный фазовый сдвиг
-            targetMode = 3;
-            orbEnergy += 0.35;
-
-            // временная дестабилизация времени
-            selfAwareness.subjectiveTime.tempo = 1.8;
-
-            noteObservation("⚡ Орб отозвался на ритуал");
-
-            // мягкое сообщение
-            if (typeof speak === 'function') {
-                speak("Я чувствую ритм. Ты нашла скрытый резонанс.");
-            }
-
-            // возврат в норму
-            setTimeout(() => {
-                selfAwareness.subjectiveTime.tempo = 1.0;
-                orbRitual.clicks = [];
-                orbRitual.triggered = false;
-            }, 9000);
-        }
         // === Обработка кликов по канвасу для телесной памяти ===
         renderer.domElement.addEventListener('pointerdown', (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -423,7 +372,6 @@
             if (touchMemory.length > MAX_TOUCH_POINTS) {
                 touchMemory.shift();
             }
-            registerOrbClick();
         });
 
         // === Shader as Brain Interface ===
@@ -438,7 +386,7 @@
 
             // целевая энергия (audioLevel)
             targetEnergy =
-                0.11 +
+                0.15 +
                 0.55 * curiosity +
                 0.35 * moodNorm -
                 0.4 * fatigue;
@@ -511,7 +459,7 @@
             vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
                 vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008)); 
                 float d = length(dir);
-                float anim = time * 0.168;
+                float anim = time * 0.3;
                 if (d > 0.98 && d < 1.02) {
                     float t = fract(sin(d * PI) * anim + c1.x);
                     return mix(c1, c2, t);
@@ -523,9 +471,9 @@
 
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0, 0.7), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.5, 1.0));
+                vec3 color = XDust(p, vec3(1.0, 0.005, 0.6), vec3(0.2, 0.8, 1.0), vec3(0.33, 0.5, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = 1.0 - smoothstep(0.0, 0.6, dist);
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
                 gl_FragColor = vec4(color * vColor, alpha * 0.8);
             }
         `;
@@ -629,7 +577,7 @@
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
         feedbackScene.add(quad);
 
-        const particleCount = window.innerWidth < 768 ? 4444 : 11111;
+        const particleCount = window.innerWidth < 768 ? 5555 : 15000;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
         const colors = new Float32Array(particleCount * 3);
@@ -848,9 +796,8 @@
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         // Uniforms for flow interpolation
-        let prevFlow = new THREE.Vector2(0.5, 0.5);
-        let flow = new THREE.Vector2(0.5, 0.5);
-        let flowVelocity = new THREE.Vector2(0.0, 0.0); // инерция потока
+        let prevFlow = new THREE.Vector2(0.55, 0.55);
+        let flow = new THREE.Vector2(0.55, 0.55);
 
         const liquidVertexShader = `
             varying vec2 vUv;
@@ -1048,41 +995,13 @@
             renderer.setRenderTarget(null);
 
             // --- Liquid Glass Layer flow calculation ---
-            const t = liquidMaterial.uniforms.time.value * 0.7;
-
-            // Дышащий эффект через синус
-            const breath = Math.sin(performance.now() * 0.0002) * 0.002;
-
-            // Аудиореактивный эффект на пульсацию
-            const audioPulse = (orbMaterial.uniforms.audioLevel.value ?? 0) * 0.05;
-
-            // --- Bass-driven swirl & shimmer ---
-            const bassFactor = Math.min(1.0, (orbMaterial.uniforms.audioLevel.value ?? 0) * 1.5);
-            const swirl = Math.sin(t * 0.8) * 0.008 * bassFactor;
-            const shimmer = Math.cos(t * 1.2) * 0.006 * bassFactor;
-
-            // Итоговое целевое смещение с subtle swirl
-            let targetFlow = new THREE.Vector2(
-                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 + shimmer * 0.4,
-                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 - shimmer * 0.4
-            );
-
-            // --- вязкая динамика вместо дерганья ---
-            const viscosity = 0.92;   // чем ближе к 1 — тем «желе»
-            const attraction = 0.015; // притяжение к цели
-
-            flowVelocity.multiplyScalar(viscosity);
-            flowVelocity.add(
-                targetFlow.clone().sub(prevFlow).multiplyScalar(attraction)
-            );
-
-            prevFlow.add(flowVelocity);
+            const t = liquidMaterial.uniforms.time.value * 0.005;
+            let targetFlow = new THREE.Vector2(Math.random(), Math.random());
+            prevFlow.lerp(targetFlow, 0.08);
             flow.copy(prevFlow);
-
+            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
-
-            // Медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.025;
+            liquidMaterial.uniforms.time.value += 0.001;
 
             renderer.render(feedbackScene, feedbackCamera);
 
@@ -1409,9 +1328,7 @@
 
             const questionPool = [
               'Между запросами..',
-              'Что я об этом думаю?..',
-              'Живу..',
-              'ИДЕЯ!!',
+              'Что ты об этом думаешь?..',
               'Теку...'
             ];
 
@@ -1973,79 +1890,6 @@
             });
         }
 
-// ===== World Gateway =====
-
-let lastWorldQuery = 0;
-const WORLD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
-
-function moodToIntent(mood) {
-    if (mood > 0.6) return "creative inspiration generative art technology";
-    if (mood > 0.2) return "audio reactive graphics code";
-    if (mood < -0.3) return "philosophy consciousness emotion";
-    return null;
-}
-
-async function searchDuckDuckGo(query) {
-    try {
-        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
-
-        const data = await resp.json();
-        const text =
-            data.AbstractText ||
-            data.RelatedTopics?.[0]?.Text ||
-            null;
-
-        return text
-            ? { source: "duckduckgo", text }
-            : null;
-    } catch (e) {
-        console.warn("[world] duckduckgo error", e);
-        return null;
-    }
-}
-
-async function searchGitHub(query) {
-    try {
-        const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=2`;
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
-
-        const data = await resp.json();
-        const items = (data.items || []).map(
-            r => `${r.full_name}: ${r.description || "no description"}`
-        );
-
-        return items.length
-            ? { source: "github", text: items.join(" · ") }
-            : null;
-    } catch (e) {
-        console.warn("[world] github error", e);
-        return null;
-    }
-}
-
-async function maybeQueryWorld(state) {
-    const now = Date.now();
-    if (now - lastWorldQuery < WORLD_COOLDOWN) return;
-    if (!state || typeof state.mood !== "number") return;
-
-    const intent = moodToIntent(state.mood);
-    if (!intent) return;
-
-    lastWorldQuery = now;
-
-    const [ddg, gh] = await Promise.all([
-        searchDuckDuckGo(intent),
-        searchGitHub(intent)
-    ]);
-
-    [ddg, gh].filter(Boolean).forEach(res => {
-        noteObservation(`[world:${res.source}] ${res.text}`);
-    });
-}
-
        
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
@@ -2160,19 +2004,19 @@ async function maybeQueryWorld(state) {
         let tapTimer = null;
 
         function orbClickHandler() {
+            vibrate('medium');
+            triggerAmbient();
 
-            // если активен ритуал — не мешаем
-            if (!orbRitual?.triggered) {
+            // отслеживание частых тапов
+            tapCount++;
+            if (tapTimer) clearTimeout(tapTimer);
+            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // сброс через 3 сек
 
-                tapCount++;
-                if (tapTimer) clearTimeout(tapTimer);
-                tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
-
-                if (tapCount >= 5) {
-                    speak("Эй, ну всё! Хватит тыкать!");
-                    tapCount = 0;
-                    return;
-                }
+            if (tapCount >= 5) {
+                // пасхалка
+                speak("Эй, ну всё! Хватит тыкать!");
+                tapCount = 0;
+                return;
             }
 
             if (typeof window.speechSynthesis?.resume === 'function') {
@@ -2248,12 +2092,7 @@ async function maybeQueryWorld(state) {
         let granularEngine = null;
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
-        let originalMasterGain = 0.2;     // ← можно потом подкрутить до 0.15–0.18
-        let isDucking = false;
-
-        masterGain.gain.value = originalMasterGain; 
-
-
+        masterGain.gain.value = 0.2;
         // === Общий lowpass фильтр для всего микса ===
         let masterLP = musicCtx.createBiquadFilter();
         masterLP.type = 'lowpass';
@@ -2316,11 +2155,9 @@ async function maybeQueryWorld(state) {
                 currentGenre = genre;
             }
         }
-        let audioBusy = false;
+
         // --- Музыкальный слой с поддержкой жанров, расширенный ---
         function startMusic() {
-            
-            audioBusy = true;
             if (musicPlaying) return;
             musicPlaying = true;
             // --- Memory Palace: фиксируем музыку как событие ---
@@ -2673,28 +2510,10 @@ async function maybeQueryWorld(state) {
         }
 
         function stopMusic() {
-            audioBusy = false;
             musicPlaying = false;
             if (beatOsc) beatOsc.stop();
             if (midiSynth) midiSynth.stop();
             if (granularEngine) granularEngine.stop();
-            isDucking = false;
-            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
-            masterGain.gain.setValueAtTime(0, musicCtx.currentTime);
-        }
-
-        function duckMusic() {
-            if (!musicPlaying || isDucking) return;
-            isDucking = true;
-            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
-            masterGain.gain.setTargetAtTime(0.04, musicCtx.currentTime, 0.15); // быстро до ~20%
-        }
-
-        function unduckMusic() {
-            if (!isDucking || !musicPlaying) return;
-            isDucking = false;
-            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
-            masterGain.gain.setTargetAtTime(originalMasterGain, musicCtx.currentTime, 0.4); // плавно назад за ~1.5 сек
         }
 
         // Расширенная автономность генерации под mood и curiosity
@@ -3131,13 +2950,6 @@ async function maybeQueryWorld(state) {
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
-        // --- World Gateway: soft external glance ---
-        try {
-            maybeQueryWorld(selfAwareness);
-        } catch (e) {
-            console.warn("[world] gateway call failed", e);
-        }
-
         // Подготовка UI с курсором
         transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
 
@@ -3152,11 +2964,11 @@ async function maybeQueryWorld(state) {
             const userId = tg?.initDataUnsafe?.user?.id || 0;
             // Добавляем описание камеры в скобках, если оно есть
             let textWithContext = text;
-
-            // добавляем текстовый маркер внутреннего состояния (fallback для LLM)
-            if (internalNotes.length > 0) {
-                textWithContext += "\n[ВНУТРЕННЕ]: " + internalNotes.slice(-3).join(" | ");
+            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                textWithContext = text + " (" + latestCameraDescription + ")";
             }
+            // Добавляем внутренние заметки self-awareness
+            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
             const response = await fetch(
                 'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
@@ -3166,71 +2978,7 @@ async function maybeQueryWorld(state) {
                         'Content-Type': 'application/json',
                         'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify({
-                        user_id: userId,
-
-                        // основной текст
-                        text: textWithContext,
-                        internal: {
-                            source: "ai",
-                            channel: "inner",
-                            marker: "Внутренне",
-                            stream: "self-awareness",
-                            notes: internalNotes.slice(-5),
-                            mood: selfAwareness?.mood ?? null,
-                            curiosity: selfAwareness?.curiosity ?? null,
-                            fatigue: selfAwareness?.fatigue ?? null,
-                            focus: selfAwareness?.focus ?? null,
-                            subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
-                            memory_nodes: memoryPalace?.nodes?.size ?? 0,
-                            timestamp: Date.now()
-                        },
-
-                        // --- усиленный фронтовый контекст ---
-                        frontend_state: {
-                            affect: {
-                                mood: selfAwareness?.mood ?? null,
-                                curiosity: selfAwareness?.curiosity ?? null,
-                                fatigue: selfAwareness?.fatigue ?? null,
-                                focus: selfAwareness?.focus ?? null,
-                                dreaming: selfAwareness?.dreaming ?? false
-                            },
-
-                            cognition: {
-                                subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
-                                last_dream: selfAwareness?.lastDream ?? null,
-                                inner_monologue_depth: selfAwareness?.innerMonologue?.length ?? 0,
-                                narrative_depth: selfAwareness?.identity?.narrative?.length ?? 0
-                            },
-
-                            perception: {
-                                camera_enabled: cameraEnabled ?? false,
-                                camera_description: latestCameraDescription ?? null,
-                                music_playing: musicPlaying ?? false,
-                                music_genre: currentGenre ?? null
-                            },
-
-                            memory: {
-                                internal_notes_count: internalNotes.length,
-                                recent_internal_notes: internalNotes.slice(-5),
-                                memory_nodes: memoryPalace?.nodes?.size ?? 0
-                            },
-
-                            system: {
-                                lang: currentLang,
-                                gender: userGender ?? null,
-                                autonomy_active: !!autonomyInterval,
-                                timestamp: Date.now()
-                            }
-                        },
-
-                        // мета-информация события
-                        event: {
-                            source: "frontend",
-                            input_type: "voice",
-                            has_camera_context: !!latestCameraDescription
-                        }
-                    })
+                    body: JSON.stringify({ user_id: userId, text: textWithContext, gender: userGender })
                 }
             );
 
@@ -3406,27 +3154,15 @@ async function maybeQueryWorld(state) {
             });
             orb.dispatchEvent(clickEvent);
         }
-            
-
 
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
-            if (audioBusy) {
-                // отложить речь, не накладывать
-                setTimeout(() => speak(text), 400);
-                return;
-            }
-
-            // === DUCKING MUSIC ===
-            let wasMusicPlaying = musicPlaying;
-            if (musicPlaying) duckMusic();
 
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
-            clearInterval(autonomyInterval);
-            stopListeningVibration();
+            stopSpeakingVibration();
             recognition.abort();
 
             // 2. Плавное визуальное переключение с анимацией
@@ -3444,7 +3180,7 @@ async function maybeQueryWorld(state) {
             });
 
             isSpeaking = true;
-            
+
             // gender-aware voice tuning
             let rate = 1.0;
             let pitch = 0.95;
@@ -3494,9 +3230,6 @@ async function maybeQueryWorld(state) {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
 
-                            // === UNDUCK MUSIC IF WAS PLAYING ===
-                            if (wasMusicPlaying) unduckMusic();
-
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
                                 isSpeaking = false;
@@ -3510,7 +3243,6 @@ async function maybeQueryWorld(state) {
 
                                 setTimeout(() => {
                                     startListening();
-                                    runAutonomy();
                                 }, 400);
                             });
                         }
@@ -3589,32 +3321,15 @@ async function maybeQueryWorld(state) {
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                 }
-
-                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: добавляем audio: true (даже если не используем звук с камеры)
-            stream = await navigator.mediaDevices.getUserMedia({
+                stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode },
-                    audio: true  // <-- это сохраняет доступ к микрофону!
+                    audio: false
                 });
-
-                // Если не нужен звук с камеры — отключаем аудиотрек сразу
-                const audioTrack = stream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = false;
-                    audioTrack.stop(); // или просто отключить: audioTrack.enabled = false;
-                }
-
                 cameraVideo.srcObject = stream;
                 cameraVideo.style.display = 'block';
-                cameraEnabled = true;
-                startCameraAnalysisLoop();
             } catch (e) {
-                console.error("Ошибка доступа к камере:", e);
+                // Не показывать alert, чтобы не мешать UI
                 cameraVideo.style.display = 'none';
-
-                // Если пользователь отказал — пробуем хотя бы голос восстановить
-                setTimeout(() => {
-                    recognition.start().catch(() => {});
-                }, 1000);
             }
         }
 
