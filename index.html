@@ -3418,6 +3418,10 @@ async function maybeQueryWorld(state) {
                 return;
             }
 
+            // === DUCKING MUSIC ===
+            let wasMusicPlaying = musicPlaying;
+            if (musicPlaying) duckMusic();
+
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
@@ -3489,6 +3493,9 @@ async function maybeQueryWorld(state) {
                     const waitForSpeechEnd = setInterval(() => {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
+
+                            // === UNDUCK MUSIC IF WAS PLAYING ===
+                            if (wasMusicPlaying) unduckMusic();
 
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
