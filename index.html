@@ -1028,7 +1028,7 @@
             const fadeInThreshold = 0.22;
             const fadeOutThreshold = -0.22;
             const nowSec = now / 1000;
-            const timeSinceLastChange = (now - lastAudioChangeTime) / 1000;
+            const timeSinceLastChange = (now - lastAudioChangeTime) / 10000;
 
             // --- Стабилизация: меняем состояние только если прошло достаточно времени ---
             if (timeSinceLastChange > AUDIO_COOLDOWN) {
@@ -1235,10 +1235,11 @@
                 });
             }
             // Example: Audio Agent pulse (music/ambient)
-            if (Math.random() < 0.09) {
+            if (Math.random() < 0.02) {
                 publishPulse('audio', {
                     mood: orbEnergy * 2 - 1,
                     ambient: true
+                    
                 });
             }
             // Example: Emotion Agent pulse (mood/context)
