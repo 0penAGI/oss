@@ -3410,7 +3410,6 @@ async function maybeQueryWorld(state) {
 
 
         // Говорит текст с плавными переходами
-
         function speak(text) {
             if (!text || !text.trim()) return;
             if (audioBusy) {
@@ -3419,11 +3418,9 @@ async function maybeQueryWorld(state) {
                 return;
             }
 
-            // === FULL STOP MUSIC ===
+            // === DUCKING MUSIC ===
             let wasMusicPlaying = musicPlaying;
-            if (musicPlaying) {
-                stopMusic();  // Полностью остановить музыку
-            }
+            if (musicPlaying) duckMusic();
 
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
@@ -3447,7 +3444,7 @@ async function maybeQueryWorld(state) {
             });
 
             isSpeaking = true;
-
+            
             // gender-aware voice tuning
             let rate = 1.0;
             let pitch = 0.95;
@@ -3497,10 +3494,8 @@ async function maybeQueryWorld(state) {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
 
-                            // === RESTART MUSIC IF WAS PLAYING ===
-                            if (wasMusicPlaying) {
-                                startMusic();  // Запустить музыку заново
-                            }
+                            // === UNDUCK MUSIC IF WAS PLAYING ===
+                            if (wasMusicPlaying) unduckMusic();
 
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
@@ -3573,7 +3568,8 @@ async function maybeQueryWorld(state) {
 
             // Начинаем озвучку с небольшой задержкой
             setTimeout(speakNext, 100);
-        }   
+        }
+        
         // ambient обработчик теперь реализован выше
         
         window.addEventListener('load', () => {
