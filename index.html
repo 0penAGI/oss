@@ -3412,7 +3412,6 @@ async function maybeQueryWorld(state) {
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
-            duckMusic(); // ← приглушаем музыку сразу при старте речи
             if (audioBusy) {
                 // отложить речь, не накладывать
                 setTimeout(() => speak(text), 400);
@@ -3501,8 +3500,6 @@ async function maybeQueryWorld(state) {
                                 if (tg?.HapticFeedback) {
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
-                                
-                                unduckMusic();
 
                                 setTimeout(() => {
                                     startListening();
