@@ -2249,6 +2249,10 @@ async function maybeQueryWorld(state) {
         let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
+        let originalMasterGain = 0.2;
+        let isDucking = false;
+
+        masterGain.gain.value = originalMasterGain;
         // === Общий lowpass фильтр для всего микса ===
         let masterLP = musicCtx.createBiquadFilter();
         masterLP.type = 'lowpass';
@@ -2673,6 +2677,9 @@ async function maybeQueryWorld(state) {
             if (beatOsc) beatOsc.stop();
             if (midiSynth) midiSynth.stop();
             if (granularEngine) granularEngine.stop();
+            isDucking = false;
+            masterGain.gain.cancelScheduledValues(musicCtx.currentTime);
+            masterGain.gain.setValueAtTime(0, musicCtx.currentTime);
         }
 
         // Расширенная автономность генерации под mood и curiosity
