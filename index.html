@@ -998,17 +998,25 @@
             const t = liquidMaterial.uniforms.time.value * 0.7;
 
             // Дышащий эффект через синус
-            const breath = Math.sin(performance.now() * 0.0006) * 0.02; // медленный синус
-            let targetFlow = new THREE.Vector2(0.5 + breath, 0.5 + breath);
+            const breath = Math.sin(performance.now() * 0.0002) * 0.002;
+
+            // Аудиореактивный эффект на пульсацию
+            const audioPulse = (orbMaterial.uniforms.audioLevel.value ?? 0) * 0.05;
+
+            // Итоговое целевое смещение
+            let targetFlow = new THREE.Vector2(
+                0.5 + breath + audioPulse,
+                0.5 + breath + audioPulse
+            );
 
             // Плавная интерполяция потока
-            prevFlow.lerp(targetFlow, 0.02);  // медленнее для мягкого дыхания
+            prevFlow.lerp(targetFlow, 0.02);  // медленно, чтобы сохранить «дыхание»
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
             // Медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.05;  // плавнее
+            liquidMaterial.uniforms.time.value += 0.05;
 
             renderer.render(feedbackScene, feedbackCamera);
 
