@@ -316,17 +316,44 @@
             navigator.clipboard.writeText(text)
                 .then(() => {
                     console.log('Текст скопирован в буфер обмена!');
-                    // Мягкий визуальный flash при копировании
-                    transcriptDiv.style.transition = 'background 0.25s, color 0.25s';
-                    transcriptDiv.style.background = 'rgba(255,255,255,0.2)';
-                    transcriptDiv.style.color = 'rgba(255,255,255,1)';
+                    // ===== Popup для уведомления о копировании =====
+                    copyPopup.style.opacity = '1';
+                    copyPopup.style.transform = 'translate(-50%, -200%)';
                     setTimeout(() => {
-                        transcriptDiv.style.background = 'transparent';
-                        transcriptDiv.style.color = 'rgba(255,255,255,0.6)';
-                    }, 250);
+                        copyPopup.style.opacity = '0';
+                        copyPopup.style.transform = 'translate(-50%, -180%)';
+                    }, 1000);
                 })
                 .catch(err => console.error('Ошибка копирования текста: ', err));
         });
+
+        // ===== Popup для уведомления о копировании =====
+        let copyPopup = document.createElement('div');
+        copyPopup.id = 'copy-popup';
+        copyPopup.textContent = 'Text copied';
+        document.body.appendChild(copyPopup);
+
+        // CSS для попапа
+        const style = document.createElement('style');
+        style.textContent = `
+            #copy-popup {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -180%);
+                background: rgba(255,255,255,0.9);
+                color: #000;
+                padding: 4px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.25s ease, transform 0.25s ease;
+                z-index: 20;
+                user-select: none;
+            }
+            `;
+        document.head.appendChild(style);
 
         // === Телесная память жестов ===
         const touchMemory = [];
