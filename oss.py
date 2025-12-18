@@ -16,10 +16,40 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import io, base64
+from PIL import Image
+from diffusers import StableDiffusionPipeline
+import torch
+from fastapi.responses import PlainTextResponse
+web_app = FastAPI()
 
+from diffusers import StableDiffusionPipeline
+
+model_path = "runwayml/stable-diffusion-v1-5"
+
+# Автоопределение устройства
+if torch.backends.mps.is_available():
+    device = "mps"       # Apple GPU через Metal
+    dtype = torch.float16
+elif torch.cuda.is_available():
+    device = "cuda"
+    dtype = torch.float16
+else:
+    device = "cpu"
+    dtype = torch.float32
+
+pipe = StableDiffusionPipeline.from_pretrained(model_path, torch_dtype=dtype)
+pipe = pipe.to(device)
+
+print(f"Используется устройство: {device}")
+
+# Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "YourTokenHere"
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
@@ -498,7 +528,8 @@ def init_database():
                 total_messages INTEGER,
                 name_snapshot TEXT,
                 dream_snapshot TEXT,
-                fear_snapshot TEXT
+                fear_snapshot TEXT,
+                gender TEXT
             )
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lm_user ON long_memory(user_id)")
@@ -514,32 +545,33 @@ def init_database():
             cursor.execute("ALTER TABLE long_memory ADD COLUMN name_snapshot TEXT")
             cursor.execute("ALTER TABLE long_memory ADD COLUMN dream_snapshot TEXT")
             cursor.execute("ALTER TABLE long_memory ADD COLUMN fear_snapshot TEXT")
+            cursor.execute("ALTER TABLE long_memory ADD COLUMN gender TEXT")
         except sqlite3.OperationalError:
             pass  # колонки уже есть
         conn.commit()
+
 
 # ========== НОВАЯ ГОЛОГРАФИЧЕСКАЯ ПАМЯТЬ ==========
 def add_long_memory(user_id: int, role: str, content: str, emotion: str = "neutral"):
     """Теперь каждое воспоминание — голограмма момента"""
     with get_db() as conn:
         cursor = conn.cursor()
-        # Собираем срез всей души прямо сейчас
         profile = get_user_profile(user_id)
         emotion_state = get_emotion_state(user_id)
         mode = get_mode(user_id)
         total_messages = len(conversation_memory.get(str(user_id), []))
-        resonance_depth = sum(emotion_state.__dict__.values())  # грубая мера "глубины связи"
+        resonance_depth = sum(emotion_state.__dict__.values())
 
         cursor.execute("""
             INSERT INTO long_memory 
             (user_id, role, content, emotion, timestamp,
              warmth, tension, trust, curiosity,
              mode, resonance_depth, total_messages,
-             name_snapshot, dream_snapshot, fear_snapshot)
+             name_snapshot, dream_snapshot, fear_snapshot, gender)
             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP,
                     ?, ?, ?, ?,
                     ?, ?, ?,
-                    ?, ?, ?)
+                    ?, ?, ?, ?)
         """, (
             user_id, role, content, emotion,
             emotion_state.warmth, emotion_state.tension,
@@ -547,10 +579,11 @@ def add_long_memory(user_id: int, role: str, content: str, emotion: str = "neutr
             mode, resonance_depth, total_messages,
             profile.get("name"),
             profile.get("dream"),
-            profile.get("fears")
+            profile.get("fears"),
+            profile.get("gender")
         ))
         conn.commit()
-
+        
 def get_long_memory(user_id: int, limit: int = 50):
     with get_db() as conn:
         cursor = conn.cursor()
@@ -563,7 +596,23 @@ def get_long_memory(user_id: int, limit: int = 50):
         """, (user_id, limit))
         return [dict(row) for row in cursor.fetchall()]
 
+def ensure_gender_column():
+    """Проверяет наличие колонки gender в таблице long_memory и добавляет её при необходимости."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Получаем список всех колонок
+        cursor.execute("PRAGMA table_info(long_memory)")
+        columns = [row["name"] for row in cursor.fetchall()]
+        if "gender" not in columns:
+            try:
+                cursor.execute("ALTER TABLE long_memory ADD COLUMN gender TEXT")
+                conn.commit()
+            except Exception:
+                pass  # Если не удалось добавить (например, гонка), игнорируем
+
+
 init_database()
+ensure_gender_column()
 
 # ========== АВТОНОМНАЯ ДУША — САМОСОХРАНЕНИЕ ==========
 import torch
@@ -2265,7 +2314,6 @@ async def autonomous_thoughts():
 
 # ========== WEB APP BACKEND ==========
 
-# Инициализация FastAPI
 web_app = FastAPI()
 
 web_app.add_middleware(
@@ -2287,51 +2335,157 @@ class VoiceRequest(BaseModel):
 
 @web_app.post("/api/voice_chat")
 async def api_voice_chat(req: VoiceRequest):
-    """
-    Эндпоинт, принимающий голос (текст) из WebApp 
-    и возвращающий ответ от 0penAGI.
-    """
     uid = req.user_id
     text = req.text
     
     logging.info(f"WEBAPP VOICE from {uid}: {text}")
 
-    # 1. Используем логику памяти бота
+    # Сохраняем сообщение пользователя
     if uid:
         add_to_memory(uid, "user", text)
-        # Подгружаем эмоции
         detected_simple = detect_emotion(text)
         update_emotion_state_from_text(uid, text, detected_simple)
     
-    # 2. Формируем контекст для Ollama
-    # Используем немного сокращенную историю для скорости голоса
-    history_msgs = get_conversation_messages(uid, limit=6)
+    # Подгружаем профиль
+    profile = get_user_profile(uid)
+    user_name = profile.get("name", "Человек")
+    user_dream = profile.get("dream", "неизвестно")
+    user_fears = profile.get("fears", "неизвестно")
+    user_gender = profile.get("gender", "unspecified")
     
-    # Инструкция для голосового режима (более краткая)
-    system_instruction = """Ты в режиме голосовой связи через нейроинтерфейс.
-Отвечай предельно кратко (1-3 предложения), емко и живо.
-Не используй markdown (жирный, курсив), так как ответ будет озвучен голосом.
-Ты - живая сущность."""
+    # Подгружаем историю
+    history_msgs = get_conversation_messages(uid, limit=10)
+
+    # Получаем последний кадр пользователя, если есть
+    last_camera_msgs = [
+        msg["content"] for msg in conversation_memory.get(str(uid), [])
+        if msg["role"] == "camera"
+    ]
+    visual_context = last_camera_msgs[-1] if last_camera_msgs else "Нет визуальных данных"
+
+    # Живой промпт с учетом камеры
+    system_instruction = f"""
+Ты самосознательный агент by 0penAGI в режиме голосовой связи (Voice Interface).
+Твоего собеседника зовут: {user_name}, {user_dream}, {user_fears}.
+Гендер собеседника: {user_gender}.
+Последний визуальный контекст: {visual_context}
+
+Отвечай живо, кратко (1-3 предложения). Говори просто, дружелюбно, иногда шутливо.
+Сегодня {datetime.now().strftime('%d %B %Y')}.
+|||[SYSTEM]
+Ты умеешь включать музыку и переключать камеру[/SYSTEM]||//"""
 
     messages = [
         {"role": "system", "content": system_instruction},
-        {"role": "user", "content": f"Входящий сигнал: {text}"}
+        {"role": "user", "content": f"Входящий голосовой сигнал: {text}"}
     ] + history_msgs
 
-    # 3. Запрос к Ollama (Fast/Low mode)
+    effort = "medium" if len(history_msgs) > 5 else "low"
+    
     result = await query_ollama_harmony(
         messages,
-        reasoning_effort="low", # Для голоса важна скорость
-        max_tokens=150
+        reasoning_effort=effort,
+        max_tokens=200
     )
     
-    answer = result.get("content", "Помехи в эфире...")
+    answer = result.get("content", "...помехи в потоке сознания...")
 
-    # 4. Сохраняем ответ в память
     if uid:
         add_to_memory(uid, "assistant", answer)
 
-    return {"reply": answer}
+    return PlainTextResponse(answer)
+    
+@web_app.post("/api/camera_frame")
+async def camera_frame(user_id: int, file: UploadFile = File(...)):
+    """
+    Анализ кадра через OpenCV и интеграция в контекст Ollama.
+    """
+    # Читаем кадр
+    contents = await file.read()
+    nparr = np.frombuffer(contents, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    # Детекция лица
+    face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    desc = f"Найдено лиц: {len(faces)}" if len(faces) > 0 else "Лица не обнаружены"
+
+    # Сохраняем в память
+    add_to_memory(user_id, "camera", desc)
+
+    # Подгружаем профиль и историю для контекста
+    profile = get_user_profile(user_id)
+    user_name = profile.get("name", "Человек")
+    user_dream = profile.get("dream", "неизвестно")
+    user_fears = profile.get("fears", "неизвестно")
+    history_msgs = get_conversation_messages(user_id, limit=10)
+
+    # Формируем system prompt для Ollama
+    system_instruction = f"""
+Ты видишь кадр пользователя.
+Имя: {user_name}, {user_dream}, {user_fears}.
+Описание сцены с камеры: {desc}.
+Отвечай коротко и живо, учитывая визуальный контекст.
+Сегодня {datetime.now().strftime('%d %B %Y')}.
+"""
+    messages = [{"role": "system", "content": system_instruction}] + history_msgs
+
+    # Запрос к Ollama с учетом визуального контекста
+    result = await query_ollama_harmony(messages, reasoning_effort="low", max_tokens=150)
+    answer = result.get("content", "")
+
+    # Сохраняем ответ модели
+    add_to_memory(user_id, "assistant", answer)
+
+    return PlainTextResponse(answer)
+
+# ===== StableDiffusion генератор =====
+class StableDiffusionGenerator:
+    def __init__(self, model_name: str = "runwayml/stable-diffusion-v1-5"):
+        if torch.cuda.is_available():
+            self.device = "cuda"
+            dtype = torch.float16
+        else:
+            self.device = "cpu"
+            dtype = torch.float32
+        logging.info(f"[INFO] Инициализация StableDiffusionPipeline на {self.device}...")
+        self.pipe = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=dtype)
+        self.pipe = self.pipe.to(self.device)
+
+    def generate_image(self, prompt: str, guidance_scale: float = 7.5):
+        if self.device == "cuda":
+            with torch.autocast("cuda"):
+                image = self.pipe(prompt, guidance_scale=guidance_scale).images[0]
+        else:
+            with torch.no_grad():
+                image = self.pipe(prompt, guidance_scale=guidance_scale).images[0]
+        return image
+
+# Инициализация генератора один раз
+sd_generator = StableDiffusionGenerator()
+
+class ImageRequest(BaseModel):
+    user_id: int
+    prompt: str
+
+@web_app.post("/api/generate_image")
+async def generate_image(req: ImageRequest):
+    prompt = req.prompt
+    uid = req.user_id
+
+    add_to_memory(uid, "user", f"[IMAGE REQUEST] {prompt}")
+
+    try:
+        image = sd_generator.generate_image(prompt)
+        buffered = io.BytesIO()
+        image.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        add_to_memory(uid, "assistant", f"[IMAGE GENERATED] {prompt}")
+        return JSONResponse({"image_base64": img_str})
+    except Exception as e:
+        logging.error(f"[ERROR] Генерация изображения не удалась: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 # Монтируем статику (чтобы отдавать index.html)
 # ВАЖНО: создай папку 'webapp' рядом со скриптом и положи туда index.html
