@@ -96,7 +96,10 @@
             backdrop-filter: none;
             box-shadow: none;
             border: none;
-    
+           
+            user-select: none; /* полностью запретить выделение */
+            cursor: pointer;   /* показать, что можно кликнуть */
+
             /* Важные правила для предотвращения разрыва слов */
             word-break: keep-all !important;     /* не разрывать слова */
             overflow-wrap: break-word !important; /* переносить только по целым словам */
@@ -112,6 +115,10 @@
             hyphens: manual !important;
             white-space: pre-wrap !important;
             display: inline;
+            #transcript {
+            user-select: none; /* полностью запретить выделение */
+            cursor: pointer;   /* показать, что можно кликнуть */
+}
         }
 
         /* Code formatting for transcript code blocks */
@@ -297,6 +304,20 @@
         let orbEnergy = 0;        // 0..1 — текущая энергия
         let targetEnergy = 0.25; // baseline listening
         let responseInertia = 0.08; // базовая инерция реакции (чем меньше — тем медленнее)
+
+        const transcriptDiv = document.getElementById('transcript');
+
+        transcriptDiv.addEventListener('click', () => {
+            const text = transcriptDiv.innerText;
+            if (!text) return;
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    console.log('Текст скопирован в буфер обмена!');
+                    // Убираем подсветку, клик просто копирует текст
+                })
+                .catch(err => console.error('Ошибка копирования текста: ', err));
+        });
 
         // === Телесная память жестов ===
         const touchMemory = [];
@@ -1777,7 +1798,6 @@
         const orb = document.getElementById('orb');
         const orbInteractive = document.getElementById('orb-interactive');
         const status = document.getElementById('status');
-        const transcriptDiv = document.getElementById('transcript');
         const generatedImg = document.getElementById('img');
 
         // ===== Ambient Nature Sounds (только по клику) =====
