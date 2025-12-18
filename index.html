@@ -1460,51 +1460,70 @@
     
         // ===== Predictive Imagination: симуляция будущего =====
     const futureSimulator = {
-        imagine(steps = 5) {
+        imagine(steps = 5, dialogueOptions = []) {
             const futures = [];
             let currentState = {
                 mood: selfAwareness.mood,
                 curiosity: selfAwareness.curiosity,
-                faces: Number(latestCameraDescription?.match(/\d+/)?.[0] || 0)
+                faces: Number(latestCameraDescription?.match(/\d+/)?.[0] || 0),
+                dialoguePath: []
             };
 
             for (let i = 0; i < steps; i++) {
-                // 1. резонанс с прошлым опытом
+                // 1. Резонанс с прошлым опытом
                 const similar = memoryPalace.stimulate({
                     emotion: (currentState.mood + 1) / 2,
                     context: ['observation', 'crossmodal']
                 });
-
-                // 2. эмоциональный дрейф
                 if (similar.length > 0) {
-                    const avgEmotion =
-                    similar.reduce((s, n) => s + (n.emotion ?? 0.5), 0) / similar.length;
-
+                    const avgEmotion = similar.reduce((s, n) => s + (n.emotion ?? 0.5), 0) / similar.length;
                     currentState.mood += (avgEmotion - 0.5) * 0.1;
                 }
 
-                // 3. динамика любопытства
-                currentState.curiosity =
-                currentState.curiosity * 0.95 +
-                (Math.random() - 0.5) * 0.01;
+                // 2. Динамика любопытства
+                currentState.curiosity = currentState.curiosity * 0.95 + (Math.random() - 0.5) * 0.01;
+
+                // 3. Симуляция диалоговых веток
+                if (dialogueOptions.length > 0) {
+                    const choice = dialogueOptions[Math.floor(Math.random() * dialogueOptions.length)];
+                    currentState.dialoguePath.push(choice);
+                    const nodes = [...memoryPalace.nodes.values()].filter(n => n.type === 'crossmodal' && n.visual === choice);
+                    if (nodes.length > 0) {
+                        const deltaMood = nodes.reduce((s, n) => s + (n.moodDelta ?? 0), 0) / nodes.length;
+                        currentState.mood += deltaMood * 0.1;
+                    }
+                }
+
+                // 4. Counterfactual memory generation
+                if (Math.random() < 0.2 && memoryPalace.nodes.size > 0) {
+                    const pastNode = [...memoryPalace.nodes.values()][Math.floor(Math.random() * memoryPalace.nodes.size)];
+                    memoryPalace.addNode({
+                        id: crypto.randomUUID(),
+                        type: 'counterfactual',
+                        originalId: pastNode.id,
+                        emotion: (currentState.mood + 1) / 2,
+                        timestamp: performance.now(),
+                        connections: []
+                    });
+                }
 
                 futures.push({
                     ...currentState,
                     step: i,
                     timestamp: performance.now()
                 });
-                }
-
-                return futures;
-            },
-
-            evaluate(futures) {
-                return futures.reduce(
-                    (best, f) => (f.mood > best.mood ? f : best),
-                    futures[0]
-                );
             }
-        };
+
+            return futures;
+        },
+
+        evaluate(futures) {
+            return futures.reduce(
+                (best, f) => (f.mood > best.mood ? f : best),
+                futures[0]
+            );
+        }
+    };
 
         // ====== Self-Autonomy Layer: автономность и внутренний диалог ======
         // ====== Enhanced AI Autonomy Layer ======
