@@ -924,7 +924,11 @@
             trend: [],         // Trend/Memory Agent: history and patterns
             prediction: [],    // Prediction Agent: what-if, future, planning
             audio: [],         // Audio Agent: music, sound, ambient
-            emotion: []        // Emotion/Context Agent: mood, context, affect
+            emotion: [],       // Emotion/Context Agent: mood, context, affect
+            social: [],        // отслеживает социальные/пользовательские взаимодействия
+            dataMining: [],    // сбор внешних данных и трендов
+            analytics: [],     // анализ UX и эффективности
+            knowledgeGraph: [] // граф знаний и связей
         };
 
         /**
@@ -1093,6 +1097,49 @@
             }
         });
 
+        // --- Social Agent ---
+        subscribe('social', data => {
+            if (typeof data.interactionLevel === 'number') {
+                publishPulse('emotion', { predictedMood: data.interactionLevel * 2 - 1 });
+                publishPulse('graphic', { mood: data.interactionLevel });
+                publishPulse('audio', { mood: data.interactionLevel * 0.6 });
+            }
+        });
+
+        // --- Data Mining Agent ---
+        subscribe('dataMining', data => {
+            if (data.trends) {
+                publishPulse('analytics', { insights: data.trends });
+                publishPulse('content', { trends: data.trends });
+            }
+        });
+
+        // --- Analytics Agent ---
+        subscribe('analytics', data => {
+            if (data.insights && orbMaterial?.uniforms?.modeSmooth) {
+                orbMaterial.uniforms.modeSmooth.value += 0.01 * data.insights.length;
+                orbMaterial.uniforms.modeSmooth.value = Math.min(
+                    4,
+                    orbMaterial.uniforms.modeSmooth.value
+                );
+            }
+        });
+
+        // --- Knowledge Graph Agent ---
+        subscribe('knowledgeGraph', data => {
+            if (!data.entities || !Array.isArray(data.entities)) return;
+            data.entities.forEach(entity => {
+                memoryPalace.addNode({
+                    id: crypto.randomUUID(),
+                    type: 'entity',
+                    label: entity,
+                    emotion: (selfAwareness.mood + 1) / 2,
+                    timestamp: performance.now(),
+                    connections: []
+                });
+            });
+        });
+
         // --- Animation loop: integrates all agents and cross-modal feedback ---
         function animate() {
             requestAnimationFrame(animate);
@@ -1198,6 +1245,24 @@
             if (Math.random() < 0.08) {
                 publishPulse('emotion', {
                     predictedMood: Math.sin(performance.now() * 0.0001)
+                });
+            }
+            // --- Extended Multi-Agent Pulses ---
+            if (Math.random() < 0.06) {
+                publishPulse('social', {
+                    interactionLevel: Math.random()
+                });
+            }
+
+            if (Math.random() < 0.04) {
+                publishPulse('dataMining', {
+                    trends: ['shader', 'glass', 'audio-reactive', 'generative-art']
+                });
+            }
+
+            if (Math.random() < 0.03) {
+                publishPulse('knowledgeGraph', {
+                    entities: ['orb', 'user', 'memory', 'sound']
                 });
             }
             // Example: UX Agent pulse (interactivity)
