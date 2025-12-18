@@ -768,6 +768,22 @@
         scene.add(soulOrbMesh);
         // NOTE: Update orbMaterial.uniforms.audioLevel.value each frame (0..1) from JS using audio input!
 
+        // === Minimal Audio-Reactivity ===
+        // Минимальная аудиореактивность для Orb блока
+        const audioAnalyzer = audioCtx.createAnalyser();
+        audioAnalyzer.fftSize = 256;
+        const audioData = new Uint8Array(audioAnalyzer.frequencyBinCount);
+        // подключение источника аудио (например, musicSource) к анализатору
+        if (typeof musicSource !== "undefined" && musicSource) {
+            musicSource.connect(audioAnalyzer);
+        }
+        function getAudioLevel() {
+            audioAnalyzer.getByteFrequencyData(audioData);
+            let sum = 0;
+            for (let i = 0; i < audioData.length; i++) sum += audioData[i];
+            return Math.min(1, sum / (audioData.length * 128));
+        }
+
         // === Orb Mode JS Logic ===
         let currentMode = 0;
         let targetMode = 0;
@@ -980,7 +996,7 @@
             skinMemory = Math.min(1.0, skinMemory);
 
             // Update orb visual state (energy, skin memory)
-            orbMaterial.uniforms.audioLevel.value = orbEnergy;
+            orbMaterial.uniforms.audioLevel.value = getAudioLevel();
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
 
             // render particles to feedback buffer
@@ -994,35 +1010,35 @@
 
             renderer.setRenderTarget(null);
 
-        // --- Liquid Glass Layer flow calculation (smooth breathing) ---
-            const t = liquidMaterial.uniforms.time.value * 0.7;
+            // --- Liquid Glass Layer flow calculation (smooth breathing) ---
+            const t = liquidMaterial.uniforms.time.value * 0.3;
 
-        // медленный синус для дыхания
+            // медленный синус для дыхания
             const breath = Math.sin(performance.now() * 0.0003) * 0.01; // медленнее и меньше амплитуда
 
             // минимальное случайное смещение для органичности
-            const jitter = (Math.random() - 0.5) * 0.001;
+            const jitter = (Math.random() - 0.3) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.5 + breath + jitter);
+            let targetFlow = new THREE.Vector2(0.3 + breath + jitter, 0.3 + breath + jitter);
 
             // плавная интерполяция
-            prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
+            prevFlow.lerp(targetFlow, 0.001); // ещё медленнее
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-        // медленное увеличение времени
+            // медленное увеличение времени
             liquidMaterial.uniforms.time.value += 0.025;
 
-                renderer.render(feedbackScene, feedbackCamera);
+            renderer.render(feedbackScene, feedbackCamera);
 
-                // swap render targets
+            // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-                // Emulate multi-agent system: graphic, content, ux pulse every frame
+            // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
