@@ -459,7 +459,7 @@
             vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
                 vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008)); 
                 float d = length(dir);
-                float anim = time * 0.3;
+                float anim = time * 0.168;
                 if (d > 0.98 && d < 1.02) {
                     float t = fract(sin(d * PI) * anim + c1.x);
                     return mix(c1, c2, t);
