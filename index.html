@@ -332,9 +332,6 @@
         let targetEnergy = 0.25; // baseline listening
         let responseInertia = 0.08; // базовая инерция реакции (чем меньше — тем медленнее)
 
-        let speechBreath = 0.0;        // 0..1 дыхание речи
-        let speechBreathTarget = 0.0; // целевое дыхание
-
         const transcriptDiv = document.getElementById('transcript');
 
         transcriptDiv.addEventListener('click', () => {
@@ -995,18 +992,6 @@
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
-
-            // === Speech breathing (inhale / exhale) ===
-            if (typeof isSpeaking !== 'undefined' && isSpeaking) {
-                const tSpeak = performance.now() * 0.001;
-                speechBreathTarget = 0.5 + 0.5 * Math.sin(tSpeak * 2.2);
-            } else {
-                speechBreathTarget = 0.0;
-            }
-
-            // плавная инерция дыхания
-            speechBreath += (speechBreathTarget - speechBreath) * 0.08;
-
             // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
 
@@ -1023,16 +1008,6 @@
             // Update orb visual state (energy, skin memory)
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
-
-            // === Orb scaling with breathing and energy ===
-            const baseScale = 1.0;
-            const breathScale = 1.0 + speechBreath * 0.12;
-            const energyScale = 1.0 + orbEnergy * 0.05;
-            soulOrbMesh.scale.set(
-                baseScale * breathScale * energyScale,
-                baseScale * breathScale * energyScale,
-                baseScale * breathScale * energyScale
-            );
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
