@@ -881,19 +881,19 @@
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
 
-                float glassMask = smoothstep(0.75, 0.5, r);
+                float glassMask = smoothstep(0.75, 0.66, r);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
-                // === Гравитационный дисплейсмент вокруг орба ===
+                // === Gravity Displacement Around Orb ===
                 float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
-                float orbGravityStrength = 0.05 + energy * 0.1; // сила зависит от энергии орба
+                float orbGravityStrength = 0.07 + energy * 0.1; // сила зависит от энергии орба
                 vec2 dirToOrb = normalize(center); // направление к центру орба
                 float distToOrb = length(center);
                 float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
 
                 // плавный шум для органики
                 float angle = hash(uv + time) * 6.2831;
-                vec2 swirl = vec2(cos(angle), sin(angle)) * 0.012;
+                vec2 swirl = vec2(cos(angle), sin(angle)) * 0.011;
 
                 // итоговое смещение
                 refractUV -= dirToOrb * gravityFactor * orbGravityStrength + swirl * gravityFactor;
@@ -903,9 +903,9 @@
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.008 + curiosity * 0.008;
-                float caG = 0.007;
-                float caB = 0.009 + energy * 0.008;
+                float caR = 0.011 + curiosity * 0.008;
+                float caG = 0.012;
+                float caB = 0.009 + energy * 0.011;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
@@ -1033,16 +1033,16 @@
 
             renderer.setRenderTarget(null);
 
-        // --- Liquid Glass Layer flow calculation (smooth breathing) ---
-            const t = liquidMaterial.uniforms.time.value * 0.03;
+            // --- Liquid Glass Layer flow calculation (smooth breathing) ---
+            const t = liquidMaterial.uniforms.time.value * 0.001;
 
-        // медленный синус для дыхания
-            const breath = Math.sin(performance.now() * 0.0003) * 0.01; // медленнее и меньше амплитуда
+            // медленный синус для дыхания
+            const breath = Math.sin(performance.now() * 0.0003) * 0.0001; // медленнее и меньше амплитуда
 
             // минимальное случайное смещение для органичности
-            const jitter = (Math.random() - 0.3) * 0.001;
+            const jitter = (Math.random() - 0.03) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.3 + breath + jitter);
+            let targetFlow = new THREE.Vector2(0.1 + breath + jitter, 0.01 + breath + jitter);
 
             // плавная интерполяция
             prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
@@ -1050,8 +1050,8 @@
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-        // медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.025;
+            // медленное увеличение времени
+            liquidMaterial.uniforms.time.value += 0.015;
 
                 renderer.render(feedbackScene, feedbackCamera);
 
