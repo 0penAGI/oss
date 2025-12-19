@@ -881,7 +881,7 @@
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
 
-                float glassMask = smoothstep(0.75, 0.66, r);
+                float glassMask = smoothstep(0.75, 0.3, r);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // === Gravity Displacement Around Orb ===
@@ -903,9 +903,9 @@
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.011 + curiosity * 0.008;
-                float caG = 0.012;
-                float caB = 0.009 + energy * 0.011;
+                float caR = 0.009 + curiosity * 0.008;
+                float caG = 0.008;
+                float caB = 0.009 + energy * 0.009;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
