@@ -798,6 +798,7 @@
         // === Orb Mode JS Logic ===
         let currentMode = 0;
         let targetMode = 0;
+        let speechEnvelope = 0.0;
 
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
@@ -1012,18 +1013,14 @@
 
             // === MINIMAL audio‑breathing scale (speech reactive) ===
             // audioLevel уже отражает речь / энергию
-            const a = orbMaterial.uniforms.audioLevel.value;
+            const raw = orbMaterial.uniforms.audioLevel.value;
 
-            // мягкая огибающая: вдох‑выдох, без анимации ради анимации
-            if (!soulOrbMesh.userData.breath) soulOrbMesh.userData.breath = 1.0;
+            // envelope follower — вдох / выдох
+            speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
-            // экспоненциальное сглаживание (дыхание)
-            const targetBreath = 1.0 + a * 0.35;
-            soulOrbMesh.userData.breath += (targetBreath - soulOrbMesh.userData.breath) * 0.12;
-
-            // применяем масштаб
-            const b = soulOrbMesh.userData.breath;
-            soulOrbMesh.scale.set(b, b, b);
+            // масштаб — медленный, телесный
+            const scale = 1.0 + speechEnvelope * 0.45;
+            soulOrbMesh.scale.set(scale, scale, scale);
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
