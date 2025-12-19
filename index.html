@@ -293,14 +293,38 @@
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
-
+        
         const canvas = document.getElementById('webgl-canvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
+        const isApple = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+        let renderer;
+
+        if (isApple && THREE.WebGPURenderer) {
+            renderer = new THREE.WebGPURenderer({
+                canvas,
+                alpha: true,
+                antialias: true
+            });
+            // Safari WebGPU: лёгкий downscale для стабильности памяти
+            renderer.setPixelRatio(window.devicePixelRatio * 0.75);
+        } else {
+            renderer = new THREE.WebGLRenderer({
+                canvas,
+                alpha: true,
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+        }
+
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.1;
+
+        canvas.addEventListener('webglcontextlost', (e) => {
+            e.preventDefault();
+            console.warn('WebGL context lost — Safari memory protection triggered');
+        });
 
         const scene = new THREE.Scene();
 
@@ -430,7 +454,8 @@
         const rtParams = {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat
+            format: THREE.RGBAFormat,
+            colorSpace: THREE.SRGBColorSpace
         };
 
         let feedbackRT1 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
