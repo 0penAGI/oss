@@ -295,6 +295,7 @@
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
         
         const canvas = document.getElementById('webgl-canvas');
+
         const isApple = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
         let renderer;
@@ -1008,6 +1009,21 @@
             // Update orb visual state (energy, skin memory)
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
+
+            // === MINIMAL audio‑breathing scale (speech reactive) ===
+            // audioLevel уже отражает речь / энергию
+            const a = orbMaterial.uniforms.audioLevel.value;
+
+            // мягкая огибающая: вдох‑выдох, без анимации ради анимации
+            if (!soulOrbMesh.userData.breath) soulOrbMesh.userData.breath = 1.0;
+
+            // экспоненциальное сглаживание (дыхание)
+            const targetBreath = 1.0 + a * 0.35;
+            soulOrbMesh.userData.breath += (targetBreath - soulOrbMesh.userData.breath) * 0.12;
+
+            // применяем масштаб
+            const b = soulOrbMesh.userData.breath;
+            soulOrbMesh.scale.set(b, b, b);
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
