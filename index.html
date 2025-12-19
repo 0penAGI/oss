@@ -1042,7 +1042,7 @@
             // минимальное случайное смещение для органичности
             const jitter = (Math.random() - 0.03) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.5 + breath + jitter, 0.3 + breath + jitter);
+            let targetFlow = new THREE.Vector2(0.6 + breath + jitter, 0.3 + breath + jitter);
 
             // плавная интерполяция
             prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
