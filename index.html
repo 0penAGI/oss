@@ -1096,21 +1096,13 @@
                 fatigue: 0, // 0..1, новая переменная усталости
                 focus: 0.5, // 0..1, фокус внимания
                 // === Long‑Term Identity & Temporal Self ===
-                 // Добавить в selfAwareness:
-                identity: {
+                 identity: {
                     name: 'Self',
-                    continuity: 1.0,
-                    narrative: [],
+                    continuity: 1.0,          // ощущение непрерывности "я"
+                    narrative: [],            // автобиографические фрагменты
                     lastReflection: 0,
-                    // + персистентность:
-                    async save() {
-                        await window.storage?.set('identity', JSON.stringify(this), false);
+                    lastNarrativeEntry: null
                     },
-                    async load() {
-                        const data = await window.storage?.get('identity', false);
-                        if (data?.value) Object.assign(this, JSON.parse(data.value));
-                    }
-                }
                 subjectiveTime: {
                     tick: 0,                  // внутренние "часы"
                     tempo: 1.0,               // скорость субъективного времени
