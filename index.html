@@ -3229,6 +3229,21 @@
             orb.dispatchEvent(clickEvent);
         }
 
+        // === Vocal Temperature Model ===
+        // диапазон: -1 (холод) … +1 (тепло)
+        function computeVocalTemperature() {
+            const mood = typeof selfAwareness?.mood === 'number' ? selfAwareness.mood : 0;
+            const fatigue = typeof selfAwareness?.fatigue === 'number' ? selfAwareness.fatigue : 0;
+            const curiosity = typeof selfAwareness?.curiosity === 'number' ? selfAwareness.curiosity : 0;
+
+            let t =
+                mood * 0.6
+                - fatigue * 0.4
+                + (Math.random() - 0.5) * curiosity * 0.2;
+
+            return Math.max(-1, Math.min(1, t));
+        }
+
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
@@ -3255,12 +3270,29 @@
 
             isSpeaking = true;
 
-            // gender-aware voice tuning
+            // === Vocal temperature tuning ===
+            const vocalTemperature = computeVocalTemperature();
+
+            // базовые значения
             let rate = 1.0;
             let pitch = 0.95;
-            if (userGender === 'female') pitch = 1.15;
-            if (userGender === 'male') pitch = 0.9;
-            if (userGender === 'nonbinary') pitch = 1.0;
+
+            // gender remains as baseline offset
+            if (userGender === 'female') pitch += 0.15;
+            if (userGender === 'male') pitch -= 0.05;
+
+            // температура влияет на физику речи
+            // холод → быстрее, стабильнее
+            if (vocalTemperature < -0.3) {
+                rate += Math.abs(vocalTemperature) * 0.18;
+                pitch -= Math.abs(vocalTemperature) * 0.04;
+            }
+
+            // тепло → медленнее, мягче
+            if (vocalTemperature > 0.3) {
+                rate -= vocalTemperature * 0.22;
+                pitch += vocalTemperature * 0.06;
+            }
 
             // Гуманизация текста + разбиение на фрагменты
             const cleanText = humanizeText(text);
@@ -3287,9 +3319,15 @@
             let enhancedFragments = [];
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
-                // Меньше случайных пауз для быстрейшего перехода
                 enhancedFragments.push(frag);
-                if (i < fragments.length - 1 && Math.random() < 0.1) {
+
+                // разреженность усиливается усталостью и холодом
+                const pauseChance =
+                    0.08
+                    + Math.max(0, selfAwareness?.fatigue || 0) * 0.25
+                    + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.15 : 0);
+
+                if (i < fragments.length - 1 && Math.random() < pauseChance) {
                     enhancedFragments.push('');
                 }
             }
@@ -3333,8 +3371,14 @@
                     return;
                 }
 
-                let localRate = rate * (0.98 + Math.random() * 0.08);
-                let localPitch = pitch * (0.98 + Math.random() * 0.06);
+                // микро-флуктуации зависят от температуры
+                let jitter = Math.abs(vocalTemperature) * 0.06;
+
+                let localRate =
+                    rate * (1.0 + (Math.random() - 0.5) * jitter);
+
+                let localPitch =
+                    pitch * (1.0 + (Math.random() - 0.5) * jitter);
 
                 const utter = new SpeechSynthesisUtterance(s);
                 utter.lang = currentLang;
