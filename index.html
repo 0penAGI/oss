@@ -1019,7 +1019,7 @@
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
             // масштаб — медленный, телесный
-            const scale = 1.0 + speechEnvelope * 0.45;
+            const scale = 1.0 + speechEnvelope * 3.1;
             soulOrbMesh.scale.set(scale, scale, scale);
 
             // render particles to feedback buffer
