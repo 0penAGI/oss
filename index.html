@@ -1011,17 +1011,23 @@
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
 
-            // === MINIMAL audio‑breathing scale (speech reactive) ===
-            // audioLevel уже отражает речь / энергию
+            // === Усиленный аудио-реактивный scale с вариациями (имитация речи) ===
             const raw = orbMaterial.uniforms.audioLevel.value;
 
-            // envelope follower — вдох / выдох
-            speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
+            // Envelope follower — вдох/выдох с усиленной атакой/затуханием
+            speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.28 : 0.08); // Увеличили скорость атаки (0.28 вместо 0.18)
 
-            // масштаб — медленный, телесный
-            const scale = 1.0 + speechEnvelope * 0.45;
-            soulOrbMesh.scale.set(scale, scale, scale);
+            // Добавляем случайный jitter для "живости" (как будто реагирует на слоги)
+            const jitter = (Math.random() - 0.5) * 0.15; // Случайное отклонение ±0.15
 
+            // Масштаб — сильнее пульсация (0.85 вместо 0.45), с jitter
+            const scale = 1.0 + (speechEnvelope + jitter) * 0.85;
+
+            // Плавный lerp для сглаживания (чтобы не дёргался)
+            soulOrbMesh.scale.lerp(new THREE.Vector3(scale, scale, scale), 0.18); // lerp с инерцией 0.18
+
+            // Опционально: Связать с вибрацией орба (если хочешь визуально усилить)
+            soulOrbMesh.rotation.y += jitter * 0.002; // Лёгкий поворот для динамики
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
