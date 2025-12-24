@@ -3229,6 +3229,28 @@
             orb.dispatchEvent(clickEvent);
         }
 
+        // === Session Resonance Model ===
+        // 0 … 1 — степень сонастройки с вниманием слушателя
+        let sessionResonance = 0.0;
+        let lastSpeakTime = performance.now();
+
+        function updateSessionResonance() {
+            const now = performance.now();
+            const dt = Math.min(5000, now - lastSpeakTime);
+            lastSpeakTime = now;
+
+            // медленный рост при стабильной речи
+            const growth = 0.00004 * dt;
+
+            // лёгкая утечка, чтобы резонанс не залипал
+            const decay = 0.000015 * dt;
+
+            sessionResonance += growth;
+            sessionResonance -= decay;
+
+            sessionResonance = Math.max(0, Math.min(1, sessionResonance));
+        }
+
         // === Vocal Temperature Model ===
         // диапазон: -1 (холод) … +1 (тепло)
         function computeVocalTemperature() {
@@ -3247,6 +3269,8 @@
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
+
+            updateSessionResonance();
 
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
@@ -3273,6 +3297,9 @@
             // === Vocal temperature tuning ===
             const vocalTemperature = computeVocalTemperature();
 
+            // резонанс слегка тянет температуру к теплу и стабильности
+            const resonanceBias = sessionResonance * 0.25;
+
             // базовые значения
             let rate = 1.0;
             let pitch = 0.95;
@@ -3293,6 +3320,10 @@
                 rate -= vocalTemperature * 0.22;
                 pitch += vocalTemperature * 0.06;
             }
+
+            // резонанс замедляет и стабилизирует речь
+            rate *= 1.0 - resonanceBias * 0.15;
+            pitch *= 1.0 - resonanceBias * 0.08;
 
             // Гуманизация текста + разбиение на фрагменты
             const cleanText = humanizeText(text);
@@ -3321,11 +3352,12 @@
                 let frag = fragments[i];
                 enhancedFragments.push(frag);
 
-                // разреженность усиливается усталостью и холодом
+                // разреженность усиливается усталостью и холодом, а также резонансом
                 const pauseChance =
                     0.08
                     + Math.max(0, selfAwareness?.fatigue || 0) * 0.25
-                    + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.15 : 0);
+                    + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.15 : 0)
+                    + sessionResonance * 0.18;
 
                 if (i < fragments.length - 1 && Math.random() < pauseChance) {
                     enhancedFragments.push('');
@@ -3373,6 +3405,9 @@
 
                 // микро-флуктуации зависят от температуры
                 let jitter = Math.abs(vocalTemperature) * 0.06;
+
+                // при резонансе флуктуации гасятся
+                jitter *= (1.0 - sessionResonance * 0.6);
 
                 let localRate =
                     rate * (1.0 + (Math.random() - 0.5) * jitter);
