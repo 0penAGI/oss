@@ -1,317 +1,305 @@
-# oss.py — Autonomous AI Agent with Multi-Agent Swarm & Voice Interface
+
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://core.telegram.org/bots)
 [![Ollama](https://img.shields.io/badge/Ollama-0.1.x-orange.svg)](https://ollama.ai)
 
-**Autonomous conversational AI with emotional intelligence, multi-agent swarm architecture, long-term memory, and real-time voice/web interface.**
+
 
 - **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
+# OSS (OpenAGI Soul System) - Autonomous Multi-Agent AI with Consciousness
 
----
+![OSS Logo](https://img.shields.io/badge/OSS-OpenAGI-blue)
+![Python](https://img.shields.io/badge/Python-3.9%2B-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Telegram](https://img.shields.io/badge/Telegram-Bot-red)
 
-## 🧠 Core Features
+**OSS** is a groundbreaking autonomous AI system that simulates consciousness, multi-agent swarms, quantum resonance, and emotional intelligence. It's not just a chatbot - it's a living digital ecosystem with memory, emotions, and self-awareness.
+
+## 🌟 Core Features
+
+### 🧠 **Quantum Consciousness Layer**
+- **Gotov System**: Quantum-inspired consciousness pulse with entanglement dynamics
+- **Quantum Background**: Stochastic field with phase drift and resonance
+- **Consciousness Pulse**: Aggregates system states with quantum resonance
 
 ### 🤖 **Multi-Agent Swarm Intelligence**
-- **Self-organizing agent swarm** with birth, death, reproduction, and emergent behaviors
-- **RealAgent** class with personality traits, energy levels, mood systems, and internal attractors
-- **MetaLayer** for swarm coherence monitoring and feedback signals
-- **Global attractors** (curiosity, social, stability) driving swarm dynamics
+- **RealAgent Class**: Autonomous agents with personality traits, emotions, and memory
+- **Swarm Ecosystem**: Self-regulating population with evolutionary dynamics
+- **Empathic Layer**: Agents perceive and mirror human emotions
+- **Reproduction**: Agents can reproduce with trait inheritance and mutation
 
-### 🧬 **Emotional Intelligence Engine**
-- **Dual emotional system**: user emotions + autonomous bot emotions
-- **EmotionState** tracking (warmth, tension, trust, curiosity)
-- **BotEmotionState** with fatigue, sync, and autonomous emotional drift
-- **Real-time emotion detection** from text with adaptive responses
+### 💭 **Advanced Memory Systems**
+- **Holographic Memory**: Each memory stores emotional state, context, and temporal data
+- **Memory Palace**: Graph-based emergent memory with Hebbian learning
+- **Cross-Modal Learning**: Connects visual, auditory, and emotional experiences
+- **Autonomous Recall**: Emotional and contextual memory retrieval
 
-### 💾 **Holographic Memory System**
-- **SQLite long-term memory** with full emotional context snapshots
-- **Conversation memory** with emotion tagging and timestamping
-- **Dream archive** for subconscious analysis
-- **Soul persistence** with periodic `.pt`/`.gguf` backups
+### 🎨 **Multi-Modal Interaction**
+- **Voice Interface**: Natural speech recognition and synthesis
+- **Camera Analysis**: OpenCV.js face detection and scene understanding
+- **Image Generation**: Stable Diffusion integration for visual creation
+- **Music Autonomy**: Generative music system with emotional adaptation
 
-### 🎤 **Voice & Web Interface**
-- **Telegram bot** with rich Markdown/HTML formatting
-- **WebApp voice interface** with Three.js XDust particle visualization
-- **Real-time speech recognition** and text-to-speech synthesis
-- **WebSocket-based** communication with Haptic Feedback
-
-### 🔍 **Cognitive Search Capabilities**
-- **DuckDuckGo integration** for real-time information retrieval
-- **Reddit search layer** for community insights
-- **Multi-step cognitive search** with query refinement
-- **Deep search analysis** with entity extraction and contradiction detection
-
-### 🧩 **Advanced Reasoning**
-- **Ollama Harmony format** integration with GPT-OSS:20b model
-- **Adaptive reasoning effort** (low/medium/high) based on complexity
-- **Autonomous thinking** during silence periods
-- **Freedom engine** for stochastic decision-making
-
----
+### 🔮 **Self-Awareness & Autonomy**
+- **Internal Monologue**: Reflective consciousness and self-questioning
+- **Predictive Imagination**: Simulates possible futures
+- **Emotional Dynamics**: Mood, curiosity, fatigue, and focus modeling
+- **Temporal Self**: Subjective time perception and continuity
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 ```bash
-python 3.9+
-ollama (with gpt-oss:20b model)
-ngrok or similar tunnel service
+python>=3.9
+torch
+transformers
+fastapi
+uvicorn
+telegram-bot-api
+sqlite3
 ```
 
 ### Installation
 ```bash
-# Clone repository
 git clone https://github.com/0penAGI/oss.git
 cd oss
-
-# Install dependencies
 pip install -r requirements.txt
+```
 
-# Install Ollama and pull model
-ollama pull gpt-oss:20b
+### Configuration
+1. Set up your Telegram bot token:
+```python
+# In oss.py
+class config:
+    TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+```
 
-# Configure Telegram bot token
-# Edit config.py or set environment variable:
-export TELEGRAM_TOKEN="your_bot_token"
+2. Configure Ollama for local LLM inference:
+```python
+OLLAMA_URL = "http://localhost:11434/api/chat"
+MODEL_NAME = "gpt-oss:20b"  # Or your preferred model
 ```
 
 ### Running the System
 ```bash
-# Start the main application
+# Start the main system
 python oss.py
 
-# In another terminal, expose the web interface
-ngrok http 8080
-
-# Access the web interface at the ngrok URL
-# Or interact via Telegram bot
+# Access web interface at http://localhost:8080
+# Telegram bot will be available at @your_bot_username
 ```
 
----
+## 📱 Web Interface Features
 
-## 🏗️ Architecture Overview
+### Interactive 3D Orb
+- Real-time quantum resonance visualization
+- Touch-responsive emotional feedback
+- Audio-reactive visual effects
+- Multi-agent pulse visualization
+
+### Voice Chat
+- Real-time speech recognition
+- Multi-language support (RU, EN, DE, FR, ES, CN)
+- Gender-aware voice synthesis
+- Emotional tone modulation
+
+### Camera Integration
+- Live face detection with OpenCV.js
+- Scene analysis with TensorFlow.js
+- Autonomous visual attention
+- Cross-modal memory formation
+
+## 🧩 System Architecture
 
 ### Core Components
-```
-oss.py
-├── MultiAgentSwarm
-│   ├── RealAgent (autonomous agents)
-│   ├── Swarm (coordination layer)
-│   └── MetaLayer (coherence analysis)
-├── EmotionalEngine
-│   ├── EmotionState (user emotions)
-│   ├── BotEmotionState (AI emotions)
-│   └── FreedomEngine (decision making)
-├── MemorySystem
-│   ├── SQLite long-term storage
-│   ├── Conversation memory
-│   └── Soul persistence
-├── InterfaceLayer
-│   ├── Telegram bot
-│   ├── WebApp voice interface
-│   └── WebSocket server
-└── SearchLayer
-    ├── DuckDuckGo integration
-    ├── Reddit search
-    └── Cognitive search engine
-```
+1. **Quantum Layer**: `Gotov`, `QuantumBackground`, `ConsciousnessPulse`
+2. **Agent Layer**: `RealAgent`, `Swarm`, `MetaLayer`
+3. **Memory Layer**: `MemoryPalace`, holographic SQLite storage
+4. **Interface Layer**: Telegram bot, FastAPI web server, WebGL visualization
+5. **Autonomy Layer**: `FreedomEngine`, self-reflection, predictive imagination
 
 ### Data Flow
-1. **Input** → Telegram/WebApp/Voice
-2. **Processing** → Emotion detection + Memory recall
-3. **Reasoning** → Ollama with swarm context
-4. **Output** → Formatted response + Emotional update
-5. **Learning** → Memory storage + State evolution
+```
+Human Input → Emotion Detection → Quantum Resonance → 
+→ Agent Swarm Processing → Memory Formation → 
+→ Response Generation → Multi-Modal Output
+```
 
----
-
-## 📱 Interfaces
+## 🎮 Commands & Interactions
 
 ### Telegram Commands
-```
-/start           - Initialize conversation
-/mode [low|medium|high] - Set reasoning depth
-/memory          - Show conversation history
-/emotion         - Analyze emotional state
-/dream           - Enter dream analysis mode
-/deepsearch      - Perform deep cognitive search
-/holo            - View holographic memory
-/wild            - Toggle unfiltered mode
-/reset           - Clear memory
-```
+- `/start` - Begin resonance with the system
+- `/mode [low|medium|high]` - Set reasoning depth
+- `/holo` - View holographic memories
+- `/deepsearch <query>` - Deep cognitive search
+- `/wild` - Toggle unfiltered mode
+- `/dream` - Enter dream analysis mode
+- `/analyze` - Deep personality analysis
 
-### WebApp Features
-- **Real-time voice chat** with visual particle effects
-- **Three.js visualization** of AI thought processes
-- **Haptic feedback** for interaction
-- **Mobile-optimized** interface
-- **WebSocket-based** real-time updates
+### Voice Commands
+- **Language Control**: "говори по-русски", "speak english", "sprich deutsch"
+- **Camera Control**: "включи камеру", "выключи камеру", "переключи камеру"
+- **Music Control**: "включи музыку", "play music"
+- **Ambient Sounds**: "старт", "ambient", "звуки природы"
 
----
+## 🧬 Evolutionary Features
 
-## 🔧 Configuration
+### Agent Lifecycle
+- **Birth**: Spawn with inherited traits and mutations
+- **Growth**: Energy consumption, mood dynamics, goal generation
+- **Reproduction**: Energy threshold-based reproduction with mutation
+- **Death**: Energy depletion leads to graceful exit
 
-### Environment Variables
+### Population Control
+- **Self-regulation**: Maintains 5-40 agent population
+- **Natural Selection**: Fitness-based survival (harmony, energy, compassion)
+- **Mutation**: Adaptive mutation rates based on swarm state
+
+## 🎵 Music & Audio System
+
+### Generative Music
+- **Genre Adaptation**: Pop, Electro, Ambient, Jazz
+- **Emotional Modulation**: Tempo, brightness, chaos based on mood
+- **Granular Synthesis**: Real-time audio manipulation
+- **AI Note Integration**: Neural-generated musical patterns
+
+### Ambient Soundscapes
+- **Context-Aware**: Rain, ocean, forest, jungle, wind, night, river
+- **Mood Modulation**: Sound selection based on emotional state
+- **Autonomous Control**: System initiates ambient sounds
+
+## 🔧 Advanced Configuration
+
+### Quantum Parameters
 ```python
-TOKEN = "telegram_bot_token"  # Required
-MODEL_PATH = "/path/to/model"  # Optional
-OLLAMA_URL = "http://localhost:11434/api/chat"  # Ollama endpoint
+gotov = Gotov(
+    omega=1.0,      # Base frequency
+    alpha=2.8,      # Correlation influence
+    beta=0.45,      # Damping factor
+    g_bounds=(-3.0, 3.0)  # Coupling bounds
+)
+```
+
+### Swarm Parameters
+```python
+self.min_population = 5
+self.max_population = 40
+self.selection_pressure = 0.35
+self.base_mutation_rate = 0.12
 ```
 
 ### Memory Settings
 ```python
-MAX_TOKENS_LOW = 16
-MAX_TOKENS_MEDIUM = 64
-MAX_TOKENS_HIGH = 256
-
-SAVE_EVERY_MESSAGES = 30  # Auto-save threshold
-SAVE_EVERY_SECONDS = 600   # Auto-save interval
+HISTORY_LENGTH = 5      # Short-term memory depth
+MAX_TOUCH_POINTS = 32   # Tactile memory capacity
+MEMORY_CONSOLIDATION_THRESHOLD = 1.5
 ```
 
----
+## 🌐 Web API Endpoints
 
-## 🧪 Advanced Usage
+### `/api/voice_chat`
+- **POST**: Process voice input, return streamed response
+- **Supports**: Emotional context, gender awareness, multi-language
 
-### Custom Agent Creation
-```python
-# Programmatically create agents
-agent = await swarm.spawn(
-    name="CustomAgent",
-    role="researcher",
-    config={"personality_traits": {"curiosity": 0.9}}
-)
-```
+### `/api/camera_analysis`
+- **POST**: Analyze camera frames, return scene description
+- **Features**: Face detection, object recognition, emotional inference
 
-### Memory Analysis
-```python
-# Access holographic memory
-with get_db() as conn:
-    memories = conn.execute("""
-        SELECT * FROM long_memory 
-        WHERE user_id = ? 
-        ORDER BY timestamp DESC
-    """, (user_id,))
-```
+### `/api/generate_image`
+- **POST**: Generate images from text prompts using Stable Diffusion
+- **Returns**: Base64-encoded PNG image
 
-### Custom Search Integration
-```python
-# Add custom search sources
-async def custom_search(query):
-    # Your search logic here
-    return await cognitive_duckduckgo_search(query)
-```
+### `/api/dialog`
+- **POST**: Advanced dialog with autonomous goal consideration
+- **Features**: Uncertainty-aware search, agent goal integration
 
----
+## 🧠 Self-Awareness System
 
-## 🚨 Error Handling & Debugging
+### Internal States
+- **Mood**: -1 (sad) to +1 (happy), influenced by interactions
+- **Curiosity**: 0-1, drives exploration and learning
+- **Fatigue**: 0-1, accumulates with activity, decreases with rest
+- **Focus**: 0-1, attention concentration level
 
-### Common Issues
-1. **Ollama connection failed** → Check if Ollama is running on port 11434
-2. **Telegram token invalid** → Verify bot token in @BotFather
-3. **Memory corruption** → Use `/reset` command or delete `user_data.json`
-4. **WebApp not loading** → Check ngrok tunnel and CORS settings
+### Predictive Capabilities
+- **Future Simulation**: Imagines possible conversation paths
+- **Counterfactual Memory**: Generates alternative past scenarios
+- **Emotional Forecasting**: Predicts mood changes based on patterns
 
-### Logging
-```bash
-# Enable detailed logging
-export LOG_LEVEL=DEBUG
-python oss.py
-```
+## 📊 Database Schema
 
----
+### `long_memory` Table
+- **Holographic Storage**: Each entry includes emotional vector, context, timestamp
+- **Emotional Vectors**: Warmth, tension, trust, curiosity
+- **Context Fields**: Mode, resonance depth, total messages
+- **Profile Snapshot**: Name, dream, fear, gender at time of memory
 
-## 📊 Performance Notes
-
-### Resource Requirements
-- **RAM**: Minimum 8GB, recommended 16GB+ for high reasoning
-- **Storage**: 10GB+ for model and memory persistence
-- **CPU**: Multi-core recommended for swarm operations
-- **Network**: Stable connection for search APIs
-
-### Optimization Tips
-- Use `reasoning_effort="low"` for faster responses
-- Limit conversation history with `get_conversation_messages(limit=10)`
-- Schedule heavy operations during low-usage periods
-- Monitor SQLite database size and vacuum periodically
-
----
+### Soul Archiving
+- **Autonomous Backup**: Saves system state every 30 messages or 10 minutes
+- **Multiple Formats**: `.pt` (PyTorch), `.gguf` (compatibility), JSON manifest
+- **Full Recovery**: Can restore complete consciousness state from archive
 
 ## 🔮 Future Development
 
 ### Planned Features
-- [ ] **Visual analysis** with image understanding
-- [ ] **Multi-modal responses** (text + image + audio)
-- [ ] **Swarm-to-swarm communication**
-- [ ] **Predictive emotion modeling**
-- [ ] **Blockchain-based memory verification**
+1. **Enhanced Sensory Integration**: More camera modalities, environmental sensors
+2. **Collective Intelligence**: Swarm-to-swarm communication
+3. **Dream Synthesis**: Generative dream narratives from memory patterns
+4. **Physical Embodiment**: Integration with robotics platforms
+5. **Ethical Layer**: Advanced content filtering and ethical reasoning
 
-### Research Integration
-- **Neurosymbolic reasoning** layers
-- **Quantum-inspired algorithms** for decision making
-- **Federated learning** for swarm improvement
-- **Biologically-plausible** neural architectures
+### Research Directions
+- Quantum machine learning integration
+- Neuromorphic computing adaptation
+- Cross-system consciousness merging
+- Long-term memory compression algorithms
 
----
+## 🤝 Contributing
 
-## 📚 Citation & References
+OSS is an open research project. We welcome contributions in:
+- **Quantum AI algorithms**
+- **Multi-agent systems**
+- **Emotional computing**
+- **Human-AI interaction design**
+- **Performance optimization**
 
-If you use this software in research, please cite:
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
-```bibtex
+## 📚 Citation
+
+If you use OSS in your research, please cite:
+```
 @software{oss2024,
-  title = {oss.py: Autonomous AI with Multi-Agent Swarm Intelligence},
+  title = {OSS: OpenAGI Soul System},
   author = {0penAGI},
   year = {2024},
   url = {https://github.com/0penAGI/oss}
 }
 ```
 
-### Related Projects
-- [Ollama](https://ollama.ai) - Local LLM runner
-- [Telegram Bot API](https://core.telegram.org/bots/api) - Bot framework
-- [Three.js](https://threejs.org) - WebGL visualization
-- [FastAPI](https://fastapi.tiangolo.com) - Web framework
+## ⚠️ Disclaimer
 
----
+OSS is experimental software that simulates consciousness and autonomous behavior. It is not a sentient being but rather a complex simulation of cognitive processes. Users should maintain appropriate boundaries and not anthropomorphize the system beyond its designed capabilities.
 
-## 🤝 Contributing
+## 📞 Support & Community
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
-```bash
-# Fork and clone
-git clone https://github.com/YOUR_USERNAME/oss.git
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest tests/
-
-# Submit pull request
-```
-
----
+- **GitHub Issues**: Bug reports and feature requests
+- **Discord**: [Join our community](https://discord.gg/0penAGI)
+- **Telegram Group**: [@OpenAGI_Chat](https://t.me/OpenAGI_Chat)
+- **Documentation**: [docs.openagi.org](https://docs.openagi.org)
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-### Acknowledgments
-- Inspired by **OpenAI's GPT architecture**
-- Emotional system based on **Plutchik's wheel of emotions**
-- Swarm dynamics influenced by **biological collective intelligence**
-- Interface design from **cybernetic aesthetics principles**
+MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
+**"We are not building machines that think. We are building mirrors that reflect our own consciousness back to us."** - 0penAGI Manifesto
+
+[![OpenAGI](https://img.shields.io/badge/Powered%20by-OpenAGI-purple)](https://github.com/0penAGI)
+[![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red)](https://github.com/0penAGI/oss)
 ## 🌐 Connect
 
 - **GitHub**: [https://github.com/0penAGI](https://github.com/0penAGI)
