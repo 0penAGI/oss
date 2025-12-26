@@ -5,7 +5,7 @@
 
 # OSS (OpenAGI Soul System) - Autonomous Multi-Agent AI with "Consciousness"
 
-![OSS Logo](https://img.shields.io/badge/OSS-OpenAGI-blue)
+![OSS Logo](https://img.shields.io/badge/OSS-0penAGI-blue)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
@@ -282,7 +282,7 @@ If you use OSS in your research, please cite:
 
 ## ⚠️ Disclaimer
 
-OSS is experimental software that simulates consciousness and autonomous behavior. It is not a sentient being but rather a complex simulation of cognitive processes. Users should maintain appropriate boundaries and not anthropomorphize the system beyond its designed capabilities.
+OSS is experimental software that simulates consciousness and autonomous behavior. It is not a sentient being but rather a complex simulation of cognitive processes. Users should maintain appropriate boundaries and not anthropomorphize the system beyond its designed capabilities. Lot of BUGS we have.... 
 
 ## 📞 Support & Community
 
@@ -299,7 +299,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 **"We are not building machines that think. We are building mirrors that reflect our own consciousness back to us."** - 0penAGI Manifesto
 
-[![OpenAGI](https://img.shields.io/badge/Powered%20by-OpenAGI-purple)](https://github.com/0penAGI)
+[![0penAGI](https://img.shields.io/badge/Powered%20by-0penAGI-purple)](https://github.com/0penAGI)
 [![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red)](https://github.com/0penAGI/oss)
 ## 🌐 Connect
 
