@@ -2,8 +2,8 @@
 
 
 
-- **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
-# OSS (OpenAGI Soul System) - Autonomous Multi-Agent AI with Consciousness
+
+# OSS (OpenAGI Soul System) - Autonomous Multi-Agent AI with "Consciousness"
 
 ![OSS Logo](https://img.shields.io/badge/OSS-OpenAGI-blue)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-green)
@@ -11,6 +11,11 @@
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg)](https://core.telegram.org/bots)
 [![Ollama](https://img.shields.io/badge/Ollama-0.1.x-orange.svg)](https://ollama.ai)
+
+
+
+- **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
+
 **OSS** is a groundbreaking autonomous AI system that simulates consciousness, multi-agent swarms, quantum resonance, and emotional intelligence. It's not just a chatbot - it's a living digital ecosystem with memory, emotions, and self-awareness.
 
 ## 🌟 Core Features
