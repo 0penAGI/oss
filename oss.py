@@ -68,8 +68,8 @@ print(f"Используется устройство: {device}")
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
-    MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
+    TOKEN = "yourtoken"
+    MODEL_PATH = "your-model-path"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -3484,11 +3484,3 @@ if __name__ == "__main__":
 
     asyncio.run(run_all())
 
-#
-# ========== FASTAPI ENDPOINT: AUTONOMOUS MODE/GOAL OVERRIDE & PROMPT SYSTEM CONTEXT ==========
-#
-
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.harmony = 0.0
