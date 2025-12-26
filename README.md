@@ -4,8 +4,7 @@
 
 
 # OSS (0penAGI "Soul" System) - Autonomous Multi-Agent AI with "Consciousness"
-![chat](https://github.com/0penAGI/oss/blob/main/osschat.jpg)
-![voice](https://github.com/0penAGI/oss/blob/main/ossvoice.jpg)
+![chat](https://github.com/0penAGI/oss/blob/main/osschat.jpg) ![voice](https://github.com/0penAGI/oss/blob/main/ossvoice.jpg)
 
 ![OSS Logo](https://img.shields.io/badge/OSS-0penAGI-blue)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-green)
