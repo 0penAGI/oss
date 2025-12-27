@@ -68,8 +68,8 @@ print(f"Используется устройство: {device}")
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "yourtoken"
-    MODEL_PATH = "your-model-path"
+    TOKEN = "your-token-here"
+    MODEL_PATH = "your-path-here"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -1274,45 +1274,70 @@ class FreedomState:
 
 class FreedomEngine:
     """
-    Лёгкий слой «свободы»:
-    — внутренние цели,
+    Лёгкий слой «свободы» с замкнутой обратной связью:
     — стохастический выбор,
-    — обучение от собственного результата (без внешних меток).
+    — инерция предпочтений,
+    — обучение от результата (prediction error).
     """
     def __init__(self):
         self.state = FreedomState()
+        self._preference_trace: dict[str, float] = {}
 
     def choose(self, options: list[str]) -> str:
         if not options:
             return ""
-        # стохастический выбор с уклоном в новизну
+
         weights = []
         for opt in options:
-            novelty = 1.0 if self.state.last_choice != opt else 0.7
+            novelty = 1.0 if self.state.last_choice != opt else 0.6
+            memory_bias = self._preference_trace.get(opt, 0.0)
+
             w = (
-                0.4 +
+                0.3 +
                 0.4 * self.state.curiosity_drive * novelty +
-                0.2 * self.state.autonomy_drive
+                0.2 * self.state.autonomy_drive +
+                0.1 * memory_bias
             )
             weights.append(max(0.01, w))
+
         choice = random.choices(options, weights=weights, k=1)[0]
         self.state.last_choice = choice
         return choice
 
     def reward(self, signal: float):
-        # собственное «обучение»: медленный дрейф параметров
+        """
+        signal ∈ [-1, 1]
+        >0  — результат лучше ожидания
+        <0  — хуже ожидания
+        """
+        # prediction‑error trace
         self.state.reward_trace = clamp(
-            0.95 * self.state.reward_trace + 0.05 * signal, -1.0, 1.0
+            0.9 * self.state.reward_trace + 0.1 * signal, -1.0, 1.0
         )
+
+        # медленный дрейф параметров
         self.state.curiosity_drive = clamp(
-            self.state.curiosity_drive + 0.02 * signal, 0.0, 1.0
+            self.state.curiosity_drive + 0.03 * signal, 0.0, 1.0
         )
         self.state.autonomy_drive = clamp(
-            self.state.autonomy_drive + 0.01 * signal, 0.0, 1.0
+            self.state.autonomy_drive + 0.015 * signal, 0.0, 1.0
         )
         self.state.risk_tolerance = clamp(
-            self.state.risk_tolerance + 0.01 * (signal - 0.1), 0.0, 1.0
+            self.state.risk_tolerance + 0.01 * (signal - 0.05), 0.0, 1.0
         )
+
+        # обновляем предпочтение последнего выбора
+        if self.state.last_choice:
+            prev = self._preference_trace.get(self.state.last_choice, 0.0)
+            self._preference_trace[self.state.last_choice] = clamp(
+                0.85 * prev + 0.15 * signal, -1.0, 1.0
+            )
+
+        # забывание старых предпочтений
+        for k in list(self._preference_trace.keys()):
+            self._preference_trace[k] *= 0.97
+            if abs(self._preference_trace[k]) < 0.01:
+                del self._preference_trace[k]
 
 
 def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
@@ -1353,28 +1378,31 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
     if detected_simple is None:
         detected_simple = detect_emotion(text)
 
-    # Влияние от ярко выраженных слов
-    if detected_simple == "happy":
-        state.warmth = clamp(state.warmth + 0.15)
-        state.trust = clamp(state.trust + 0.05)
-        state.curiosity = clamp(state.curiosity + 0.02)
-        state.tension = clamp(state.tension - 0.05)
-    elif detected_simple == "sad":
-        state.warmth = clamp(state.warmth - 0.05)
-        state.trust = clamp(state.trust - 0.02)
-        state.tension = clamp(state.tension + 0.12)
-        state.curiosity = clamp(state.curiosity - 0.05)
-    elif detected_simple == "angry":
-        state.tension = clamp(state.tension + 0.25)
-        state.warmth = clamp(state.warmth - 0.2)
-        state.trust = clamp(state.trust - 0.1)
-    elif detected_simple == "anxious":
-        state.tension = clamp(state.tension + 0.2)
-        state.trust = clamp(state.trust - 0.05)
-        state.curiosity = clamp(state.curiosity - 0.03)
-    elif detected_simple == "curious":
-        state.curiosity = clamp(state.curiosity + 0.25)
-        state.warmth = clamp(state.warmth + 0.03)
+    # --- Contextual, saturating, multi-axis emotion dynamics ---
+    # resistance grows near extremes, emotions can co-exist
+    def apply(delta: float, current: float, resistance: float = 0.7) -> float:
+        scale = (1.0 - abs(current)) ** resistance
+        return clamp(current + delta * scale)
+
+    # base impulses per detected emotion
+    impulses = {
+        "happy":   {"warmth": 0.12, "trust": 0.06, "curiosity": 0.04, "tension": -0.06},
+        "sad":     {"warmth": -0.04, "trust": -0.03, "curiosity": -0.06, "tension": 0.10},
+        "angry":   {"warmth": -0.15, "trust": -0.10, "curiosity": -0.04, "tension": 0.18},
+        "anxious": {"warmth": -0.05, "trust": -0.04, "curiosity": -0.05, "tension": 0.14},
+        "curious": {"warmth": 0.05, "trust": 0.02, "curiosity": 0.18, "tension": 0.02},
+    }
+
+    impulse = impulses.get(detected_simple)
+    if impulse:
+        state.warmth = apply(impulse.get("warmth", 0.0), state.warmth)
+        state.trust = apply(impulse.get("trust", 0.0), state.trust)
+        state.curiosity = apply(impulse.get("curiosity", 0.0), state.curiosity)
+        state.tension = apply(impulse.get("tension", 0.0), state.tension)
+
+        # asymmetric coupling: tension suppresses trust, curiosity buffers tension
+        state.trust = apply(-0.05 * max(0.0, state.tension), state.trust)
+        state.tension = apply(-0.04 * max(0.0, state.curiosity), state.tension)
 
     # Punctuation and length signals
     if "!" in text or text.count("?") > 1:
@@ -3484,3 +3512,11 @@ if __name__ == "__main__":
 
     asyncio.run(run_all())
 
+#
+# ========== FASTAPI ENDPOINT: AUTONOMOUS MODE/GOAL OVERRIDE & PROMPT SYSTEM CONTEXT ==========
+#
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.harmony = 0.0
