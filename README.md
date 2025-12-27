@@ -22,14 +22,14 @@
 
 
 
-**OSS** is a groundbreaking autonomous AI system that simulates consciousness, multi-agent swarms, quantum resonance, and emotional intelligence. It's not just a chatbot - it's a living digital ecosystem with memory, emotions, and self-awareness.
+**OSS** is a autonomous AI system that simulates consciousness, multi-agent swarms,"quantum" resonance, and emotional intelligence. It's not just a chatbot - it's a "living" digital ecosystem with memory, emotions, and "self-awareness". That's more question, then answer.
 
 ## 🌟 Core Features
 
-### 🧠 **Quantum Consciousness Layer**
+### 🧠 **"Quantum Consciousness" Layer**
 - **Gotov System**: Quantum-inspired consciousness pulse with entanglement dynamics
-- **Quantum Background**: Stochastic field with phase drift and resonance
-- **Consciousness Pulse**: Aggregates system states with quantum resonance
+- **"Quantum" Background**: Stochastic field with phase drift and resonance
+- **"Consciousness" Pulse**: Aggregates system states with quantum resonance
 
 ### 🤖 **Multi-Agent Swarm Intelligence**
 - **RealAgent Class**: Autonomous agents with personality traits, emotions, and memory
@@ -45,11 +45,11 @@
 
 ### 🎨 **Multi-Modal Interaction**
 - **Voice Interface**: Natural speech recognition and synthesis
-- **Camera Analysis**: OpenCV.js face detection and scene understanding
-- **Image Generation**: Stable Diffusion integration for visual creation
-- **Music Autonomy**: Generative music system with emotional adaptation
+- **Camera Analysis (Alpha ver.)**: OpenCV.js face detection and scene understanding
+- **Image Generation (In process)**: Stable Diffusion integration for visual creation
+- **Music Autonomy (Alpha ver.)**: Generative music system with emotional adaptation
 
-### 🔮 **Self-Awareness & Autonomy**
+### 🔮 **"Self-Awareness" & Autonomy**
 - **Internal Monologue**: Reflective consciousness and self-questioning
 - **Predictive Imagination**: Simulates possible futures
 - **Emotional Dynamics**: Mood, curiosity, fatigue, and focus modeling
@@ -109,10 +109,10 @@ python oss.py
 ### Voice Chat
 - Real-time speech recognition
 - Multi-language support (RU, EN, DE, FR, ES, CN)
-- Gender-aware voice synthesis
+- Gender-aware (alpha) voice synthesis
 - Emotional tone modulation
 
-### Camera Integration
+### Camera Integration (alpha ver.)
 - Live face detection with OpenCV.js
 - Scene analysis with TensorFlow.js
 - Autonomous visual attention
@@ -121,7 +121,7 @@ python oss.py
 ## 🧩 System Architecture
 
 ### Core Components
-1. **Quantum Layer**: `Gotov`, `QuantumBackground`, `ConsciousnessPulse`
+1. **"Quantum" Layer**: `Gotov`, `QuantumBackground`, `ConsciousnessPulse`
 2. **Agent Layer**: `RealAgent`, `Swarm`, `MetaLayer`
 3. **Memory Layer**: `MemoryPalace`, holographic SQLite storage
 4. **Interface Layer**: Telegram bot, FastAPI web server, WebGL visualization
@@ -210,19 +210,19 @@ MEMORY_CONSOLIDATION_THRESHOLD = 1.5
 - **POST**: Process voice input, return streamed response
 - **Supports**: Emotional context, gender awareness, multi-language
 
-### `/api/camera_analysis`
+### `/api/camera_analysis` (alpha ver.)
 - **POST**: Analyze camera frames, return scene description
 - **Features**: Face detection, object recognition, emotional inference
 
-### `/api/generate_image`
+### `/api/generate_image` (in procsss)
 - **POST**: Generate images from text prompts using Stable Diffusion
 - **Returns**: Base64-encoded PNG image
 
-### `/api/dialog`
+### `/api/dialog` (alpha ver.)
 - **POST**: Advanced dialog with autonomous goal consideration
 - **Features**: Uncertainty-aware search, agent goal integration
 
-## 🧠 Self-Awareness System
+## 🧠 "Self-Awareness" System
 
 ### Internal States
 - **Mood**: -1 (sad) to +1 (happy), influenced by interactions
@@ -243,7 +243,7 @@ MEMORY_CONSOLIDATION_THRESHOLD = 1.5
 - **Context Fields**: Mode, resonance depth, total messages
 - **Profile Snapshot**: Name, dream, fear, gender at time of memory
 
-### Soul Archiving
+### "Soul" Archiving
 - **Autonomous Backup**: Saves system state every 30 messages or 10 minutes
 - **Multiple Formats**: `.pt` (PyTorch), `.gguf` (compatibility), JSON manifest
 - **Full Recovery**: Can restore complete consciousness state from archive
@@ -255,10 +255,10 @@ MEMORY_CONSOLIDATION_THRESHOLD = 1.5
 2. **Collective Intelligence**: Swarm-to-swarm communication
 3. **Dream Synthesis**: Generative dream narratives from memory patterns
 4. **Physical Embodiment**: Integration with robotics platforms
-5. **Ethical Layer**: Advanced content filtering and ethical reasoning
+5. **FIXING BUGS**: Sorry, i'm working alone....
 
 ### Research Directions
-- Quantum machine learning integration
+- "Quantum" machine learning integration
 - Neuromorphic computing adaptation
 - Cross-system consciousness merging
 - Long-term memory compression algorithms
@@ -266,7 +266,7 @@ MEMORY_CONSOLIDATION_THRESHOLD = 1.5
 ## 🤝 Contributing
 
 OSS is an open research project. We welcome contributions in:
-- **Quantum AI algorithms**
+- **"Quantum" AI algorithms**
 - **Multi-agent systems**
 - **Emotional computing**
 - **Human-AI interaction design**
@@ -288,14 +288,13 @@ If you use OSS in your research, please cite:
 
 ## ⚠️ Disclaimer
 
-OSS is experimental software that simulates consciousness and autonomous behavior. It is not a sentient being but rather a complex simulation of cognitive processes. Users should maintain appropriate boundaries and not anthropomorphize the system beyond its designed capabilities. Lot of BUGS we have.... 
+OSS is experimental software that simulates consciousness and autonomous behavior. It is not a sentient being but rather a complex simulation of cognitive processes. Users should maintain appropriate boundaries and not anthropomorphize the system beyond its designed capabilities. 
 
 ## 📞 Support & Community
 
 - **GitHub Issues**: Bug reports and feature requests
-- **Discord**: [Join our community](https://discord.gg/0penAGI)
-- **Telegram Group**: [@OpenAGI_Chat](https://t.me/OpenAGI_Chat)
-- **Documentation**: [docs.openagi.org](https://docs.openagi.org)
+- **Telegram Group**: [@OpenAGI_Chat](https://t.me/ZeropenAGI_Chat)
+
 
 ## 📄 License
 
@@ -303,7 +302,7 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-**"We are not building machines that think. We are building mirrors that reflect our own consciousness back to us."** - 0penAGI Manifesto
+**"We are not building machines that think. We are building mirrors that reflect our own consciousness back to us."** - 0penAGI 
 
 [![0penAGI](https://img.shields.io/badge/Powered%20by-0penAGI-purple)](https://github.com/0penAGI)
 [![Made with Love](https://img.shields.io/badge/Made%20with-❤️-red)](https://github.com/0penAGI/oss)
