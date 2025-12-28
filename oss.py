@@ -45,6 +45,8 @@ class CameraRequest(BaseModel):
     description: str
 import torch
 from diffusers import StableDiffusionPipeline
+import cv2  # для /api/camera_frame
+
 
 model_path = "runwayml/stable-diffusion-v1-5"
 
@@ -64,12 +66,14 @@ pipe = pipe.to(device)
 
 print(f"Используется устройство: {device}")
 
-
+def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, v))
+    
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "your-token-here"
-    MODEL_PATH = "your-path-here"
+    TOKEN = "yourtokenhere"
+    MODEL_PATH = "/Users/....YourArdessHere"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -3251,7 +3255,7 @@ def get_active_users(limit: int = 5):
     """
     try:
         # если память хранится как dict: {uid: [...]}
-        users = list(memory_store.keys())
+        users = list(conversation_memory.keys())
         return users[:limit]
     except Exception:
         return []
@@ -3513,10 +3517,3 @@ if __name__ == "__main__":
     asyncio.run(run_all())
 
 #
-# ========== FASTAPI ENDPOINT: AUTONOMOUS MODE/GOAL OVERRIDE & PROMPT SYSTEM CONTEXT ==========
-#
-
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.harmony = 0.0
