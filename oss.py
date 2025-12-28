@@ -72,8 +72,8 @@ def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "yourtokenhere"
-    MODEL_PATH = "/Users/....YourArdessHere"
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
+    MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -785,7 +785,163 @@ class Swarm:
 # ====== GLOBAL CONSCIOUSNESS PULSE ======
 quantum_background = QuantumBackground()
 consciousness_pulse = ConsciousnessPulse(quantum_background)
+# ========== MEMORY CORE (HOLOGRAPHIC) ==========
+from dataclasses import dataclass, field
+from typing import Protocol
+import time, math, uuid
+import numpy as np
+
+# ================== MEMORY CORE ==================
+
+@dataclass
+class MemoryNode:
+    id: str
+    content: any
+    embedding: np.ndarray | None
+    timestamp: float
+    source: str
+    tags: set[str]
+
+    salience: float = 0.5
+    confidence: float = 0.5
+    decay_rate: float = 0.001
+    affect: dict[str, float] = field(default_factory=dict)
+    links: dict[str, float] = field(default_factory=dict)
+
+    def decay(self, dt: float):
+        self.salience *= math.exp(-self.decay_rate * dt)
+        self.salience = max(0.0, self.salience)
+
+
+class MemoryLayer(Protocol):
+    def add(self, node: MemoryNode) -> None: ...
+    def query(self, query: str, k: int) -> list[MemoryNode]: ...
+    def decay(self, dt: float) -> None: ...
+    def evict(self) -> None: ...
+
+
+class ShortTermMemory:
+    def __init__(self, capacity=64):
+        self.capacity = capacity
+        self.buffer: list[MemoryNode] = []
+
+    def add(self, node):
+        self.buffer.append(node)
+        if len(self.buffer) > self.capacity:
+            self.buffer.pop(0)
+
+    def query(self, query, k=5):
+        return sorted(self.buffer, key=lambda n: n.salience, reverse=True)[:k]
+
+    def decay(self, dt):
+        for n in self.buffer:
+            n.decay(dt)
+
+    def evict(self):
+        self.buffer = [n for n in self.buffer if n.salience > 0.05]
+
+
+class EpisodicMemory:
+    def __init__(self):
+        self.events: list[MemoryNode] = []
+
+    def add(self, node):
+        self.events.append(node)
+
+    def query(self, query, k=5):
+        return sorted(self.events, key=lambda n: n.timestamp, reverse=True)[:k]
+
+    def decay(self, dt):
+        for n in self.events:
+            n.decay(dt)
+
+    def evict(self):
+        self.events = [n for n in self.events if n.salience > 0.02]
+
+
+class SemanticMemory:
+    def __init__(self):
+        self.concepts: dict[str, MemoryNode] = {}
+
+    def add(self, node):
+        key = next(iter(node.tags), node.id)
+        if key in self.concepts:
+            self.concepts[key].confidence = min(1.0, self.concepts[key].confidence + 0.1)
+        else:
+            self.concepts[key] = node
+
+    def query(self, query, k=5):
+        return sorted(self.concepts.values(), key=lambda n: n.confidence, reverse=True)[:k]
+
+    def decay(self, dt):
+        for n in self.concepts.values():
+            n.decay(dt)
+
+    def evict(self):
+        self.concepts = {k: v for k, v in self.concepts.items() if v.salience > 0.05}
+
+
+class MemoryCore:
+    def __init__(self):
+        self.stm = ShortTermMemory()
+        self.episodic = EpisodicMemory()
+        self.semantic = SemanticMemory()
+        self.last_tick = time.time()
+
+    def _project_to_holographic(self, node: MemoryNode):
+        try:
+            if node.source == "user":
+                emotion = next(iter(node.tags), "neutral")
+            else:
+                emotion = "neutral"
+
+            add_long_memory(
+                user_id=current_user_id if "current_user_id" in globals() else 0,
+                role=node.source,
+                content=str(node.content),
+                emotion=emotion
+            )
+        except Exception:
+            pass
+
+    def write(self, content, *, source="system", tags=None, affect=None, persist=True):
+        node = MemoryNode(
+            id=str(uuid.uuid4()),
+            content=content,
+            embedding=None,
+            timestamp=time.time(),
+            source=source,
+            tags=set(tags or []),
+            affect=affect or {}
+        )
+        self.stm.add(node)
+        self.episodic.add(node)
+
+        if node.salience > 0.6:
+            self.semantic.add(node)
+
+        if persist:
+            self._project_to_holographic(node)
+
+    def recall(self, query, k=5):
+        out = []
+        out.extend(self.stm.query(query, k))
+        out.extend(self.semantic.query(query, k))
+        return out[:k]
+
+    def tick(self):
+        now = time.time()
+        dt = now - self.last_tick
+        self.last_tick = now
+        self.stm.decay(dt)
+        self.episodic.decay(dt)
+        self.semantic.decay(dt)
+        self.stm.evict()
+        self.episodic.evict()
+        self.semantic.evict()
+
 gotov = Gotov()
+memory_core = MemoryCore()
 # глобальный рой
 swarm = Swarm()
 
@@ -1506,24 +1662,35 @@ def set_mode(user_id: int, mode: str) -> None:
 def get_mode(user_id: int) -> str:
     return current_mode.get(user_id, "medium")
 
-def add_to_memory(user_id: int, role: str, content: str) -> None:
-    """Сохранение в память диалога"""
-    uid_str = str(user_id)
-    if uid_str not in conversation_memory:
-        conversation_memory[uid_str] = []
-    
-    conversation_memory[uid_str].append({
-        "timestamp": datetime.now().isoformat(),
-        "role": role,
-        "content": content,
-        "emotion": detect_emotion(content) if role == "user" else "neutral"
-    })
-    
-    if len(conversation_memory[uid_str]) > 30:
-        conversation_memory[uid_str] = conversation_memory[uid_str][-30:]
-    
-    save_json(MEMORY_FILE, conversation_memory)
-    add_long_memory(user_id, role, content, detect_emotion(content) if role == "user" else "neutral")
+def add_long_memory(*args, **kwargs):
+    # placeholder: actual implementation should be above
+    pass
+
+# --- memory compatibility layer ---
+
+def add_to_long_memory(*args, **kwargs):
+    return add_long_memory(*args, **kwargs)
+
+def add_to_memory(uid, role, content, emotion=None):
+    global current_user_id
+    current_user_id = uid
+    # краткосрочная / диалоговая память (если есть)
+    try:
+        if uid not in conversation_memory:
+            conversation_memory[uid] = []
+        conversation_memory[uid].append({
+            "role": role,
+            "content": content,
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception:
+        pass
+
+    # долговременная память
+    try:
+        add_long_memory(uid, role, content, emotion=emotion)
+    except Exception as e:
+        logging.error(f"add_to_memory → long_memory failed: {e}")
 
 def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, str]]:
     """
