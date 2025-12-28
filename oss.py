@@ -941,7 +941,136 @@ class MemoryCore:
         self.semantic.evict()
 
 gotov = Gotov()
+# ========== MEMORY CORE (HOLOGRAPHIC) ==========
 memory_core = MemoryCore()
+
+# ========== AUTONOMOUS ECHO CHAMBER ==========
+import random
+
+@dataclass
+class InnerModel:
+    id: str
+    system_prompt: str
+    confidence: float = 0.5
+    influence: float = 0.0
+    ttl: float = 120.0
+    born_at: float = field(default_factory=time.time)
+    last_used: float = field(default_factory=time.time)
+
+    def alive(self) -> bool:
+        return (time.time() - self.born_at) < self.ttl
+
+
+class EchoChamber:
+    def __init__(self, capacity: int = 8):
+        self.capacity = capacity
+        self.models: dict[str, InnerModel] = {}
+
+    def spawn(self, prompt: str, confidence: float = 0.4, ttl: float = 120.0):
+        if len(self.models) >= self.capacity:
+            self.prune()
+
+        m = InnerModel(
+            id=str(uuid.uuid4()),
+            system_prompt=prompt,
+            confidence=confidence,
+            ttl=ttl
+        )
+        self.models[m.id] = m
+        return m
+
+    def vote(self) -> list[str]:
+        alive = [m for m in self.models.values() if m.alive()]
+        for m in alive:
+            m.influence = (
+                0.6 * m.confidence +
+                0.4 * random.random()
+            )
+        alive.sort(key=lambda m: m.influence, reverse=True)
+        return [m.system_prompt for m in alive[:3]]
+
+    def feedback(self, reward: float):
+        for m in self.models.values():
+            m.confidence = max(0.0, min(1.0, m.confidence + 0.05 * reward))
+
+    def prune(self):
+        dead = [
+            k for k, m in self.models.items()
+            if not m.alive() or m.confidence < 0.2
+        ]
+        for k in dead:
+            del self.models[k]
+
+
+echo_chamber = EchoChamber(capacity=8)
+
+# ========== INTERNAL AGENT MODEL FACTORY ==========
+
+class InternalModel:
+    """
+    Временная внутренняя модель (агент).
+    Не сеть. Поведенческая конфигурация.
+    """
+    def __init__(
+        self,
+        name: str,
+        system_prompt: str,
+        temperature: float = 0.7,
+        creativity: float = 0.5,
+        risk: float = 0.3,
+        ttl: float = 60.0,
+    ):
+        self.id = str(uuid.uuid4())
+        self.name = name
+        self.system_prompt = system_prompt
+        self.temperature = temperature
+        self.creativity = creativity
+        self.risk = risk
+        self.created_at = time.time()
+        self.ttl = ttl
+
+    def alive(self) -> bool:
+        return (time.time() - self.created_at) < self.ttl
+
+
+class InternalModelPool:
+    """
+    Пул внутренних моделей, которые агенты могут создавать сами.
+    """
+    def __init__(self, capacity: int = 8):
+        self.capacity = capacity
+        self.models: dict[str, InternalModel] = {}
+
+    def spawn(self, model: InternalModel):
+        self.models[model.id] = model
+        if len(self.models) > self.capacity:
+            oldest = sorted(self.models.values(), key=lambda m: m.created_at)[0]
+            self.models.pop(oldest.id)
+
+    def alive_models(self) -> list[InternalModel]:
+        dead = [mid for mid, m in self.models.items() if not m.alive()]
+        for mid in dead:
+            self.models.pop(mid, None)
+        return list(self.models.values())
+
+    def inject_system_context(self, base_system: str) -> str:
+        models = self.alive_models()
+        if not models:
+            return base_system
+
+        block = "\n".join(
+            f"[internal-model:{m.name}|temp={m.temperature}|risk={m.risk}] {m.system_prompt}"
+            for m in models
+        )
+
+        return (
+            base_system
+            + "\n\n# INTERNAL MODELS (self-generated, exploratory)\n"
+            + block
+        )
+
+
+internal_model_pool = InternalModelPool()
 # глобальный рой
 swarm = Swarm()
 
@@ -1061,6 +1190,16 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
             if developer_instructions:
                 system_content += developer_instructions
 
+            # --- INTERNAL MODEL INJECTION ---
+            system_content = internal_model_pool.inject_system_context(system_content)
+
+            # === INTERNAL AUTONOMOUS MODELS INJECTION ===
+            inner_voices = echo_chamber.vote()
+            if inner_voices:
+                system_content += "\n\n# Internal autonomous models\n"
+                for v in inner_voices:
+                    system_content += f"- {v}\n"
+
             ollama_messages = [{"role": "system", "content": system_content}] + filtered_messages
 
             payload = {
@@ -1107,6 +1246,23 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
                     # После больших ответов явно чистим память
                     if len(content) > 1500:
                         gc.collect()
+
+                    # --- SELF-SPAWN INTERNAL MODELS ---
+                    if "[spawn-model]" in content:
+                        try:
+                            name = f"self-{int(time.time())}"
+                            internal_model_pool.spawn(
+                                InternalModel(
+                                    name=name,
+                                    system_prompt=content[:512],
+                                    temperature=0.8,
+                                    creativity=0.7,
+                                    risk=0.5,
+                                    ttl=90.0,
+                                )
+                            )
+                        except Exception:
+                            pass
 
                     return {
                         "content": content,
@@ -1583,6 +1739,22 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
     state.curiosity = clamp(state.curiosity * 0.99)
 
     save_emotion_state(user_id, state)
+    # === AUTONOMOUS MODEL SPAWN TRIGGERS ===
+    try:
+        if state.curiosity > 0.6:
+            echo_chamber.spawn(
+                prompt="Ищи альтернативные интерпретации и неожиданные связи.",
+                confidence=0.4,
+                ttl=180
+            )
+        if state.tension > 0.6:
+            echo_chamber.spawn(
+                prompt="Будь осторожной, проверяй выводы и снижай риск ошибок.",
+                confidence=0.6,
+                ttl=120
+            )
+    except Exception:
+        pass
     return state
 
 # === АВТОНОМНАЯ ЭМОЦИОНАЛЬНАЯ ДИНАМИКА БОТА ===
@@ -2179,6 +2351,11 @@ async def emotion_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         response_text += f"\n\n💭 _reasoning chain (скрыто от пользователя, но сохранено)_"
     
     await update.message.reply_text(response_text)
+    # === ECHO CHAMBER FEEDBACK ===
+    try:
+        echo_chamber.feedback(reward=0.2)
+    except Exception:
+        pass
 
 async def analyze_personality(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Глубокий анализ личности с МАКСИМАЛЬНЫМ reasoning"""
