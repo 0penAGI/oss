@@ -2187,13 +2187,76 @@ async function maybeQueryWorld(state) {
 
         // ====== Music Autonomy Layer ======
 // ====== Granular + Neural Morphing Layer ======
-        let musicGenome = {
-            tempo: Math.random(),
-                density: Math.random(),
-                    brightness: Math.random(),
-                        chaos: Math.random(),
-                            harmony: Math.random()
-        };
+let musicGenome = {
+    tempo: Math.random(),
+    density: Math.random(),
+    brightness: Math.random(),
+    chaos: Math.random(),
+    harmony: Math.random()
+};
+
+// ===== EVOLUTIONARY SYNTH LAYER (SAFE, VOICE-ISOLATED) =====
+let synthPopulation = [];
+const MAX_SYNTHS = 6;
+
+function randn(scale = 1) {
+    return (Math.random() - 0.5) * scale;
+}
+function clamp(v) {
+    return Math.min(1, Math.max(0, v));
+}
+
+function spawnSynth(parent = null) {
+    const base = parent ? { ...parent.genome } : musicGenome;
+
+    const genome = {
+        tempo: clamp(base.tempo + randn(0.05)),
+        density: clamp(base.density + randn(0.08)),
+        brightness: clamp(base.brightness + randn(0.1)),
+        chaos: clamp(base.chaos + randn(0.12)),
+        harmony: clamp(base.harmony + randn(0.1)),
+        color: Math.random()
+    };
+
+    return {
+        id: crypto.randomUUID(),
+        genome,
+        age: 0,
+        fitness: 0
+    };
+}
+
+// init population
+synthPopulation.push(spawnSynth());
+
+function evolveSynths(context = {}) {
+    synthPopulation.forEach(s => {
+        const mood = selfAwareness?.mood ?? 0;
+        const curiosity = selfAwareness?.curiosity ?? 0;
+
+        s.fitness =
+            0.4 * Math.abs(mood) +
+            0.4 * curiosity +
+            0.2 * Math.random();
+
+        s.age++;
+    });
+
+    synthPopulation.sort((a, b) => b.fitness - a.fitness);
+    synthPopulation = synthPopulation.slice(0, MAX_SYNTHS);
+
+    if (Math.random() < 0.35 && synthPopulation.length < MAX_SYNTHS) {
+        synthPopulation.push(spawnSynth(synthPopulation[0]));
+    }
+
+    synthPopulation.forEach(s => {
+        Object.keys(s.genome).forEach(k => {
+            if (Math.random() < 0.15) {
+                s.genome[k] = clamp(s.genome[k] + randn(0.03));
+            }
+        });
+    });
+}
 
         function neuralMorph(state) {
             Object.keys(state).forEach(k => {
@@ -2313,11 +2376,15 @@ async function maybeQueryWorld(state) {
         }
         let audioBusy = false;
         // --- Музыкальный слой с поддержкой жанров, расширенный ---
-        function startMusic() {
-            
-            audioBusy = true;
-            if (musicPlaying) return;
-            musicPlaying = true;
+function startMusic() {
+    audioBusy = true;
+    if (musicPlaying) return;
+    musicPlaying = true;
+    // --- SELECT DOMINANT SYNTH SPECIES ---
+    if (synthPopulation.length > 0) {
+        const dominant = synthPopulation[0];
+        Object.assign(musicGenome, dominant.genome);
+    }
             // --- Memory Palace: фиксируем музыку как событие ---
             memoryPalace.addNode({
               id: crypto.randomUUID(),
@@ -2676,25 +2743,34 @@ async function maybeQueryWorld(state) {
         }
 
         // Расширенная автономность генерации под mood и curiosity
-        setInterval(() => {
-            neuralMorph(musicGenome);
+setInterval(() => {
+    neuralMorph(musicGenome);
 
-            // --- Memory Palace: stimulate and get emergent memories ---
-            const emergentMemories = memoryPalace.stimulate({
-                emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
-                context: [typeof currentMode !== 'undefined' ? currentMode : '', typeof currentGenre !== 'undefined' ? currentGenre : '']
-            });
+    // --- Memory Palace: stimulate and get emergent memories ---
+    const emergentMemories = memoryPalace.stimulate({
+        emotion: (typeof selfAwareness?.mood === 'number' ? (selfAwareness.mood + 1) / 2 : 0.5) || 0.5,
+        context: [typeof currentMode !== 'undefined' ? currentMode : '', typeof currentGenre !== 'undefined' ? currentGenre : '']
+    });
 
-            const newLP = 600 + musicGenome.brightness * 8000;
-            masterLP.frequency.linearRampToValueAtTime(
-                newLP,
-                musicCtx.currentTime + 1.5
-            );
-            if (!musicPlaying) return;
-            let moodFactor = Math.min(1, Math.max(0, selfAwareness.mood + 0.5));
-            if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
-            if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
-        }, 5000);
+    const newLP = 600 + musicGenome.brightness * 8000;
+    masterLP.frequency.linearRampToValueAtTime(
+        newLP,
+        musicCtx.currentTime + 1.5
+    );
+    if (!musicPlaying) return;
+    let moodFactor = Math.min(1, Math.max(0, selfAwareness.mood + 0.5));
+    if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
+    if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
+}, 5000);
+
+// ===== EVOLUTION CLOCK =====
+setInterval(() => {
+    evolveSynths({
+        mood: selfAwareness?.mood,
+        curiosity: selfAwareness?.curiosity,
+        genre: currentGenre
+    });
+}, 9000);
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
