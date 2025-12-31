@@ -3008,7 +3008,7 @@
         spokenLength = 0;
         // --- sDelay-driven speech sync ---
         let speechStarted = false;
-        const speechDelayMs = 420; // базовая задержка «вязкого времени»
+        const speechDelayMs = 900; // увеличенный буфер для слабых устройств
 
         try {
             const userId = tg?.initDataUnsafe?.user?.id || 0;
@@ -3095,13 +3095,13 @@
 
                     setTimeout(() => {
                         speak(chunk);
-                    }, 120);
+                    }, speechDelayMs);
                 }
 
                 if (speechStarted) {
                     const delta = audioBuffer.slice(spokenLength);
                     // более ранний порог — речь дышит вместе с печатью
-                    if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+                    if (delta.length > 40 && /[.!?]|,|\n/.test(delta)) {
                         spokenLength = audioBuffer.length;
                         speak(delta);
                     }
@@ -3269,6 +3269,16 @@
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
+            // --- anti-crackle buffer ---
+            if (!window._speechSoftBuffer) window._speechSoftBuffer = [];
+            window._speechSoftBuffer.push(text);
+
+            if (window._speechSoftBuffer.length > 3) {
+                text = window._speechSoftBuffer.join(' ');
+                window._speechSoftBuffer = [];
+            } else {
+                return;
+            }
 
             updateSessionResonance();
 
@@ -3441,7 +3451,7 @@
                 utter.onerror = (e) => {
                     console.error('Speech error:', e);
                     stopSpeakingVibration();
-                    setTimeout(speakNext, 100);
+                    setTimeout(speakNext, 260);
                 };
 
                 // Добавляем в очередь с небольшой задержкой для избежания наложения
