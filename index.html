@@ -2195,6 +2195,35 @@
                             harmony: Math.random()
         };
 
+        // ===== Evolutionary Synth Population =====
+        let synthPopulation = [];
+        let SYNTH_SEQ = 0;
+
+        const clamp01 = v => Math.min(1, Math.max(0, v));
+        const mut = (v,s)=>clamp01(v + (Math.random()-0.5)*s);
+        const pick = a => a[Math.floor(Math.random()*a.length)];
+
+        function createSynth(parent=null){
+            const g = parent ? parent.genome : musicGenome;
+            return {
+                id: ++SYNTH_SEQ,
+                age: 0,
+                energy: 1,
+                type: pick(['grain','fm','sub','noise']),
+                genome: {
+                    tempo: mut(g.tempo,0.12),
+                    density: mut(g.density,0.14),
+                    brightness: mut(g.brightness,0.18),
+                    chaos: mut(g.chaos,0.22),
+                    harmony: mut(g.harmony,0.16)
+                },
+                alive: true
+            };
+        }
+
+        // стартовая популяция
+        for(let i=0;i<3;i++) synthPopulation.push(createSynth());
+
         function neuralMorph(state) {
             Object.keys(state).forEach(k => {
                     const drift = (Math.random() - 0.5) * 0.04;
@@ -2285,6 +2314,36 @@
             if (currentAINotes.length > 50) currentAINotes.splice(0, currentAINotes.length - 50);
         }
 
+        function evolveSynths(){
+            synthPopulation.forEach(s=>{
+                s.age++;
+                s.energy -= 0.015 + s.genome.chaos * 0.03;
+
+                if(Math.random() < 0.35){
+                    Object.keys(s.genome).forEach(k=>{
+                        s.genome[k] = mut(s.genome[k],0.04);
+                    });
+                }
+
+                if(typeof selfAwareness !== 'undefined'){
+                    s.energy += Math.max(0,selfAwareness.mood) * 0.02;
+                    s.energy += selfAwareness.curiosity * 0.015;
+                }
+
+                if(s.energy <= 0) s.alive = false;
+            });
+
+            if(synthPopulation.length < 8 && Math.random() < 0.45){
+                const parent = pick(synthPopulation.filter(s=>s.alive));
+                if(parent) synthPopulation.push(createSynth(parent));
+            }
+
+            synthPopulation = synthPopulation.filter(s=>s.alive);
+            if(!synthPopulation.length) synthPopulation.push(createSynth());
+        }
+
+        setInterval(evolveSynths, 6000);
+
         /**
          * Интеграция потоковой генерации нот ИИ.
          * @param {Array<{freq:number, duration:number, velocity:number}>} noteStream
@@ -2320,6 +2379,17 @@
             audioBusy = true;
             if (musicPlaying) return;
             musicPlaying = true;
+            // --- Select living synth ---
+            const activeSynth = pick(synthPopulation);
+            const g = activeSynth.genome;
+
+            // гибридизация
+            musicGenome.tempo = (musicGenome.tempo + g.tempo) * 0.5;
+            musicGenome.density = (musicGenome.density + g.density) * 0.5;
+            musicGenome.brightness = (musicGenome.brightness + g.brightness) * 0.5;
+            musicGenome.chaos = (musicGenome.chaos + g.chaos) * 0.5;
+            musicGenome.harmony = (musicGenome.harmony + g.harmony) * 0.5;
+
             // --- Memory Palace: фиксируем музыку как событие ---
             memoryPalace.addNode({
               id: crypto.randomUUID(),
@@ -2420,19 +2490,22 @@
             let lastExtraKickTime = 0;
 
             // --- Прямые/жанровые бочки (kick drum) ---
+            // --- Synth oscillator type helper ---
+            function oscTypeFromSynth(s){
+                switch(s.type){
+                    case 'fm': return 'sine';
+                    case 'sub': return 'triangle';
+                    case 'noise': return Math.random()>0.5?'square':'sawtooth';
+                    default: return 'sawtooth';
+                }
+            }
+
             function scheduleKick(time, step) {
                 // Ритм и плотность бита по жанру
                 if (!beatPattern[step % beatPattern.length]) return;
                 const osc = musicCtx.createOscillator();
-                // Тип осциллятора по жанру
-                let oscType = 'sine';
-                switch(currentGenre) {
-                    case 'pop': oscType = Math.random() > 0.5 ? 'sine' : 'square'; break;
-                    case 'electro': oscType = 'square'; break;
-                    case 'ambient': oscType = 'sine'; break;
-                    case 'jazz': oscType = 'triangle'; break;
-                }
-                osc.type = oscType;
+                // Тип осциллятора по synth
+                osc.type = oscTypeFromSynth(activeSynth);
                 osc.frequency.setValueAtTime(80, time);
                 osc.frequency.linearRampToValueAtTime(60, time + 0.06);
                 const gain = musicCtx.createGain();
@@ -2457,7 +2530,7 @@
                 // С вероятностью 30% добавим ghost kick между основными ударами
                 if (Math.random() < 0.3) {
                     const osc = musicCtx.createOscillator();
-                    osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Немного другой pitch для ghost
                     osc.frequency.setValueAtTime(65 + Math.random()*10, time);
                     osc.frequency.linearRampToValueAtTime(45 + Math.random()*12, time + 0.05 + Math.random()*0.03);
@@ -2522,15 +2595,7 @@
             function scheduleChord(time, chord) {
                 chord.notes.forEach((freq, i) => {
                     const osc = musicCtx.createOscillator();
-                    // Тип осциллятора по жанру
-                    let oscType = 'triangle';
-                    switch(currentGenre) {
-                        case 'pop': oscType = 'triangle'; break;
-                        case 'electro': oscType = 'sawtooth'; break;
-                        case 'ambient': oscType = 'sine'; break;
-                        case 'jazz': oscType = 'triangle'; break;
-                    }
-                    osc.type = oscType;
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Дополнительный случайный детюн для аккордов (живость)
                     osc.detune.value = (Math.random() - 0.5) * 11;
                     osc.frequency.value = freq;
@@ -2585,15 +2650,7 @@
                     // Иногда пропускаем ноту (10% шанс)
                     if (Math.random() < 0.1) return;
                     const osc = musicCtx.createOscillator();
-                    // Тип осциллятора мелодии по жанру
-                    let oscType = 'triangle';
-                    switch(currentGenre) {
-                        case 'pop': oscType = Math.random() > 0.5 ? 'sawtooth' : 'triangle'; break;
-                        case 'electro': oscType = 'square'; break;
-                        case 'ambient': oscType = 'sine'; break;
-                        case 'jazz': oscType = 'square'; break;
-                    }
-                    osc.type = oscType;
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Детюн для живости (+ случайный детюн сильнее для electro/ambient)
                     let detune = (Math.random()-0.5)*18;
                     if (currentGenre==='electro') detune *= 1.5;
