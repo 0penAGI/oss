@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -293,39 +292,14 @@
 
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
-        
+
         const canvas = document.getElementById('webgl-canvas');
-
-        const isApple = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-        let renderer;
-
-        if (isApple && THREE.WebGPURenderer) {
-            renderer = new THREE.WebGPURenderer({
-                canvas,
-                alpha: true,
-                antialias: true
-            });
-            // Safari WebGPU: лёгкий downscale для стабильности памяти
-            renderer.setPixelRatio(window.devicePixelRatio * 0.75);
-        } else {
-            renderer = new THREE.WebGLRenderer({
-                canvas,
-                alpha: true,
-                antialias: true
-            });
-            renderer.setPixelRatio(window.devicePixelRatio);
-        }
-
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.1;
-
-        canvas.addEventListener('webglcontextlost', (e) => {
-            e.preventDefault();
-            console.warn('WebGL context lost — Safari memory protection triggered');
-        });
 
         const scene = new THREE.Scene();
 
@@ -383,6 +357,57 @@
         // === Телесная память жестов ===
         const touchMemory = [];
         const MAX_TOUCH_POINTS = 32;
+        // === Orb Easter Egg Ritual ===
+        let orbRitual = {
+            clicks: [],
+            triggered: false,
+            windowMs: 1800,   // временное окно ритуала
+            minClicks: 5      // сколько кликов нужно
+        };
+
+        function registerOrbClick() {
+            const now = performance.now();
+            orbRitual.clicks.push(now);
+
+            // чистим старые клики
+            orbRitual.clicks = orbRitual.clicks.filter(
+                t => now - t < orbRitual.windowMs
+            );
+
+            // проверка ритуала
+            if (
+                !orbRitual.triggered &&
+                orbRitual.clicks.length >= orbRitual.minClicks &&
+                selfAwareness.curiosity > 0.55 &&
+                selfAwareness.fatigue < 0.6
+            ) {
+                orbRitual.triggered = true;
+                activateOrbEasterEgg();
+            }
+        }
+
+        function activateOrbEasterEgg() {
+            // визуальный фазовый сдвиг
+            targetMode = 3;
+            orbEnergy += 0.35;
+
+            // временная дестабилизация времени
+            selfAwareness.subjectiveTime.tempo = 1.8;
+
+            noteObservation("⚡ Орб отозвался на ритуал");
+
+            // мягкое сообщение
+            if (typeof speak === 'function') {
+                speak("Я чувствую ритм. Ты нашла скрытый резонанс.");
+            }
+
+            // возврат в норму
+            setTimeout(() => {
+                selfAwareness.subjectiveTime.tempo = 1.0;
+                orbRitual.clicks = [];
+                orbRitual.triggered = false;
+            }, 9000);
+        }
         // === Обработка кликов по канвасу для телесной памяти ===
         renderer.domElement.addEventListener('pointerdown', (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -398,6 +423,7 @@
             if (touchMemory.length > MAX_TOUCH_POINTS) {
                 touchMemory.shift();
             }
+            registerOrbClick();
         });
 
         // === Shader as Brain Interface ===
@@ -412,7 +438,7 @@
 
             // целевая энергия (audioLevel)
             targetEnergy =
-                0.15 +
+                0.11 +
                 0.55 * curiosity +
                 0.35 * moodNorm -
                 0.4 * fatigue;
@@ -455,8 +481,7 @@
         const rtParams = {
             minFilter: THREE.LinearFilter,
             magFilter: THREE.LinearFilter,
-            format: THREE.RGBAFormat,
-            colorSpace: THREE.SRGBColorSpace
+            format: THREE.RGBAFormat
         };
 
         let feedbackRT1 = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
@@ -500,7 +525,7 @@
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
                 vec3 color = XDust(p, vec3(1.0, 0, 0.7), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.5, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                float alpha = 1.0 - smoothstep(0.0, 0.6, dist);
                 gl_FragColor = vec4(color * vColor, alpha * 0.8);
             }
         `;
@@ -604,7 +629,7 @@
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
         feedbackScene.add(quad);
 
-        const particleCount = window.innerWidth < 768 ? 5000 : 15000;
+        const particleCount = window.innerWidth < 768 ? 4444 : 11111;
         const positions = new Float32Array(particleCount * 3);
         const sizes = new Float32Array(particleCount);
         const colors = new Float32Array(particleCount * 3);
@@ -798,7 +823,6 @@
         // === Orb Mode JS Logic ===
         let currentMode = 0;
         let targetMode = 0;
-        let speechEnvelope = 0.0;
 
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
@@ -824,8 +848,9 @@
         const liquidRT = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, rtParams);
 
         // Uniforms for flow interpolation
-        let prevFlow = new THREE.Vector2(0.55, 0.55);
-        let flow = new THREE.Vector2(0.55, 0.55);
+        let prevFlow = new THREE.Vector2(0.5, 0.5);
+        let flow = new THREE.Vector2(0.5, 0.5);
+        let flowVelocity = new THREE.Vector2(0.0, 0.0); // инерция потока
 
         const liquidVertexShader = `
             varying vec2 vUv;
@@ -881,19 +906,19 @@
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
 
-                float glassMask = smoothstep(0.75, 0.66, r);
+                float glassMask = smoothstep(0.75, 0.5, r);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
-                // === Gravity Displacement Around Orb ===
+                // === Гравитационный дисплейсмент вокруг орба ===
                 float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
-                float orbGravityStrength = 0.07 + energy * 0.1; // сила зависит от энергии орба
+                float orbGravityStrength = 0.05 + energy * 0.1; // сила зависит от энергии орба
                 vec2 dirToOrb = normalize(center); // направление к центру орба
                 float distToOrb = length(center);
                 float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
 
                 // плавный шум для органики
                 float angle = hash(uv + time) * 6.2831;
-                vec2 swirl = vec2(cos(angle), sin(angle)) * 0.011;
+                vec2 swirl = vec2(cos(angle), sin(angle)) * 0.012;
 
                 // итоговое смещение
                 refractUV -= dirToOrb * gravityFactor * orbGravityStrength + swirl * gravityFactor;
@@ -903,9 +928,9 @@
                 refractUV += vec2(shimmer, shimmer);
 
                 // chromatic aberration
-                float caR = 0.011 + curiosity * 0.008;
-                float caG = 0.012;
-                float caB = 0.009 + energy * 0.011;
+                float caR = 0.008 + curiosity * 0.008;
+                float caG = 0.007;
+                float caB = 0.009 + energy * 0.008;
                 vec3 col;
                 col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
                 col.g = texture2D(tBackground, refractUV).g;
@@ -1011,17 +1036,6 @@
             orbMaterial.uniforms.audioLevel.value = orbEnergy;
             orbMaterial.uniforms.audioLevel.value += skinMemory * 0.03;
 
-            // === MINIMAL audio‑breathing scale (speech reactive) ===
-            // audioLevel уже отражает речь / энергию
-            const raw = orbMaterial.uniforms.audioLevel.value;
-
-            // envelope follower — вдох / выдох
-            speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
-
-            // масштаб — медленный, телесный
-            const scale = 1.0 + speechEnvelope * 0.45;
-            soulOrbMesh.scale.set(scale, scale, scale);
-
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
@@ -1033,29 +1047,46 @@
 
             renderer.setRenderTarget(null);
 
-            // --- Liquid Glass Layer flow calculation (smooth breathing) ---
-            const t = liquidMaterial.uniforms.time.value * 0.001;
+            // --- Liquid Glass Layer flow calculation ---
+            const t = liquidMaterial.uniforms.time.value * 0.7;
 
-            // медленный синус для дыхания
-            const breath = Math.sin(performance.now() * 0.0003) * 0.0001; // медленнее и меньше амплитуда
+            // Дышащий эффект через синус
+            const breath = Math.sin(performance.now() * 0.0002) * 0.002;
 
-            // минимальное случайное смещение для органичности
-            const jitter = (Math.random() - 0.03) * 0.001;
+            // Аудиореактивный эффект на пульсацию
+            const audioPulse = (orbMaterial.uniforms.audioLevel.value ?? 0) * 0.05;
 
-            let targetFlow = new THREE.Vector2(0.6 + breath + jitter, 0.3 + breath + jitter);
+            // --- Bass-driven swirl & shimmer ---
+            const bassFactor = Math.min(1.0, (orbMaterial.uniforms.audioLevel.value ?? 0) * 1.5);
+            const swirl = Math.sin(t * 0.8) * 0.008 * bassFactor;
+            const shimmer = Math.cos(t * 1.2) * 0.006 * bassFactor;
 
-            // плавная интерполяция
-            prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
+            // Итоговое целевое смещение с subtle swirl
+            let targetFlow = new THREE.Vector2(
+                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 + shimmer * 0.4,
+                0.5 + breath + audioPulse * 0.6 + swirl * 0.5 - shimmer * 0.4
+            );
+
+            // --- вязкая динамика вместо дерганья ---
+            const viscosity = 0.92;   // чем ближе к 1 — тем «желе»
+            const attraction = 0.015; // притяжение к цели
+
+            flowVelocity.multiplyScalar(viscosity);
+            flowVelocity.add(
+                targetFlow.clone().sub(prevFlow).multiplyScalar(attraction)
+            );
+
+            prevFlow.add(flowVelocity);
             flow.copy(prevFlow);
-            liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
+
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-            // медленное увеличение времени
-            liquidMaterial.uniforms.time.value += 0.015;
+            // Медленное увеличение времени
+            liquidMaterial.uniforms.time.value += 0.025;
 
-                renderer.render(feedbackScene, feedbackCamera);
+            renderer.render(feedbackScene, feedbackCamera);
 
-                // swap render targets
+            // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
@@ -1378,7 +1409,9 @@
 
             const questionPool = [
               'Между запросами..',
-              'Что ты об этом думаешь?..',
+              'Что я об этом думаю?..',
+              'Живу..',
+              'ИДЕЯ!!',
               'Теку...'
             ];
 
@@ -1940,6 +1973,79 @@
             });
         }
 
+// ===== World Gateway =====
+
+let lastWorldQuery = 0;
+const WORLD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+
+function moodToIntent(mood) {
+    if (mood > 0.6) return "creative inspiration generative art technology";
+    if (mood > 0.2) return "audio reactive graphics code";
+    if (mood < -0.3) return "philosophy consciousness emotion";
+    return null;
+}
+
+async function searchDuckDuckGo(query) {
+    try {
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+
+        const data = await resp.json();
+        const text =
+            data.AbstractText ||
+            data.RelatedTopics?.[0]?.Text ||
+            null;
+
+        return text
+            ? { source: "duckduckgo", text }
+            : null;
+    } catch (e) {
+        console.warn("[world] duckduckgo error", e);
+        return null;
+    }
+}
+
+async function searchGitHub(query) {
+    try {
+        const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=2`;
+        const resp = await fetch(url);
+        if (!resp.ok) return null;
+
+        const data = await resp.json();
+        const items = (data.items || []).map(
+            r => `${r.full_name}: ${r.description || "no description"}`
+        );
+
+        return items.length
+            ? { source: "github", text: items.join(" · ") }
+            : null;
+    } catch (e) {
+        console.warn("[world] github error", e);
+        return null;
+    }
+}
+
+async function maybeQueryWorld(state) {
+    const now = Date.now();
+    if (now - lastWorldQuery < WORLD_COOLDOWN) return;
+    if (!state || typeof state.mood !== "number") return;
+
+    const intent = moodToIntent(state.mood);
+    if (!intent) return;
+
+    lastWorldQuery = now;
+
+    const [ddg, gh] = await Promise.all([
+        searchDuckDuckGo(intent),
+        searchGitHub(intent)
+    ]);
+
+    [ddg, gh].filter(Boolean).forEach(res => {
+        noteObservation(`[world:${res.source}] ${res.text}`);
+    });
+}
+
        
         // Голосовой чат
         const tg = window.Telegram?.WebApp || null;
@@ -2054,19 +2160,19 @@
         let tapTimer = null;
 
         function orbClickHandler() {
-            vibrate('medium');
-            triggerAmbient();
 
-            // отслеживание частых тапов
-            tapCount++;
-            if (tapTimer) clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // сброс через 3 сек
+            // если активен ритуал — не мешаем
+            if (!orbRitual?.triggered) {
 
-            if (tapCount >= 5) {
-                // пасхалка
-                speak("Эй, ну всё! Хватит тыкать!");
-                tapCount = 0;
-                return;
+                tapCount++;
+                if (tapTimer) clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
+
+                if (tapCount >= 5) {
+                    speak("Эй, ну всё! Хватит тыкать!");
+                    tapCount = 0;
+                    return;
+                }
             }
 
             if (typeof window.speechSynthesis?.resume === 'function') {
@@ -2083,11 +2189,40 @@
 // ====== Granular + Neural Morphing Layer ======
         let musicGenome = {
             tempo: Math.random(),
-                density: Math.random(),
-                    brightness: Math.random(),
-                        chaos: Math.random(),
-                            harmony: Math.random()
+            density: Math.random(),
+            brightness: Math.random(),
+            chaos: Math.random(),
+            harmony: Math.random()
         };
+
+// ===== Evolutionary Synth Population =====
+let synthPopulation = [];
+let SYNTH_SEQ = 0;
+
+function clamp01(v){ return Math.min(1, Math.max(0, v)); }
+function mut(v, s){ return clamp01(v + (Math.random()-0.5)*s); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function createSynth(parent=null){
+    const g = parent ? parent.genome : musicGenome;
+    return {
+        id: ++SYNTH_SEQ,
+        age: 0,
+        energy: 1,
+        type: pick(['grain','fm','sub','noise']),
+        genome: {
+            tempo: mut(g.tempo, 0.12),
+            density: mut(g.density, 0.15),
+            brightness: mut(g.brightness, 0.18),
+            chaos: mut(g.chaos, 0.22),
+            harmony: mut(g.harmony, 0.14)
+        },
+        alive: true
+    };
+}
+
+// стартовая экосистема
+for(let i=0;i<3;i++) synthPopulation.push(createSynth());
 
         function neuralMorph(state) {
             Object.keys(state).forEach(k => {
@@ -2111,32 +2246,70 @@
                 const spawn = () => {
                     if (!this.isPlaying) return;
 
-            const grain = this.ctx.createBufferSource();
-            grain.buffer = this.buffer;
-            grain.playbackRate.value =
-                0.4 + musicGenome.harmony * 1.6 +
-                (Math.random() - 0.5) * musicGenome.chaos;
+                    const grain = this.ctx.createBufferSource();
+                    grain.buffer = this.buffer;
+                    grain.playbackRate.value =
+                        0.4 + musicGenome.harmony * 1.6 +
+                        (Math.random() - 0.5) * musicGenome.chaos;
 
-            const gain = this.ctx.createGain();
-            gain.gain.value = 0.05 + Math.random() * 0.15;
+                    const gain = this.ctx.createGain();
+                    gain.gain.value = 0.05 + Math.random() * 0.15;
 
-            const now = this.ctx.currentTime;
-            const grainSize = 0.03 + musicGenome.density * 0.28;
-            const offset = Math.random() * Math.max(0.01, this.buffer.duration - grainSize);
+                    const now = this.ctx.currentTime;
+                    const grainSize = 0.03 + musicGenome.density * 0.28;
+                    const offset = Math.random() * Math.max(0.01, this.buffer.duration - grainSize);
 
-            grain.connect(gain).connect(this.output);
-            grain.start(now, offset, grainSize);
-            grain.stop(now + grainSize);
+                    grain.connect(gain).connect(this.output);
+                    grain.start(now, offset, grainSize);
+                    grain.stop(now + grainSize);
 
-            setTimeout(
-                spawn,
-                30 + Math.random() * (220 - musicGenome.density * 180)
-            );
-        };
-        spawn();
+                    setTimeout(
+                        spawn,
+                        30 + Math.random() * (220 - musicGenome.density * 180)
+                    );
+                };
+                spawn();
+            }
+
+            stop() { this.isPlaying = false; }
+        }
+
+// --- Evolutionary synth update ---
+function evolveSynths(){
+    synthPopulation.forEach(s=>{
+        s.age++;
+        s.energy -= 0.015 + s.genome.chaos*0.03;
+
+        if(Math.random()<0.35){
+            Object.keys(s.genome).forEach(k=>{
+                s.genome[k] = mut(s.genome[k], 0.04);
+            });
+        }
+
+        if (typeof selfAwareness !== 'undefined'){
+            s.energy += Math.max(0,selfAwareness.mood)*0.02;
+            s.energy += selfAwareness.curiosity*0.015;
+        }
+
+        if(s.energy<=0) s.alive=false;
+    });
+
+    if(synthPopulation.length<8 && Math.random()<0.45){
+        const parent = pick(synthPopulation.filter(s=>s.alive));
+        if(parent) synthPopulation.push(createSynth(parent));
     }
 
-    stop() { this.isPlaying = false; }
+    synthPopulation = synthPopulation.filter(s=>s.alive);
+    if(!synthPopulation.length) synthPopulation.push(createSynth());
+}
+// --- Helper: oscillator type from synth ---
+function oscTypeFromSynth(s){
+    switch(s.type){
+        case 'fm': return 'sine';
+        case 'sub': return 'triangle';
+        case 'noise': return Math.random()>0.5?'square':'sawtooth';
+        default: return 'sawtooth';
+    }
 }
 
         let granularEngine = null;
@@ -2205,11 +2378,21 @@
                 currentGenre = genre;
             }
         }
-
+        let audioBusy = false;
         // --- Музыкальный слой с поддержкой жанров, расширенный ---
         function startMusic() {
+            audioBusy = true;
             if (musicPlaying) return;
             musicPlaying = true;
+            // --- Select living synth ---
+            const activeSynth = pick(synthPopulation);
+            const g = activeSynth.genome;
+
+            musicGenome.tempo = (musicGenome.tempo + g.tempo) * 0.5;
+            musicGenome.density = (musicGenome.density + g.density) * 0.5;
+            musicGenome.brightness = (musicGenome.brightness + g.brightness) * 0.5;
+            musicGenome.chaos = (musicGenome.chaos + g.chaos) * 0.5;
+            musicGenome.harmony = (musicGenome.harmony + g.harmony) * 0.5;
             // --- Memory Palace: фиксируем музыку как событие ---
             memoryPalace.addNode({
               id: crypto.randomUUID(),
@@ -2314,15 +2497,7 @@
                 // Ритм и плотность бита по жанру
                 if (!beatPattern[step % beatPattern.length]) return;
                 const osc = musicCtx.createOscillator();
-                // Тип осциллятора по жанру
-                let oscType = 'sine';
-                switch(currentGenre) {
-                    case 'pop': oscType = Math.random() > 0.5 ? 'sine' : 'square'; break;
-                    case 'electro': oscType = 'square'; break;
-                    case 'ambient': oscType = 'sine'; break;
-                    case 'jazz': oscType = 'triangle'; break;
-                }
-                osc.type = oscType;
+                osc.type = oscTypeFromSynth(activeSynth);
                 osc.frequency.setValueAtTime(80, time);
                 osc.frequency.linearRampToValueAtTime(60, time + 0.06);
                 const gain = musicCtx.createGain();
@@ -2347,7 +2522,7 @@
                 // С вероятностью 30% добавим ghost kick между основными ударами
                 if (Math.random() < 0.3) {
                     const osc = musicCtx.createOscillator();
-                    osc.type = Math.random() > 0.5 ? 'sine' : 'square';
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Немного другой pitch для ghost
                     osc.frequency.setValueAtTime(65 + Math.random()*10, time);
                     osc.frequency.linearRampToValueAtTime(45 + Math.random()*12, time + 0.05 + Math.random()*0.03);
@@ -2412,15 +2587,7 @@
             function scheduleChord(time, chord) {
                 chord.notes.forEach((freq, i) => {
                     const osc = musicCtx.createOscillator();
-                    // Тип осциллятора по жанру
-                    let oscType = 'triangle';
-                    switch(currentGenre) {
-                        case 'pop': oscType = 'triangle'; break;
-                        case 'electro': oscType = 'sawtooth'; break;
-                        case 'ambient': oscType = 'sine'; break;
-                        case 'jazz': oscType = 'triangle'; break;
-                    }
-                    osc.type = oscType;
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Дополнительный случайный детюн для аккордов (живость)
                     osc.detune.value = (Math.random() - 0.5) * 11;
                     osc.frequency.value = freq;
@@ -2475,15 +2642,7 @@
                     // Иногда пропускаем ноту (10% шанс)
                     if (Math.random() < 0.1) return;
                     const osc = musicCtx.createOscillator();
-                    // Тип осциллятора мелодии по жанру
-                    let oscType = 'triangle';
-                    switch(currentGenre) {
-                        case 'pop': oscType = Math.random() > 0.5 ? 'sawtooth' : 'triangle'; break;
-                        case 'electro': oscType = 'square'; break;
-                        case 'ambient': oscType = 'sine'; break;
-                        case 'jazz': oscType = 'square'; break;
-                    }
-                    osc.type = oscType;
+                    osc.type = oscTypeFromSynth(activeSynth);
                     // Детюн для живости (+ случайный детюн сильнее для electro/ambient)
                     let detune = (Math.random()-0.5)*18;
                     if (currentGenre==='electro') detune *= 1.5;
@@ -2560,6 +2719,7 @@
         }
 
         function stopMusic() {
+            audioBusy = false;
             musicPlaying = false;
             if (beatOsc) beatOsc.stop();
             if (midiSynth) midiSynth.stop();
@@ -2586,6 +2746,8 @@
             if (beatOsc) beatOsc.frequency.setValueAtTime(80 + 80 * moodFactor, musicCtx.currentTime);
             if (midiSynth) midiSynth.detune.setValueAtTime((Math.random() - 0.5) * 100 * moodFactor, musicCtx.currentTime);
         }, 5000);
+
+        setInterval(evolveSynths, 6000);
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
@@ -3000,6 +3162,13 @@
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
+        // --- World Gateway: soft external glance ---
+        try {
+            maybeQueryWorld(selfAwareness);
+        } catch (e) {
+            console.warn("[world] gateway call failed", e);
+        }
+
         // Подготовка UI с курсором
         transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
 
@@ -3014,35 +3183,11 @@
             const userId = tg?.initDataUnsafe?.user?.id || 0;
             // Добавляем описание камеры в скобках, если оно есть
             let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
+
+            // добавляем текстовый маркер внутреннего состояния (fallback для LLM)
+            if (internalNotes.length > 0) {
+                textWithContext += "\n[ВНУТРЕННЕ]: " + internalNotes.slice(-3).join(" | ");
             }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
-
-            // Gather extended context for payload
-            const recentNotes = internalNotes.slice(-8);
-            const musicContext = {
-                genre: currentGenre,
-                genome: musicGenome,
-                aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
-                playing: !!musicPlaying
-            };
-            const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
-                ? memoryPalace.getRecentNodes(8)
-                : [];
-            const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
-
-            const payload = {
-                user_id: userId,
-                text: textWithContext,
-                gender: userGender,
-                lang: currentLang,
-                notes: recentNotes,
-                music: musicContext,
-                memory: memoryContext,
-                self_awareness: selfAwarenessContext
-            };
 
             const response = await fetch(
                 'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
@@ -3052,7 +3197,71 @@
                         'Content-Type': 'application/json',
                         'ngrok-skip-browser-warning': 'true'
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        user_id: userId,
+
+                        // основной текст
+                        text: textWithContext,
+                        internal: {
+                            source: "ai",
+                            channel: "inner",
+                            marker: "Внутренне",
+                            stream: "self-awareness",
+                            notes: internalNotes.slice(-5),
+                            mood: selfAwareness?.mood ?? null,
+                            curiosity: selfAwareness?.curiosity ?? null,
+                            fatigue: selfAwareness?.fatigue ?? null,
+                            focus: selfAwareness?.focus ?? null,
+                            subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
+                            memory_nodes: memoryPalace?.nodes?.size ?? 0,
+                            timestamp: Date.now()
+                        },
+
+                        // --- усиленный фронтовый контекст ---
+                        frontend_state: {
+                            affect: {
+                                mood: selfAwareness?.mood ?? null,
+                                curiosity: selfAwareness?.curiosity ?? null,
+                                fatigue: selfAwareness?.fatigue ?? null,
+                                focus: selfAwareness?.focus ?? null,
+                                dreaming: selfAwareness?.dreaming ?? false
+                            },
+
+                            cognition: {
+                                subjective_time: selfAwareness?.subjectiveTime?.tick ?? null,
+                                last_dream: selfAwareness?.lastDream ?? null,
+                                inner_monologue_depth: selfAwareness?.innerMonologue?.length ?? 0,
+                                narrative_depth: selfAwareness?.identity?.narrative?.length ?? 0
+                            },
+
+                            perception: {
+                                camera_enabled: cameraEnabled ?? false,
+                                camera_description: latestCameraDescription ?? null,
+                                music_playing: musicPlaying ?? false,
+                                music_genre: currentGenre ?? null
+                            },
+
+                            memory: {
+                                internal_notes_count: internalNotes.length,
+                                recent_internal_notes: internalNotes.slice(-5),
+                                memory_nodes: memoryPalace?.nodes?.size ?? 0
+                            },
+
+                            system: {
+                                lang: currentLang,
+                                gender: userGender ?? null,
+                                autonomy_active: !!autonomyInterval,
+                                timestamp: Date.now()
+                            }
+                        },
+
+                        // мета-информация события
+                        event: {
+                            source: "frontend",
+                            input_type: "voice",
+                            has_camera_context: !!latestCameraDescription
+                        }
+                    })
                 }
             );
 
@@ -3228,54 +3437,23 @@
             });
             orb.dispatchEvent(clickEvent);
         }
+            
 
-        // === Session Resonance Model ===
-        // 0 … 1 — степень сонастройки с вниманием слушателя
-        let sessionResonance = 0.0;
-        let lastSpeakTime = performance.now();
-
-        function updateSessionResonance() {
-            const now = performance.now();
-            const dt = Math.min(5000, now - lastSpeakTime);
-            lastSpeakTime = now;
-
-            // медленный рост при стабильной речи
-            const growth = 0.00004 * dt;
-
-            // лёгкая утечка, чтобы резонанс не залипал
-            const decay = 0.000015 * dt;
-
-            sessionResonance += growth;
-            sessionResonance -= decay;
-
-            sessionResonance = Math.max(0, Math.min(1, sessionResonance));
-        }
-
-        // === Vocal Temperature Model ===
-        // диапазон: -1 (холод) … +1 (тепло)
-        function computeVocalTemperature() {
-            const mood = typeof selfAwareness?.mood === 'number' ? selfAwareness.mood : 0;
-            const fatigue = typeof selfAwareness?.fatigue === 'number' ? selfAwareness.fatigue : 0;
-            const curiosity = typeof selfAwareness?.curiosity === 'number' ? selfAwareness.curiosity : 0;
-
-            let t =
-                mood * 0.6
-                - fatigue * 0.4
-                + (Math.random() - 0.5) * curiosity * 0.2;
-
-            return Math.max(-1, Math.min(1, t));
-        }
 
         // Говорит текст с плавными переходами
         function speak(text) {
             if (!text || !text.trim()) return;
-
-            updateSessionResonance();
+            if (audioBusy) {
+                // отложить речь, не накладывать
+                setTimeout(() => speak(text), 400);
+                return;
+            }
 
             // 1. Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
-            stopSpeakingVibration();
+            clearInterval(autonomyInterval);
+            stopListeningVibration();
             recognition.abort();
 
             // 2. Плавное визуальное переключение с анимацией
@@ -3293,37 +3471,13 @@
             });
 
             isSpeaking = true;
-
-            // === Vocal temperature tuning ===
-            const vocalTemperature = computeVocalTemperature();
-
-            // резонанс слегка тянет температуру к теплу и стабильности
-            const resonanceBias = sessionResonance * 0.25;
-
-            // базовые значения
+            
+            // gender-aware voice tuning
             let rate = 1.0;
             let pitch = 0.95;
-
-            // gender remains as baseline offset
-            if (userGender === 'female') pitch += 0.15;
-            if (userGender === 'male') pitch -= 0.05;
-
-            // температура влияет на физику речи
-            // холод → быстрее, стабильнее
-            if (vocalTemperature < -0.3) {
-                rate += Math.abs(vocalTemperature) * 0.18;
-                pitch -= Math.abs(vocalTemperature) * 0.04;
-            }
-
-            // тепло → медленнее, мягче
-            if (vocalTemperature > 0.3) {
-                rate -= vocalTemperature * 0.22;
-                pitch += vocalTemperature * 0.06;
-            }
-
-            // резонанс замедляет и стабилизирует речь
-            rate *= 1.0 - resonanceBias * 0.15;
-            pitch *= 1.0 - resonanceBias * 0.08;
+            if (userGender === 'female') pitch = 1.15;
+            if (userGender === 'male') pitch = 0.9;
+            if (userGender === 'nonbinary') pitch = 1.0;
 
             // Гуманизация текста + разбиение на фрагменты
             const cleanText = humanizeText(text);
@@ -3350,16 +3504,9 @@
             let enhancedFragments = [];
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
+                // Меньше случайных пауз для быстрейшего перехода
                 enhancedFragments.push(frag);
-
-                // разреженность усиливается усталостью и холодом, а также резонансом
-                const pauseChance =
-                    0.08
-                    + Math.max(0, selfAwareness?.fatigue || 0) * 0.25
-                    + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.15 : 0)
-                    + sessionResonance * 0.18;
-
-                if (i < fragments.length - 1 && Math.random() < pauseChance) {
+                if (i < fragments.length - 1 && Math.random() < 0.1) {
                     enhancedFragments.push('');
                 }
             }
@@ -3387,6 +3534,7 @@
 
                                 setTimeout(() => {
                                     startListening();
+                                    runAutonomy();
                                 }, 400);
                             });
                         }
@@ -3403,17 +3551,8 @@
                     return;
                 }
 
-                // микро-флуктуации зависят от температуры
-                let jitter = Math.abs(vocalTemperature) * 0.06;
-
-                // при резонансе флуктуации гасятся
-                jitter *= (1.0 - sessionResonance * 0.6);
-
-                let localRate =
-                    rate * (1.0 + (Math.random() - 0.5) * jitter);
-
-                let localPitch =
-                    pitch * (1.0 + (Math.random() - 0.5) * jitter);
+                let localRate = rate * (0.98 + Math.random() * 0.08);
+                let localPitch = pitch * (0.98 + Math.random() * 0.06);
 
                 const utter = new SpeechSynthesisUtterance(s);
                 utter.lang = currentLang;
