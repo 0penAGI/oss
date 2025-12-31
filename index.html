@@ -2738,11 +2738,23 @@
             function renderMarkdown(str) {
                 let html = escapeHTML(str);
                 // Inline code: `code`
-                html = html.replace(/`([^`]+?)`/g, '<code class="lang-inline">$1</code>');
+                html = html.replace(/`([^`]+?)`/g, (m, code) => {
+                    return '<code class="lang-inline">' +
+                        code.replace(/\*/g, '&#42;') +
+                    '</code>';
+                });
                 // Bold: **text**
                 html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
-                // Italic: *text*
-                html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
+                /*
+                 * Italic: *text*
+                 * Требование:
+                 *  - звёздочки должны быть границами слова
+                 *  - внутри слов (*on*, *id*, *var*) не трогаем
+                 */
+                html = html.replace(
+                    /(^|[\s.,!?;:()])\*([^*\s][^*]*?)\*(?=[\s.,!?;:()]|$)/g,
+                    '$1<i>$2</i>'
+                );
                 // Links: [text](url)
                 html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
                 // Tables: markdown to HTML
