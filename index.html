@@ -1973,78 +1973,78 @@
             });
         }
 
-// ===== World Gateway =====
+    // ===== World Gateway =====
 
-let lastWorldQuery = 0;
-const WORLD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
+        let lastWorldQuery = 0;
+        const WORLD_COOLDOWN = 3 * 60 * 1000; // 3 minutes
 
-function moodToIntent(mood) {
-    if (mood > 0.6) return "creative inspiration generative art technology";
-    if (mood > 0.2) return "audio reactive graphics code";
-    if (mood < -0.3) return "philosophy consciousness emotion";
-    return null;
-}
+        function moodToIntent(mood) {
+            if (mood > 0.6) return "creative inspiration generative art technology";
+            if (mood > 0.2) return "audio reactive graphics code";
+            if (mood < -0.3) return "philosophy consciousness emotion";
+            return null;
+        }
 
-async function searchDuckDuckGo(query) {
-    try {
-        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
+        async function searchDuckDuckGo(query) {
+            try {
+                const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`;
+                const resp = await fetch(url);
+                if (!resp.ok) return null;
 
-        const data = await resp.json();
-        const text =
-            data.AbstractText ||
-            data.RelatedTopics?.[0]?.Text ||
-            null;
+                const data = await resp.json();
+                const text =
+                    data.AbstractText ||
+                    data.RelatedTopics?.[0]?.Text ||
+                    null;
 
-        return text
-            ? { source: "duckduckgo", text }
-            : null;
-    } catch (e) {
-        console.warn("[world] duckduckgo error", e);
-        return null;
-    }
-}
+                return text
+                    ? { source: "duckduckgo", text }
+                    : null;
+            } catch (e) {
+                console.warn("[world] duckduckgo error", e);
+                return null;
+            }
+        }
 
-async function searchGitHub(query) {
-    try {
-        const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=2`;
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
+        async function searchGitHub(query) {
+            try {
+                const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=2`;
+                const resp = await fetch(url);
+                if (!resp.ok) return null;
 
-        const data = await resp.json();
-        const items = (data.items || []).map(
-            r => `${r.full_name}: ${r.description || "no description"}`
-        );
+                const data = await resp.json();
+                const items = (data.items || []).map(
+                    r => `${r.full_name}: ${r.description || "no description"}`
+                );
 
-        return items.length
-            ? { source: "github", text: items.join(" · ") }
-            : null;
-    } catch (e) {
-        console.warn("[world] github error", e);
-        return null;
-    }
-}
+                return items.length
+                    ? { source: "github", text: items.join(" · ") }
+                    : null;
+            } catch (e) {
+                console.warn("[world] github error", e);
+                return null;
+            }
+        }
 
-async function maybeQueryWorld(state) {
-    const now = Date.now();
-    if (now - lastWorldQuery < WORLD_COOLDOWN) return;
-    if (!state || typeof state.mood !== "number") return;
+        async function maybeQueryWorld(state) {
+            const now = Date.now();
+            if (now - lastWorldQuery < WORLD_COOLDOWN) return;
+            if (!state || typeof state.mood !== "number") return;
 
-    const intent = moodToIntent(state.mood);
-    if (!intent) return;
+            const intent = moodToIntent(state.mood);
+            if (!intent) return;
 
-    lastWorldQuery = now;
+            lastWorldQuery = now;
 
-    const [ddg, gh] = await Promise.all([
-        searchDuckDuckGo(intent),
-        searchGitHub(intent)
-    ]);
+            const [ddg, gh] = await Promise.all([
+                searchDuckDuckGo(intent),
+                searchGitHub(intent)
+            ]);
 
-    [ddg, gh].filter(Boolean).forEach(res => {
-        noteObservation(`[world:${res.source}] ${res.text}`);
-    });
-}
+            [ddg, gh].filter(Boolean).forEach(res => {
+                noteObservation(`[world:${res.source}] ${res.text}`);
+            });
+        }
 
        
         // Голосовой чат
@@ -2245,8 +2245,11 @@ async function maybeQueryWorld(state) {
     stop() { this.isPlaying = false; }
 }
 
+        // ===== MUSIC AUDIO CONTEXT (ISOLATED FROM VOICE) =====
+        const musicCtx = new (window.AudioContext || window.webkitAudioContext)({
+            latencyHint: "playback"
+        });
         let granularEngine = null;
-        let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
         // === Общий lowpass фильтр для всего микса ===
@@ -2314,7 +2317,6 @@ async function maybeQueryWorld(state) {
         let audioBusy = false;
         // --- Музыкальный слой с поддержкой жанров, расширенный ---
         function startMusic() {
-            
             audioBusy = true;
             if (musicPlaying) return;
             musicPlaying = true;
@@ -2698,11 +2700,15 @@ async function maybeQueryWorld(state) {
 
         // Интеграция с orb
         orb.addEventListener('click', () => {
-            if (musicCtx.state === 'suspended') musicCtx.resume();
+            if (musicCtx.state === "suspended") {
+                musicCtx.resume();
+            }
             startMusic();
         });
         orbInteractive.addEventListener('click', () => {
-            if (musicCtx.state === 'suspended') musicCtx.resume();
+            if (musicCtx.state === "suspended") {
+                musicCtx.resume();
+            }
             startMusic();
         });
        
