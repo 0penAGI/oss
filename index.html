@@ -365,6 +365,9 @@
             minClicks: 5      // сколько кликов нужно
         };
 
+        // === TTS Audio Context (инициализация для easter egg) ===
+        let ttsCtx;
+
         function registerOrbClick() {
             const now = performance.now();
             orbRitual.clicks.push(now);
@@ -387,7 +390,6 @@
         }
 
         function activateOrbEasterEgg() {
-            // визуальный фазовый сдвиг
             targetMode = 3;
             orbEnergy += 0.35;
 
@@ -396,10 +398,16 @@
 
             noteObservation("⚡ Орб отозвался на ритуал");
 
-            // мягкое сообщение
-            if (typeof speak === 'function') {
-                speak("Я чувствую ритм. Ты нашла скрытый резонанс.");
-            }
+            // отложенный запуск речи, чтобы музыка успела стартовать
+            setTimeout(() => {
+                if (typeof speak === 'function') {
+                    if (typeof ttsCtx === 'undefined') {
+                        ttsCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (ttsCtx.state === 'suspended') ttsCtx.resume();
+                    speak("Я чувствую ритм. Ты нашла скрытый резонанс.");
+                }
+            }, 300); // задержка 300ms
 
             // возврат в норму
             setTimeout(() => {
