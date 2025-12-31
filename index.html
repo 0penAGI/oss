@@ -2182,26 +2182,26 @@
                 startListening();
             }
         }
-function safeStartMusic() {
-    if (musicCtx.state === "suspended") musicCtx.resume();
-    if (!granularEngine || !granularEngine.isPlaying) startMusic();
-}
+        function safeStartMusic() {
+            if (musicCtx.state === "suspended") musicCtx.resume();
+            if (!granularEngine || !granularEngine.isPlaying) startMusic();
+        }
 
-orb.addEventListener('click', () => {
-    safeStartMusic();
-    // короткая пауза, чтобы TTS не ломался
-    setTimeout(() => {
-        if (!isSpeaking && internalNotes.length > 0) speak(internalNotes[internalNotes.length - 1]);
-    }, 100);
-});
+        orb.addEventListener('click', () => {
+            safeStartMusic();
+            // короткая пауза, чтобы TTS не ломался
+            setTimeout(() => {
+                if (!isSpeaking && internalNotes.length > 0) speak(internalNotes[internalNotes.length - 1]);
+            }, 100);
+        });
 
-orbInteractive.addEventListener('click', () => {
-    safeStartMusic();
-    setTimeout(() => {
-        if (!isSpeaking && internalNotes.length > 0) speak(internalNotes[internalNotes.length - 1]);
-    }, 100);
-});
-
+        orbInteractive.addEventListener('click', () => {
+            safeStartMusic();
+            setTimeout(() => {
+                if (!isSpeaking && internalNotes.length > 0) speak(internalNotes[internalNotes.length - 1]);
+            }, 100);
+        });
+            
         // ====== Music Autonomy Layer ======
 // ====== Granular + Neural Morphing Layer ======
         let musicGenome = {
