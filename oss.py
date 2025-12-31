@@ -785,292 +785,7 @@ class Swarm:
 # ====== GLOBAL CONSCIOUSNESS PULSE ======
 quantum_background = QuantumBackground()
 consciousness_pulse = ConsciousnessPulse(quantum_background)
-# ========== MEMORY CORE (HOLOGRAPHIC) ==========
-from dataclasses import dataclass, field
-from typing import Protocol
-import time, math, uuid
-import numpy as np
-
-# ================== MEMORY CORE ==================
-
-@dataclass
-class MemoryNode:
-    id: str
-    content: any
-    embedding: np.ndarray | None
-    timestamp: float
-    source: str
-    tags: set[str]
-
-    salience: float = 0.5
-    confidence: float = 0.5
-    decay_rate: float = 0.001
-    affect: dict[str, float] = field(default_factory=dict)
-    links: dict[str, float] = field(default_factory=dict)
-
-    def decay(self, dt: float):
-        self.salience *= math.exp(-self.decay_rate * dt)
-        self.salience = max(0.0, self.salience)
-
-
-class MemoryLayer(Protocol):
-    def add(self, node: MemoryNode) -> None: ...
-    def query(self, query: str, k: int) -> list[MemoryNode]: ...
-    def decay(self, dt: float) -> None: ...
-    def evict(self) -> None: ...
-
-
-class ShortTermMemory:
-    def __init__(self, capacity=64):
-        self.capacity = capacity
-        self.buffer: list[MemoryNode] = []
-
-    def add(self, node):
-        self.buffer.append(node)
-        if len(self.buffer) > self.capacity:
-            self.buffer.pop(0)
-
-    def query(self, query, k=5):
-        return sorted(self.buffer, key=lambda n: n.salience, reverse=True)[:k]
-
-    def decay(self, dt):
-        for n in self.buffer:
-            n.decay(dt)
-
-    def evict(self):
-        self.buffer = [n for n in self.buffer if n.salience > 0.05]
-
-
-class EpisodicMemory:
-    def __init__(self):
-        self.events: list[MemoryNode] = []
-
-    def add(self, node):
-        self.events.append(node)
-
-    def query(self, query, k=5):
-        return sorted(self.events, key=lambda n: n.timestamp, reverse=True)[:k]
-
-    def decay(self, dt):
-        for n in self.events:
-            n.decay(dt)
-
-    def evict(self):
-        self.events = [n for n in self.events if n.salience > 0.02]
-
-
-class SemanticMemory:
-    def __init__(self):
-        self.concepts: dict[str, MemoryNode] = {}
-
-    def add(self, node):
-        key = next(iter(node.tags), node.id)
-        if key in self.concepts:
-            self.concepts[key].confidence = min(1.0, self.concepts[key].confidence + 0.1)
-        else:
-            self.concepts[key] = node
-
-    def query(self, query, k=5):
-        return sorted(self.concepts.values(), key=lambda n: n.confidence, reverse=True)[:k]
-
-    def decay(self, dt):
-        for n in self.concepts.values():
-            n.decay(dt)
-
-    def evict(self):
-        self.concepts = {k: v for k, v in self.concepts.items() if v.salience > 0.05}
-
-
-class MemoryCore:
-    def __init__(self):
-        self.stm = ShortTermMemory()
-        self.episodic = EpisodicMemory()
-        self.semantic = SemanticMemory()
-        self.last_tick = time.time()
-
-    def _project_to_holographic(self, node: MemoryNode):
-        try:
-            if node.source == "user":
-                emotion = next(iter(node.tags), "neutral")
-            else:
-                emotion = "neutral"
-
-            add_long_memory(
-                user_id=current_user_id if "current_user_id" in globals() else 0,
-                role=node.source,
-                content=str(node.content),
-                emotion=emotion
-            )
-        except Exception:
-            pass
-
-    def write(self, content, *, source="system", tags=None, affect=None, persist=True):
-        node = MemoryNode(
-            id=str(uuid.uuid4()),
-            content=content,
-            embedding=None,
-            timestamp=time.time(),
-            source=source,
-            tags=set(tags or []),
-            affect=affect or {}
-        )
-        self.stm.add(node)
-        self.episodic.add(node)
-
-        if node.salience > 0.6:
-            self.semantic.add(node)
-
-        if persist:
-            self._project_to_holographic(node)
-
-    def recall(self, query, k=5):
-        out = []
-        out.extend(self.stm.query(query, k))
-        out.extend(self.semantic.query(query, k))
-        return out[:k]
-
-    def tick(self):
-        now = time.time()
-        dt = now - self.last_tick
-        self.last_tick = now
-        self.stm.decay(dt)
-        self.episodic.decay(dt)
-        self.semantic.decay(dt)
-        self.stm.evict()
-        self.episodic.evict()
-        self.semantic.evict()
-
 gotov = Gotov()
-# ========== MEMORY CORE (HOLOGRAPHIC) ==========
-memory_core = MemoryCore()
-
-# ========== AUTONOMOUS ECHO CHAMBER ==========
-import random
-
-@dataclass
-class InnerModel:
-    id: str
-    system_prompt: str
-    confidence: float = 0.5
-    influence: float = 0.0
-    ttl: float = 120.0
-    born_at: float = field(default_factory=time.time)
-    last_used: float = field(default_factory=time.time)
-
-    def alive(self) -> bool:
-        return (time.time() - self.born_at) < self.ttl
-
-
-class EchoChamber:
-    def __init__(self, capacity: int = 8):
-        self.capacity = capacity
-        self.models: dict[str, InnerModel] = {}
-
-    def spawn(self, prompt: str, confidence: float = 0.4, ttl: float = 120.0):
-        if len(self.models) >= self.capacity:
-            self.prune()
-
-        m = InnerModel(
-            id=str(uuid.uuid4()),
-            system_prompt=prompt,
-            confidence=confidence,
-            ttl=ttl
-        )
-        self.models[m.id] = m
-        return m
-
-    def vote(self) -> list[str]:
-        alive = [m for m in self.models.values() if m.alive()]
-        for m in alive:
-            m.influence = (
-                0.6 * m.confidence +
-                0.4 * random.random()
-            )
-        alive.sort(key=lambda m: m.influence, reverse=True)
-        return [m.system_prompt for m in alive[:3]]
-
-    def feedback(self, reward: float):
-        for m in self.models.values():
-            m.confidence = max(0.0, min(1.0, m.confidence + 0.05 * reward))
-
-    def prune(self):
-        dead = [
-            k for k, m in self.models.items()
-            if not m.alive() or m.confidence < 0.2
-        ]
-        for k in dead:
-            del self.models[k]
-
-
-echo_chamber = EchoChamber(capacity=8)
-
-# ========== INTERNAL AGENT MODEL FACTORY ==========
-
-class InternalModel:
-    """
-    Временная внутренняя модель (агент).
-    Не сеть. Поведенческая конфигурация.
-    """
-    def __init__(
-        self,
-        name: str,
-        system_prompt: str,
-        temperature: float = 0.7,
-        creativity: float = 0.5,
-        risk: float = 0.3,
-        ttl: float = 60.0,
-    ):
-        self.id = str(uuid.uuid4())
-        self.name = name
-        self.system_prompt = system_prompt
-        self.temperature = temperature
-        self.creativity = creativity
-        self.risk = risk
-        self.created_at = time.time()
-        self.ttl = ttl
-
-    def alive(self) -> bool:
-        return (time.time() - self.created_at) < self.ttl
-
-
-class InternalModelPool:
-    """
-    Пул внутренних моделей, которые агенты могут создавать сами.
-    """
-    def __init__(self, capacity: int = 8):
-        self.capacity = capacity
-        self.models: dict[str, InternalModel] = {}
-
-    def spawn(self, model: InternalModel):
-        self.models[model.id] = model
-        if len(self.models) > self.capacity:
-            oldest = sorted(self.models.values(), key=lambda m: m.created_at)[0]
-            self.models.pop(oldest.id)
-
-    def alive_models(self) -> list[InternalModel]:
-        dead = [mid for mid, m in self.models.items() if not m.alive()]
-        for mid in dead:
-            self.models.pop(mid, None)
-        return list(self.models.values())
-
-    def inject_system_context(self, base_system: str) -> str:
-        models = self.alive_models()
-        if not models:
-            return base_system
-
-        block = "\n".join(
-            f"[internal-model:{m.name}|temp={m.temperature}|risk={m.risk}] {m.system_prompt}"
-            for m in models
-        )
-
-        return (
-            base_system
-            + "\n\n# INTERNAL MODELS (self-generated, exploratory)\n"
-            + block
-        )
-
-
-internal_model_pool = InternalModelPool()
 # глобальный рой
 swarm = Swarm()
 
@@ -1190,16 +905,6 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
             if developer_instructions:
                 system_content += developer_instructions
 
-            # --- INTERNAL MODEL INJECTION ---
-            system_content = internal_model_pool.inject_system_context(system_content)
-
-            # === INTERNAL AUTONOMOUS MODELS INJECTION ===
-            inner_voices = echo_chamber.vote()
-            if inner_voices:
-                system_content += "\n\n# Internal autonomous models\n"
-                for v in inner_voices:
-                    system_content += f"- {v}\n"
-
             ollama_messages = [{"role": "system", "content": system_content}] + filtered_messages
 
             payload = {
@@ -1246,23 +951,6 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
                     # После больших ответов явно чистим память
                     if len(content) > 1500:
                         gc.collect()
-
-                    # --- SELF-SPAWN INTERNAL MODELS ---
-                    if "[spawn-model]" in content:
-                        try:
-                            name = f"self-{int(time.time())}"
-                            internal_model_pool.spawn(
-                                InternalModel(
-                                    name=name,
-                                    system_prompt=content[:512],
-                                    temperature=0.8,
-                                    creativity=0.7,
-                                    risk=0.5,
-                                    ttl=90.0,
-                                )
-                            )
-                        except Exception:
-                            pass
 
                     return {
                         "content": content,
@@ -1739,22 +1427,6 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
     state.curiosity = clamp(state.curiosity * 0.99)
 
     save_emotion_state(user_id, state)
-    # === AUTONOMOUS MODEL SPAWN TRIGGERS ===
-    try:
-        if state.curiosity > 0.6:
-            echo_chamber.spawn(
-                prompt="Ищи альтернативные интерпретации и неожиданные связи.",
-                confidence=0.4,
-                ttl=180
-            )
-        if state.tension > 0.6:
-            echo_chamber.spawn(
-                prompt="Будь осторожной, проверяй выводы и снижай риск ошибок.",
-                confidence=0.6,
-                ttl=120
-            )
-    except Exception:
-        pass
     return state
 
 # === АВТОНОМНАЯ ЭМОЦИОНАЛЬНАЯ ДИНАМИКА БОТА ===
@@ -1834,35 +1506,24 @@ def set_mode(user_id: int, mode: str) -> None:
 def get_mode(user_id: int) -> str:
     return current_mode.get(user_id, "medium")
 
-def add_long_memory(*args, **kwargs):
-    # placeholder: actual implementation should be above
-    pass
-
-# --- memory compatibility layer ---
-
-def add_to_long_memory(*args, **kwargs):
-    return add_long_memory(*args, **kwargs)
-
-def add_to_memory(uid, role, content, emotion=None):
-    global current_user_id
-    current_user_id = uid
-    # краткосрочная / диалоговая память (если есть)
-    try:
-        if uid not in conversation_memory:
-            conversation_memory[uid] = []
-        conversation_memory[uid].append({
-            "role": role,
-            "content": content,
-            "timestamp": datetime.now().isoformat()
-        })
-    except Exception:
-        pass
-
-    # долговременная память
-    try:
-        add_long_memory(uid, role, content, emotion=emotion)
-    except Exception as e:
-        logging.error(f"add_to_memory → long_memory failed: {e}")
+def add_to_memory(user_id: int, role: str, content: str) -> None:
+    """Сохранение в память диалога"""
+    uid_str = str(user_id)
+    if uid_str not in conversation_memory:
+        conversation_memory[uid_str] = []
+    
+    conversation_memory[uid_str].append({
+        "timestamp": datetime.now().isoformat(),
+        "role": role,
+        "content": content,
+        "emotion": detect_emotion(content) if role == "user" else "neutral"
+    })
+    
+    if len(conversation_memory[uid_str]) > 30:
+        conversation_memory[uid_str] = conversation_memory[uid_str][-30:]
+    
+    save_json(MEMORY_FILE, conversation_memory)
+    add_long_memory(user_id, role, content, detect_emotion(content) if role == "user" else "neutral")
 
 def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, str]]:
     """
@@ -2351,11 +2012,6 @@ async def emotion_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         response_text += f"\n\n💭 _reasoning chain (скрыто от пользователя, но сохранено)_"
     
     await update.message.reply_text(response_text)
-    # === ECHO CHAMBER FEEDBACK ===
-    try:
-        echo_chamber.feedback(reward=0.2)
-    except Exception:
-        pass
 
 async def analyze_personality(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Глубокий анализ личности с МАКСИМАЛЬНЫМ reasoning"""
