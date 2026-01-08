@@ -1271,16 +1271,18 @@
         chatRenderer.setPixelRatio(window.devicePixelRatio);
         chatRenderer.setSize(window.innerWidth, window.innerHeight);
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
+
         chatShaderCanvas.style.position = 'absolute';
         chatShaderCanvas.style.top = '0';
         chatShaderCanvas.style.left = '0';
-        chatShaderCanvas.style.width = '133%';
-        chatShaderCanvas.style.height = '133%';
+        chatShaderCanvas.style.width = '100%';
+        chatShaderCanvas.style.height = '100%';
         chatShaderCanvas.style.pointerEvents = 'none';
         chatShaderCanvas.style.zIndex = '0';
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
