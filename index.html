@@ -1265,12 +1265,12 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // === Chat Shader Canvas Integration: transparency, sizing, layering ===
-        const chatPane = document.getElementById('chatPanel');
+        // === Chat Shader Canvas ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
         const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
-        chatRenderer.setClearColor(0x000000, 0); // transparent background
+        chatRenderer.setSize(window.innerWidth, window.innerHeight);
+        chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
 
         chatShaderCanvas.style.position = 'absolute';
         chatShaderCanvas.style.top = '0';
@@ -1280,30 +1280,15 @@
         chatShaderCanvas.style.pointerEvents = 'none';
         chatShaderCanvas.style.zIndex = '0';
 
-        // Ensure chat content stays above shader
-        const chatMessages = document.getElementById('chatMessages');
-        const chatInput = document.querySelector('.chat-input');
-        chatMessages.style.position = 'relative';
-        chatMessages.style.zIndex = '1';
-        chatInput.style.position = 'relative';
-        chatInput.style.zIndex = '1';
-
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            // update resolution to panel size
-            const w = chatPane.clientWidth;
-            const h = chatPane.clientHeight;
-            feedbackMaterial.uniforms.resolution.value.set(w, h);
-            chatRenderer.setSize(w, h);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
 
         window.addEventListener('resize', () => {
-            const w = chatPane.clientWidth;
-            const h = chatPane.clientHeight;
-            chatRenderer.setSize(w, h);
-            feedbackMaterial.uniforms.resolution.value.set(w, h);
+            chatRenderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
