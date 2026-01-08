@@ -3303,6 +3303,28 @@
 
                 const chunk = decoder.decode(value, { stream: true });
 
+                // === STREAM TO CHAT (AI) ===
+                if (typeof window._chatStreamBuffer === 'undefined') {
+                    window._chatStreamBuffer = '';
+                    window._chatStreamMsg = null;
+                }
+
+                window._chatStreamBuffer += chunk;
+
+                if (!window._chatStreamMsg) {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-message ai';
+                    msgDiv.innerHTML = `
+                      <div class="sender">AI</div>
+                      <div class="text"></div>
+                    `;
+                    chatMessages.appendChild(msgDiv);
+                    window._chatStreamMsg = msgDiv.querySelector('.text');
+                }
+
+                window._chatStreamMsg.textContent = window._chatStreamBuffer;
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
                 typingQueue = typingQueue.then(() =>
                     typeWriterEffect(responseContainer, chunk)
@@ -3338,6 +3360,10 @@
                     }
                 }
             }
+
+            // === END CHAT STREAM ===
+            window._chatStreamBuffer = '';
+            window._chatStreamMsg = null;
 
             responseContainer.classList.remove("typing-cursor");
             status.innerText = "speaking";
@@ -4158,7 +4184,10 @@
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
-            addChatMessage(text, 'ai');
+            // НЕ дублируем: если идет стрим — чат уже обновляется
+            if (!window._chatStreamMsg) {
+                addChatMessage(text, 'ai');
+            }
             if (origSpeak) origSpeak.call(this, text);
           };
         }
