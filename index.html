@@ -4068,13 +4068,13 @@
             stopCameraAnalysisLoop();
         }
 
-        // ===== Chat Panel Management (ИСПРАВЛЕННЫЙ) =====
+        // ===== Chat Panel Management =====
 
-        // === Chat typing animation (по словам и буквам, используя typeWriterEffect) ===
+        // === Chat typing animation (typeWriterEffect) ===
         function typeChatMessage(text, container) {
             container.innerHTML = '';
             container.classList.add('chat-cursor');
-            // Используем typeWriterEffect для плавной анимации слов и букв
+
             typeWriterEffect(container, text).then(() => {
                 container.classList.remove('chat-cursor');
             });
@@ -4099,7 +4099,6 @@
             const x = touch.clientX;
             const y = touch.clientY;
 
-            // если чат открыт и палец внутри чата — свайп не обрабатываем
             if (chatOpen && x < window.innerWidth * 0.2) {
                 isDragging = false;
                 return;
@@ -4141,11 +4140,24 @@
 
           const swipeDistance = touchEndX - touchStartX;
 
+          // Сбрасываем временный transform после свайпа
           mainWrapper.style.transition = '';
           mainWrapper.style.transform = '';
 
-          if (swipeDistance < -60 && !chatOpen) openChat();
-          else if (swipeDistance > 60 && chatOpen) closeChatPanel();
+          if (swipeDistance < -60 && !chatOpen) {
+            // Только открываем чат без лишнего баунса
+            openChat();
+          } else if (swipeDistance > 60 && chatOpen) {
+            closeChatPanel();
+          } else {
+            // Если свайп был слишком маленький, просто вернуть в исходное положение
+            mainWrapper.style.transition = 'transform 0.25s cubic-bezier(.4,0,.2,1)';
+            mainWrapper.style.transform = chatOpen ? 'translateX(-80%)' : 'translateX(0)';
+            setTimeout(() => {
+              mainWrapper.style.transition = '';
+              mainWrapper.style.transform = '';
+            }, 260);
+          }
         }, { passive: true });
 
         function openChat() {
@@ -4194,7 +4206,6 @@
           });
 
           if (sender === 'ai') {
-            // Используем typeWriterEffect для плавной анимации слов и букв
             textDiv.innerHTML = '';
             typeWriterEffect(textDiv, text);
           } else {
