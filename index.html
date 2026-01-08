@@ -1262,6 +1262,37 @@
         });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
 
+
+        function resizeChatCanvasSafe() {
+            const chatPanel = document.getElementById('chatPanel');
+            const rect = chatPanel.getBoundingClientRect();
+            chatShaderCanvas.width = rect.width;
+            chatShaderCanvas.height = rect.height;
+            chatRenderer.setSize(rect.width, rect.height, false);
+        }
+
+        function resizeOrbCanvasSafe() {
+            const orbContainer = document.querySelector('.content');
+            const rect = orbContainer.getBoundingClientRect();
+            renderer.setSize(rect.width, rect.height, false);
+            camera.aspect = rect.width / rect.height;
+            camera.updateProjectionMatrix();
+        }
+
+        // Универсальный safe resize
+        function handleSafeResize() {
+            resizeChatCanvasSafe();
+            resizeOrbCanvasSafe();
+        }
+
+        // Запуск при изменении окна и при фокусе на input
+        window.addEventListener('resize', handleSafeResize);
+        chatInput.addEventListener('focus', handleSafeResize);
+        chatInput.addEventListener('blur', handleSafeResize);
+
+        // При старте
+        handleSafeResize();
+
         // --- XDust на фоне чата ---
         const chatParticleCount = window.innerWidth < 768 ? 2000 : 5000;
         const chatPositions = new Float32Array(chatParticleCount * 3);
@@ -1348,21 +1379,11 @@
         const chatScene = new THREE.Scene();
         chatScene.add(chatMesh);
 
-        // Синхронизация размера chatShaderCanvas с панелью чата
-        function resizeChatCanvas() {
-            const chatPanel = document.getElementById('chatPanel');
-            const width = chatPanel.clientWidth;
-            const height = chatPanel.clientHeight;
-            chatShaderCanvas.width = width;
-            chatShaderCanvas.height = height;
-            chatRenderer.setSize(width, height, false);
-            // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
-        }
 
         // --- Обновление анимации XDust на фоне чата ---
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            resizeChatCanvas();
+            // resizeChatCanvas(); // Убрано: теперь resize через safe resize
             const t = performance.now() * 0.001;
             chatMaterial.uniforms.time.value = t;
             chatRenderer.render(chatScene, feedbackCamera);
@@ -1408,20 +1429,7 @@
 
         autoReactiveChat();
 
-        // Унифицированный resize для главного и чат-канваса
-        function handleResize() {
-            // Main canvas
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
-            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
-            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-
-            // Chat canvas
-            resizeChatCanvas();
-        }
-        window.addEventListener('resize', handleResize);
+        // handleResize и resizeChatCanvas больше не нужны: теперь используется handleSafeResize
 
         // Запуск анимации чата
         animateChatShader();
