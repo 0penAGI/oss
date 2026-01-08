@@ -279,7 +279,7 @@
       width: 100%;
       height: 100%;
       display: flex;
-      transition: transform .4s cubic-bezier(.4,0,.2,1);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
       will-change: transform;
       overflow: hidden;
     }
@@ -295,7 +295,7 @@
     }
 
     .main-wrapper.chat-open .main-content {
-        transform: translateX(-80%);
+        transform: translateX(-88%);
     }
 
     .chat-panel {
@@ -318,21 +318,6 @@
       transform: translateX(0);
     }
 
-    /* .chat-header {
-        padding: 20px;
-        background: rgba(60, 30, 70, 0.9);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .chat-header h3 {
-        color: #fff;
-        font-size: 18px;
-        font-weight: 500;
-    }
-
     .close-chat {
         background: none;
         border: none;
@@ -342,7 +327,7 @@
         width: 40px;
         height: 40px;
         border-radius: 50%;
-    } */
+    }
 
     .chat-messages {
       flex: 1;
@@ -424,19 +409,6 @@
       background: transparent;
     }
 
-    /* Swipe indicator */
-    .swipe-indicator {
-        position: fixed;
-        left: 20px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 12px;
-        letter-spacing: 2px;
-        color: rgba(255, 255, 255, 0.4);
-        pointer-events: none;
-        animation: swipePulse 2s ease-in-out infinite;
-        z-index: 50;
-    }
 
     @keyframes swipePulse {
         0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
