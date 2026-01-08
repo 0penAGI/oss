@@ -1272,10 +1272,10 @@
         // === Chat Shader Canvas ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
         const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
-        chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+        chatRenderer.setPixelRatio(window.devicePixelRatio);
+        chatRenderer.setSize(window.innerWidth, window.innerHeight);
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
 
-        // синхронизируем с основным feedbackScene
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
             chatRenderer.render(feedbackScene, feedbackCamera);
@@ -1283,7 +1283,7 @@
         animateChatShader();
 
         window.addEventListener('resize', () => {
-            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+            chatRenderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
