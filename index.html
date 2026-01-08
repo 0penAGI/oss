@@ -4135,35 +4135,21 @@
         }, { passive: true });
 
         document.body.addEventListener('touchend', (e) => {
-          if (!isDragging) return;
-          isDragging = false;
+            if (!isDragging) return;
+            isDragging = false;
 
-          const swipeDistance = touchEndX - touchStartX;
+            const swipeDistance = touchEndX - touchStartX;
 
-          // Определяем, был ли свайп вправо для закрытия чата
-          if (swipeDistance > 60 && chatOpen) {
+            if (swipeDistance > 60 && chatOpen) {
+                closeChatPanel();
+            } else if (swipeDistance < -60 && !chatOpen) {
+                openChat();
+            }
+
+            // Сбрасываем временный transform всегда
             mainWrapper.style.transition = '';
             mainWrapper.style.transform = '';
-            closeChatPanel();
-            return;
-          }
-          // Свайп влево для открытия чата
-          if (swipeDistance < -60 && !chatOpen) {
-            mainWrapper.style.transition = '';
-            mainWrapper.style.transform = '';
-            openChat();
-            return;
-          }
-          // Если свайп был недостаточно длинный, возвращаем Орб без баунса
-          if (!chatOpen) {
-            mainWrapper.style.transition = '';
-            mainWrapper.style.transform = '';
-          } else if (chatOpen) {
-            // Если чат открыт, не делаем bounce
-            mainWrapper.style.transition = '';
-            mainWrapper.style.transform = '';
-          }
-        }, { passive: true });
+        });
 
         function openChat() {
           chatOpen = true;
@@ -4248,7 +4234,7 @@
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
-            // НЕ дублируем: если идет стрим — чат уже обновляется
+
             if (!window._chatStreamMsg) {
                 addChatMessage(text, 'ai');
             }
