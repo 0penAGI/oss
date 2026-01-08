@@ -1262,6 +1262,44 @@
         });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
 
+        // --- XDust на фоне чата ---
+        const chatParticleCount = window.innerWidth < 768 ? 2000 : 5000;
+        const chatPositions = new Float32Array(chatParticleCount * 3);
+        const chatSizes = new Float32Array(chatParticleCount);
+        const chatColors = new Float32Array(chatParticleCount * 3);
+
+        for (let i = 0; i < chatParticleCount; i++) {
+            chatPositions[i * 3] = (Math.random() - 0.5) * 10;
+            chatPositions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+            chatPositions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+            chatSizes[i] = Math.random() * 3 + 1;
+
+            const col = new THREE.Color();
+            col.setHSL(Math.random(), 0.6 + Math.random() * 0.4, 0.5 + Math.random() * 0.5);
+            chatColors[i * 3] = col.r;
+            chatColors[i * 3 + 1] = col.g;
+            chatColors[i * 3 + 2] = col.b;
+        }
+
+        const chatGeometry = new THREE.BufferGeometry();
+        chatGeometry.setAttribute('position', new THREE.BufferAttribute(chatPositions, 3));
+        chatGeometry.setAttribute('size', new THREE.BufferAttribute(chatSizes, 1));
+        chatGeometry.setAttribute('customColor', new THREE.BufferAttribute(chatColors, 3));
+
+        const chatMaterial = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0 } },
+            vertexShader,
+            fragmentShader,
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+        });
+
+        const chatParticles = new THREE.Points(chatGeometry, chatMaterial);
+
+        const chatScene = new THREE.Scene();
+        chatScene.add(chatParticles);
+
         // Синхронизация размера chatShaderCanvas с панелью чата
         function resizeChatCanvas() {
             const chatPanel = document.getElementById('chatPanel');
@@ -1270,14 +1308,16 @@
             chatShaderCanvas.width = width;
             chatShaderCanvas.height = height;
             chatRenderer.setSize(width, height, false);
-            feedbackMaterial.uniforms.resolution.value.set(width, height);
+            // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
         }
 
-        // Анимация шейдера чата
+        // --- Обновление анимации XDust на фоне чата ---
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            resizeChatCanvas(); // всегда синхронизируем размер
-            chatRenderer.render(feedbackScene, feedbackCamera);
+            resizeChatCanvas();
+            const t = performance.now() * 0.001;
+            chatMaterial.uniforms.time.value = t;
+            chatRenderer.render(chatScene, feedbackCamera);
         }
 
         // Унифицированный resize для главного и чат-канваса
