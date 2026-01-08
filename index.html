@@ -99,14 +99,13 @@
             backdrop-filter: none;
             box-shadow: none;
             border: none;
-            /* Разрешить выделение текста */
-            cursor: pointer;   /* показать, что можно кликнуть */
 
-            /* Важные правила для предотвращения разрыва слов */
-            word-break: keep-all !important;     /* не разрывать слова */
-            overflow-wrap: break-word !important; /* переносить только по целым словам */
-            hyphens: manual !important;           /* отключить автоматические переносы */
-            white-space: pre-wrap !important;     /* сохранять пробелы и переносы строк */
+            cursor: pointer; 
+
+            word-break: keep-all !important;     
+            overflow-wrap: break-word !important; 
+            hyphens: manual !important;           
+            white-space: pre-wrap !important;     
         }
 
 
@@ -120,7 +119,6 @@
             cursor: text;
         }
 
-        /* Code formatting for transcript code blocks */
         #transcript pre, #transcript code {
             font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
             background: rgba(30, 30, 40, 0.92);
