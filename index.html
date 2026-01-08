@@ -1617,11 +1617,32 @@
             autonomousThought() {
                 if (performance.now() - this.lastResponseTime < 6000) return;
                 if (selfAwareness.curiosity > 0.6 && Math.random() < 0.3) {
-                  speak('I still think about it…');
-                  this.lastResponseTime = performance.now();
+                    const recentObs = selfAwareness.lastObservations.slice(-3);
+                    let idea = "";
+
+                    if (recentObs.length > 0) {
+                        const resonantNodes = memoryPalace.stimulate({
+                            emotion: (selfAwareness.mood + 1) / 2,
+                            context: ['observation']
+                        });
+
+                        const contextIdeas = resonantNodes
+                            .map(n => n.type === 'observation' && n.id ? `вспомнил: ${n.id.slice(0, 6)}` : null)
+                            .filter(Boolean);
+
+                        idea = "Thinking: " + recentObs.join("; ");
+                        if (contextIdeas.length > 0) {
+                            idea += ". Also: " + contextIdeas.join(", ") + ".";
+                        }
+                    } else {
+                        idea = "I think about things around us.";
+                    }
+
+                    speak(idea);
+                    this.lastResponseTime = performance.now();
                 }
             }
-            };
+        };
 
         // ===== Periodic Internal Reflection (No External Stimuli) =====
         setInterval(() => {
@@ -1631,14 +1652,14 @@
           selfAwareness.subjectiveTime.tick += selfAwareness.subjectiveTime.tempo;
           selfAwareness.subjectiveTime.lastUpdate = now;
 
-          // редкая глубокая рефлексия
+          // Rarely deep reflection
           if (now - selfAwareness.identity.lastReflection > 12000) {
             selfAwareness.identity.lastReflection = now;
 
             const questionPool = [
-              'Между запросами..',
-              'Что ты об этом думаешь?..',
-              'Теку...'
+              'Behind the questions..',
+              'What do you think?..',
+              'In Flow...'
             ];
 
             const q = questionPool[Math.floor(Math.random() * questionPool.length)];
