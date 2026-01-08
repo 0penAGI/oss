@@ -320,12 +320,12 @@
       width: 80%;
       height: 100%;
       transform: translateX(100%);
-      background: transparent !important;
+      background: rgba(0,0,0,0) !important;
       backdrop-filter: none !important;
       display: flex;
       flex-direction: column;
       transition: transform .4s cubic-bezier(.4,0,.2,1);
-      z-index: 1;  /* ниже текста и input */
+      z-index: 2;
       pointer-events: auto;
       overflow: hidden;
     }
@@ -352,12 +352,8 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      background: transparent !important;
+      background: rgba(0,0,0,0) !important;
       backdrop-filter: none !important;
-      box-shadow: none !important;
-      border: none !important;
-      position: relative;
-      z-index: 2; /* выше канваса шейдера */
     }
 
     .chat-message {
@@ -1269,18 +1265,12 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // === Chat Shader Canvas (patched) ===
+        // === Chat Shader Canvas ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
-        const chatRenderer = new THREE.WebGLRenderer({ 
-            canvas: chatShaderCanvas, 
-            alpha: true, 
-            premultipliedAlpha: false, 
-            antialias: true 
-        });
+        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
         chatRenderer.setSize(window.innerWidth, window.innerHeight);
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
-        chatRenderer.setClearColor(0x000000, 0); // transparent clear
 
         chatShaderCanvas.style.position = 'absolute';
         chatShaderCanvas.style.top = '0';
@@ -1289,20 +1279,16 @@
         chatShaderCanvas.style.height = '100%';
         chatShaderCanvas.style.pointerEvents = 'none';
         chatShaderCanvas.style.zIndex = '0';
-        chatShaderCanvas.style.background = 'transparent';
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            // ensure shader uses correct canvas size
-            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
 
         window.addEventListener('resize', () => {
-            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+            chatRenderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
