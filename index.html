@@ -464,8 +464,9 @@
 
   <!-- Chat panel -->
   <div class="chat-panel" id="chatPanel">
-    <div class="chat-messages" id="chatMessages"></div>
-    <div class="chat-input">
+    <canvas id="chatShaderCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
+    <div class="chat-messages" id="chatMessages" style="position:relative;z-index:1;"></div>
+    <div class="chat-input" style="position:relative;z-index:1;">
       <input type="text" id="chatInput" placeholder="Type message...">
       <button id="sendBtn">Send</button>
     </div>
@@ -1266,6 +1267,23 @@
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+
+        // === Chat Shader Canvas ===
+        const chatShaderCanvas = document.getElementById('chatShaderCanvas');
+        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
+        chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+        chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
+
+        // синхронизируем с основным feedbackScene
+        function animateChatShader() {
+            requestAnimationFrame(animateChatShader);
+            chatRenderer.render(feedbackScene, feedbackCamera);
+        }
+        animateChatShader();
+
+        window.addEventListener('resize', () => {
+            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
