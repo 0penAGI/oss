@@ -1260,31 +1260,26 @@
             premultipliedAlpha: false
         });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
+
+        // Синхронизация размера chatShaderCanvas с панелью чата
         function resizeChatCanvas() {
-            // Get the chat panel size
             const chatPanel = document.getElementById('chatPanel');
             const width = chatPanel.clientWidth;
             const height = chatPanel.clientHeight;
             chatShaderCanvas.width = width;
             chatShaderCanvas.height = height;
             chatRenderer.setSize(width, height, false);
+            feedbackMaterial.uniforms.resolution.value.set(width, height);
         }
-        // Initial resize
-        resizeChatCanvas();
-        chatRenderer.setClearColor(0x000000, 0);
-        chatRenderer.setClearAlpha(0);
 
+        // Анимация шейдера чата
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            // Always ensure canvas matches panel size
-            resizeChatCanvas();
-            // Set feedbackMaterial resolution for chat shader
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
+            resizeChatCanvas(); // всегда синхронизируем размер
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
-        animateChatShader();
 
-        // Unified resize handler for both main and chat canvases
+        // Унифицированный resize для главного и чат-канваса
         function handleResize() {
             // Main canvas
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -1293,11 +1288,14 @@
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+
             // Chat canvas
             resizeChatCanvas();
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
         }
         window.addEventListener('resize', handleResize);
+
+        // Запуск анимации чата
+        animateChatShader();
 
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
