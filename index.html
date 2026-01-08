@@ -110,13 +110,14 @@
         }
 
 
-        /* Дополнительно для контейнера ответа, чтобы он вёл себя предсказуемо */
         #current-response {
             word-break: keep-all !important;
             overflow-wrap: break-word !important;
             hyphens: manual !important;
             white-space: pre-wrap !important;
             display: inline;
+            user-select: text !important;
+            cursor: text;
         }
 
         /* Code formatting for transcript code blocks */
