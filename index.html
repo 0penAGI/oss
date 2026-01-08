@@ -320,12 +320,12 @@
       width: 80%;
       height: 100%;
       transform: translateX(100%);
-      background: rgba(0,0,0,0) !important;
+      background: transparent !important;
       backdrop-filter: none !important;
       display: flex;
       flex-direction: column;
       transition: transform .4s cubic-bezier(.4,0,.2,1);
-      z-index: 2;
+      z-index: 1;  /* ниже текста и input */
       pointer-events: auto;
       overflow: hidden;
     }
@@ -352,8 +352,12 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      background: rgba(0,0,0,0) !important;
+      background: transparent !important;
       backdrop-filter: none !important;
+      box-shadow: none !important;
+      border: none !important;
+      position: relative;
+      z-index: 2; /* выше канваса шейдера */
     }
 
     .chat-message {
@@ -1267,7 +1271,7 @@
 
         // === Chat Shader Canvas ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
-        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
+        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true, premultipliedAlpha: false });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
         chatRenderer.setSize(window.innerWidth, window.innerHeight);
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1279,6 +1283,7 @@
         chatShaderCanvas.style.height = '100%';
         chatShaderCanvas.style.pointerEvents = 'none';
         chatShaderCanvas.style.zIndex = '0';
+        chatShaderCanvas.style.background = 'transparent';
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
