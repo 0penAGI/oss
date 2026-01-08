@@ -456,7 +456,7 @@
     </div>
 
     <img id="img" src="" alt="Generated Image"
-      style="max-width:90%; border-radius:8px; box-shadow:0 0 20px rgba(255,255,255,.3);">
+      style="display:none;">
   </div>
 
   <!-- Chat panel -->
@@ -4172,7 +4172,7 @@
           };
         }
 
-        // speak integration
+        // speak integration 
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
@@ -4183,8 +4183,12 @@
             if (origSpeak) origSpeak.call(this, text);
           };
         }
+
+        ////<img id="img" src="" alt="Generated Image" style="max-width: 90%; border-radius: 2px; box-shadow: 0 0 20px rgba(255,255,255,0.0);">
     </script>
 
-    <img id="img" src="" alt="Generated Image" style="max-width: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(255,255,255,0.3);">
+    
 </body>
 </html>
+</style>
+<style>
