@@ -313,6 +313,7 @@
         transform: translateX(-80%);
     }
 
+    /* --- REPLACEMENT: Chat Panel, Shader Canvas, Chat Messages, and Chat Input --- */
     .chat-panel {
       position: absolute;
       right: 0;
@@ -321,11 +322,10 @@
       height: 100%;
       transform: translateX(100%);
       background: transparent !important;
-      backdrop-filter: none !important;
       display: flex;
       flex-direction: column;
       transition: transform .4s cubic-bezier(.4,0,.2,1);
-      z-index: 1;  /* ниже текста и input */
+      z-index: 2; /* выше шейдера */
       pointer-events: auto;
       overflow: hidden;
     }
@@ -345,6 +345,25 @@
         border-radius: 50%;
     }
 
+    #chatShaderCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 1; /* ниже текста */
+      background: transparent !important;
+    }
+
+    .chat-messages,
+    .chat-input {
+      position: relative;
+      z-index: 3; /* поверх панели и шейдера */
+      background: transparent !important;
+      backdrop-filter: none !important;
+      box-shadow: none !important;
+      border: none !important;
+    }
+
     .chat-messages {
       flex: 1;
       overflow-y: auto;
@@ -352,12 +371,6 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      background: transparent !important;
-      backdrop-filter: none !important;
-      box-shadow: none !important;
-      border: none !important;
-      position: relative;
-      z-index: 2; /* выше канваса шейдера */
     }
 
     .chat-message {
@@ -394,9 +407,6 @@
       padding: 16px 20px 22px;
       display: flex;
       gap: 12px;
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
-      border: none;
     }
 
     .chat-input input {
@@ -464,9 +474,9 @@
 
   <!-- Chat panel -->
   <div class="chat-panel" id="chatPanel">
-    <canvas id="chatShaderCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
-    <div class="chat-messages" id="chatMessages" style="position:relative;z-index:1;"></div>
-    <div class="chat-input" style="position:relative;z-index:1;">
+    <canvas id="chatShaderCanvas"></canvas>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input">
       <input type="text" id="chatInput" placeholder="Type message...">
       <button id="sendBtn">Send</button>
     </div>
@@ -1282,14 +1292,8 @@
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
         chatRenderer.setClearColor(0x000000, 0); // transparent clear
 
-        chatShaderCanvas.style.position = 'absolute';
-        chatShaderCanvas.style.top = '0';
-        chatShaderCanvas.style.left = '0';
-        chatShaderCanvas.style.width = '100%';
-        chatShaderCanvas.style.height = '100%';
-        chatShaderCanvas.style.pointerEvents = 'none';
-        chatShaderCanvas.style.zIndex = '0';
-        chatShaderCanvas.style.background = 'transparent';
+        // Remove conflicting inline styles for chatShaderCanvas
+        chatShaderCanvas.removeAttribute('style');
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
@@ -1303,6 +1307,18 @@
         window.addEventListener('resize', () => {
             chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
             feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+        });
+
+        // Remove conflicting inline styles for .chat-messages and .chat-input (if any)
+        document.addEventListener('DOMContentLoaded', () => {
+          const chatMessages = document.getElementById('chatMessages');
+          if (chatMessages) {
+            chatMessages.removeAttribute('style');
+          }
+          const chatInputDiv = document.querySelector('.chat-input');
+          if (chatInputDiv) {
+            chatInputDiv.removeAttribute('style');
+          }
         });
 
         // === Глобальная переменная для последнего описания камеры ===
