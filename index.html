@@ -465,10 +465,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 </head>
 <body>
-<!-- Main wrapper для слайдинга -->
+<!-- Main wrapper for slide -->
 <div class="main-wrapper" id="mainWrapper">
 
-  <!-- ВСЁ содержимое оборачиваем в main-content -->
+
   <div class="main-content">
     <canvas id="webgl-canvas"></canvas>
     <video id="camera-video" autoplay playsinline style="display:none;"></video>
@@ -480,7 +480,7 @@
         <div id="orb-interactive"></div>
       </div>
 
-      <div id="status">resonating</div>
+      <div id="status">connecting</div>
       <div id="transcript"></div>
     </div>
 
@@ -4096,25 +4096,26 @@
 
         // ===== Chat Panel Management (ИСПРАВЛЕННЫЙ) =====
 
-        // === Chat typing animation (voice-like) ===
-        function typeChatMessage(text, container, speed = 18) {
-          container.innerHTML = '';
-          container.classList.add('chat-cursor');
+        // === Chat typing animation (по буквам) ===
+        function typeChatMessage(text, container, speed = 40) {
+            container.innerHTML = '';
+            container.classList.add('chat-cursor');
 
-          let i = 0;
-          function tick() {
-            if (i >= text.length) {
-              container.classList.remove('chat-cursor');
-              return;
+            let i = 0;
+            function tick() {
+                if (i >= text.length) {
+                    container.classList.remove('chat-cursor');
+                    return;
+                }
+                const span = document.createElement('span');
+                span.className = 'chat-char';
+                span.textContent = text[i];
+                container.appendChild(span);
+                i++;
+                container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                setTimeout(tick, speed + Math.random() * 20);
             }
-            const span = document.createElement('span');
-            span.className = 'chat-char';
-            span.textContent = text[i];
-            container.appendChild(span);
-            i++;
-            setTimeout(tick, speed + Math.random() * 20);
-          }
-          tick();
+            tick();
         }
 
         const mainWrapper = document.getElementById('mainWrapper');
@@ -4220,6 +4221,15 @@
           chatMessages.appendChild(msgDiv);
 
           chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          // Add copy-on-click for the message
+          msgDiv.addEventListener('click', () => {
+              navigator.clipboard.writeText(text).then(() => {
+                  // Optional: flash effect
+                  msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                  setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+              });
+          });
 
           if (sender === 'ai') {
             typeChatMessage(text, textDiv);
