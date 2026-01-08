@@ -1348,36 +1348,16 @@
         const chatScene = new THREE.Scene();
         chatScene.add(chatMesh);
 
-
-        function resizeChatCanvasSafe() {
+        // Синхронизация размера chatShaderCanvas с панелью чата
+        function resizeChatCanvas() {
             const chatPanel = document.getElementById('chatPanel');
-            const rect = chatPanel.getBoundingClientRect();
-            chatShaderCanvas.width = rect.width;
-            chatShaderCanvas.height = rect.height;
-            chatRenderer.setSize(rect.width, rect.height, false);
+            const width = chatPanel.clientWidth;
+            const height = chatPanel.clientHeight;
+            chatShaderCanvas.width = width;
+            chatShaderCanvas.height = height;
+            chatRenderer.setSize(width, height, false);
+            // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
         }
-
-        function resizeOrbCanvasSafe() {
-            const orbContainer = document.querySelector('.content');
-            const rect = orbContainer.getBoundingClientRect();
-            renderer.setSize(rect.width, rect.height, false);
-            camera.aspect = rect.width / rect.height;
-            camera.updateProjectionMatrix();
-        }
-
-        // Универсальный safe resize
-        function handleSafeResize() {
-            resizeChatCanvasSafe();
-            resizeOrbCanvasSafe();
-        }
-
-        // Запуск при изменении окна и при фокусе на input
-        window.addEventListener('resize', handleSafeResize);
-        chatInput.addEventListener('focus', handleSafeResize);
-        chatInput.addEventListener('blur', handleSafeResize);
-
-        // При старте
-        handleSafeResize();
 
         // --- Обновление анимации XDust на фоне чата ---
         function animateChatShader() {
@@ -1428,7 +1408,20 @@
 
         autoReactiveChat();
 
-        // (old handleResize & resizeChatCanvas removed in favor of handleSafeResize)
+        // Унифицированный resize для главного и чат-канваса
+        function handleResize() {
+            // Main canvas
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+
+            // Chat canvas
+            resizeChatCanvas();
+        }
+        window.addEventListener('resize', handleResize);
 
         // Запуск анимации чата
         animateChatShader();
