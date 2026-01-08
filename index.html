@@ -1286,41 +1286,41 @@
         chatGeometry.setAttribute('size', new THREE.BufferAttribute(chatSizes, 1));
         chatGeometry.setAttribute('customColor', new THREE.BufferAttribute(chatColors, 3));
 
-        // --- chatMaterial + shader (smooth noise background, not particles) ---
+        // --- chatMaterial + shader  ---
         const chatFragmentShader = `
-        uniform float time;
-        varying vec2 vUv;
+            uniform float time;
+            varying vec2 vUv;
 
-        // 2D плавный шум
-        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
-        float noise(vec2 p){
-            vec2 i = floor(p);
-            vec2 f = fract(p);
-            f = f*f*(3.0-2.0*f);
-            float a = hash(i);
-            float b = hash(i + vec2(1.0,0.0));
-            float c = hash(i + vec2(0.0,1.0));
-            float d = hash(i + vec2(1.0,1.0));
-            return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
-        }
-        float fbm(vec2 p){
-            float v = 0.0;
-            float a = 0.5;
-            for(int i=0;i<5;i++){
-                v += a*noise(p);
-                p *= 2.5;
-                a *= 0.5;
+            // 2D плавный шум
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+            float noise(vec2 p){
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f*f*(3.0-2.0*f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0,0.0));
+                float c = hash(i + vec2(0.0,1.0));
+                float d = hash(i + vec2(1.0,1.0));
+                return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
             }
-            return v;
-        }
+            float fbm(vec2 p){
+                float v = 0.0;
+                float a = 0.5;
+                for(int i=0;i<5;i++){
+                    v += a*noise(p);
+                    p *= 2.5;
+                    a *= 0.5;
+                }
+                return v;
+            }
 
-        void main() {
-            vec2 uv = vUv;
-            float n = fbm(uv*3.0 + time*0.2);
-            vec3 col = mix(vec3(0.08,0.09,0.15), vec3(0.3,0.35,0.5), n);
-            gl_FragColor = vec4(col, 1.0);
-        }
-        `;
+            void main() {
+                vec2 uv = vUv;
+                float n = fbm(uv*3.0 + time*0.2);
+                vec3 col = vec3(0.0) + n*0.05; // черный фон с едва заметным шумом
+                gl_FragColor = vec4(col, 1.0);
+            }
+            `;
 
         const chatMaterial = new THREE.ShaderMaterial({
             uniforms: { time: { value: 0 } },
