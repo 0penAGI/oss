@@ -1286,12 +1286,12 @@
         chatGeometry.setAttribute('size', new THREE.BufferAttribute(chatSizes, 1));
         chatGeometry.setAttribute('customColor', new THREE.BufferAttribute(chatColors, 3));
 
-        // --- chatMaterial + shader (XDust-style noise background) ---
+        // --- chatMaterial + shader (smooth noise background, not particles) ---
         const chatFragmentShader = `
         uniform float time;
-        varying vec3 vColor;
+        varying vec2 vUv;
 
-        // 2D шум для красивого перелива
+        // 2D плавный шум
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
         float noise(vec2 p){
             vec2 i = floor(p);
@@ -1315,28 +1315,32 @@
         }
 
         void main() {
-            vec2 uv = gl_PointCoord.xy;
-            float n = fbm(uv*4.0 + time*0.3); // шум с плавной анимацией
-            vec3 col = mix(vec3(0.08,0.09,0.15), vColor*0.6, n);
-            float dist = length(uv - 0.5);
-            float alpha = (1.0 - dist) * 0.85 * n;
-            gl_FragColor = vec4(col, alpha);
+            vec2 uv = vUv;
+            float n = fbm(uv*3.0 + time*0.2);
+            vec3 col = mix(vec3(0.08,0.09,0.15), vec3(0.3,0.35,0.5), n);
+            gl_FragColor = vec4(col, 1.0);
         }
         `;
 
         const chatMaterial = new THREE.ShaderMaterial({
             uniforms: { time: { value: 0 } },
-            vertexShader,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
             fragmentShader: chatFragmentShader,
             transparent: true,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.NormalBlending
         });
 
-        const chatParticles = new THREE.Points(chatGeometry, chatMaterial);
+        const chatMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), chatMaterial);
 
         const chatScene = new THREE.Scene();
-        chatScene.add(chatParticles);
+        chatScene.add(chatMesh);
 
         // Синхронизация размера chatShaderCanvas с панелью чата
         function resizeChatCanvas() {
