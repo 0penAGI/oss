@@ -245,6 +245,35 @@
 
     </style>
     <style>
+    /* --- Chat animated char/word effect (voice mode) --- */
+    .chat-message.ai .text {
+      white-space: pre-wrap;
+    }
+
+    .chat-char {
+      display: inline-block;
+      opacity: 0;
+      filter: blur(6px);
+      transform: translateY(6px);
+      animation: chatCharIn 380ms ease-out forwards;
+    }
+
+    @keyframes chatCharIn {
+      to {
+        opacity: 1;
+        filter: blur(0);
+        transform: translateY(0);
+      }
+    }
+
+    .chat-cursor::after {
+      content: '▋';
+      margin-left: 2px;
+      animation: blink 1.3s step-end infinite;
+      opacity: 0.8;
+    }
+    </style>
+    <style>
         #orb-interactive {
             position: absolute;
             left: 50%;
@@ -307,6 +336,8 @@
       width: 80%;
       height: 100%;
       transform: translateX(100%);
+      background: transparent;
+      backdrop-filter: none;
       display: flex;
       flex-direction: column;
       transition: transform .4s cubic-bezier(.4,0,.2,1);
@@ -333,26 +364,22 @@
     .chat-messages {
       flex: 1;
       overflow-y: auto;
-      padding: 92px 24px 24px;
+      padding: 93px 24px 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
       background: transparent;
       background: transparent;
-      backdrop-filter: none;
     }
 
     .chat-message {
-      padding: 12px 16px;
-      border-radius: 18px;
+      padding: 10px 14px;
+      border-radius: 16px;
       max-width: 85%;
-      background: rgba(255, 255, 255, 0.08);
-      box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,0.12),
-        0 8px 24px rgba(0,0,0,0.25);
-      backdrop-filter: blur(14px) saturate(1.2);
-      -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(6px);
       animation: messageSlide 0.3s ease;
+      backdrop-filter: none !important;
     }
             
     @keyframes messageSlide {
@@ -361,13 +388,15 @@
     }
 
     .chat-message.user {
-      align-self: flex-end;
-      background: rgba(160, 100, 255, 0.22);
+        background: rgba(150, 80, 200, 0.4);
+        align-self: flex-end;
+        backdrop-filter: none !important;
     }
 
     .chat-message.ai {
-      align-self: flex-start;
-      background: rgba(120, 160, 255, 0.18);
+        background: rgba(80, 40, 120, 0.4);
+        align-self: flex-start;
+        backdrop-filter: none !important;
     }
 
     .chat-message .sender {
@@ -385,32 +414,28 @@
       padding: 16px 20px 22px;
       display: flex;
       gap: 12px;
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(18px) saturate(1.3);
-      -webkit-backdrop-filter: blur(18px) saturate(1.3);
-      border-top: 1px solid rgba(255,255,255,0.12);
+      background: transparent;
+      border: none;
     }
 
     .chat-input input {
       flex: 1;
       padding: 12px 16px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.05);
+      border: none;
       border-radius: 20px;
       color: #fff;
       outline: none;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(8px);
     }
 
     .chat-input button {
       padding: 10px 18px;
-      background: rgba(255,255,255,0.16);
-      border: 1px solid rgba(255,255,255,0.22);
+      background: rgba(255,255,255,0.08);
+      border: none;
       border-radius: 18px;
       color: #fff;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(8px);
     }
 
 
@@ -433,7 +458,6 @@
     .content {
         background: transparent !important;
     }
-
     </style>
     <!-- Подключение Prism.js для подсветки кода -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
@@ -4050,6 +4074,28 @@
         }
 
         // ===== Chat Panel Management (ИСПРАВЛЕННЫЙ) =====
+
+        // === Chat typing animation (voice-like) ===
+        function typeChatMessage(text, container, speed = 18) {
+          container.innerHTML = '';
+          container.classList.add('chat-cursor');
+
+          let i = 0;
+          function tick() {
+            if (i >= text.length) {
+              container.classList.remove('chat-cursor');
+              return;
+            }
+            const span = document.createElement('span');
+            span.className = 'chat-char';
+            span.textContent = text[i];
+            container.appendChild(span);
+            i++;
+            setTimeout(tick, speed + Math.random() * 20);
+          }
+          tick();
+        }
+
         const mainWrapper = document.getElementById('mainWrapper');
         const chatPanel = document.getElementById('chatPanel');
         const closeChat = document.getElementById('closeChat');
@@ -4141,14 +4187,24 @@
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ${sender}`;
 
-          const safeText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const senderDiv = document.createElement('div');
+          senderDiv.className = 'sender';
+          senderDiv.textContent = sender === 'user' ? 'You' : 'AI';
 
-          msgDiv.innerHTML = `
-            <div class="sender">${sender === 'user' ? 'You' : 'AI'}</div>
-            <div class="text">${safeText}</div>
-          `;
+          const textDiv = document.createElement('div');
+          textDiv.className = 'text';
+
+          msgDiv.appendChild(senderDiv);
+          msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
+
           chatMessages.scrollTop = chatMessages.scrollHeight;
+
+          if (sender === 'ai') {
+            typeChatMessage(text, textDiv);
+          } else {
+            textDiv.textContent = text;
+          }
         }
 
         // Send message
