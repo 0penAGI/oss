@@ -4096,26 +4096,14 @@
 
         // ===== Chat Panel Management (ИСПРАВЛЕННЫЙ) =====
 
-        // === Chat typing animation (по буквам) ===
-        function typeChatMessage(text, container, speed = 40) {
+        // === Chat typing animation (по словам и буквам, используя typeWriterEffect) ===
+        function typeChatMessage(text, container) {
             container.innerHTML = '';
             container.classList.add('chat-cursor');
-
-            let i = 0;
-            function tick() {
-                if (i >= text.length) {
-                    container.classList.remove('chat-cursor');
-                    return;
-                }
-                const span = document.createElement('span');
-                span.className = 'chat-char';
-                span.textContent = text[i];
-                container.appendChild(span);
-                i++;
-                container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                setTimeout(tick, speed + Math.random() * 20);
-            }
-            tick();
+            // Используем typeWriterEffect для плавной анимации слов и букв
+            typeWriterEffect(container, text).then(() => {
+                container.classList.remove('chat-cursor');
+            });
         }
 
         const mainWrapper = document.getElementById('mainWrapper');
@@ -4232,7 +4220,9 @@
           });
 
           if (sender === 'ai') {
-            typeChatMessage(text, textDiv);
+            // Используем typeWriterEffect для плавной анимации слов и букв
+            textDiv.innerHTML = '';
+            typeWriterEffect(textDiv, text);
           } else {
             textDiv.textContent = text;
           }
