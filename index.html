@@ -352,8 +352,9 @@
         background: rgba(255,255,255,0);
         backdrop-filter: blur(12px);
         border-radius: 16px;
-        padding: 10px 14px;
+        padding: 8px 12px;
         max-width: 85%;
+        font-size: 12px;
     }
 
     #transcript pre, #transcript code {
@@ -370,7 +371,16 @@
         border: none;
     }
 
-    .chat-input input,
+    .chat-input input {
+        flex: 1;
+        padding: 10px 16px;
+        height: 36px;
+        background: rgba(0,0,0,0);
+        border: none;
+        border-radius: 20px;
+        color: #fff;
+        outline: none;
+    }
     .chat-input button {
         background: rgba(0,0,0,0);
         border: none;
