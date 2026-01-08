@@ -258,6 +258,34 @@
     }
     </style>
     <style>
+        #orb-interactive {
+            position: absolute;
+            left: 50%;
+            top: 20%;
+            width: 200px;
+            height: 200px;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            cursor: pointer;
+
+            /* запрет выделения и перетаскивания */
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            -webkit-touch-callout: none; /* для iOS */
+            -webkit-tap-highlight-color: transparent; /* чтобы не было подсветки при тапе */
+        }
+    
+    
+    </style>    
+    <style>
+    .soul-orb {
+        animation: none;
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+    }
+    </style>
+    <style>
     /* === Chat swipe layout === */
     .main-wrapper {
       position: fixed;
@@ -272,139 +300,107 @@
     }
 
     .main-content {
-      min-width: 100%;
-      width: 100%;
-      height: 100%;
-      position: relative;
-      flex-shrink: 0;
-      transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      will-change: transform;
+        min-width: 100%;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        flex-shrink: 0;
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        will-change: transform;
     }
 
     .main-wrapper.chat-open .main-content {
-      transform: translateX(-80%);
+        transform: translateX(-80%);
     }
 
     /* --- Chat panel fix --- */
     .chat-panel {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 80%;
-      height: 100%;
-      transform: translateX(100%);
-      background: rgba(24, 26, 34, 0.97) !important;
-      backdrop-filter: blur(16px) brightness(1.08) !important;
-      display: flex;
-      flex-direction: column;
-      transition: transform .4s cubic-bezier(.4,0,.2,1);
-      z-index: 1;
-      pointer-events: auto;
-      overflow: hidden;
-      box-shadow: -6px 0 32px 0 rgba(0,0,0,0.18);
-      border-left: 1.5px solid rgba(255,255,255,0.06);
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 80%;
+        height: 100%;
+        transform: translateX(100%);
+        background: transparent !important;
+        backdrop-filter: none !important;
+        display: flex;
+        flex-direction: column;
+        transition: transform .4s cubic-bezier(.4,0,.2,1);
+        z-index: 1;
+        pointer-events: auto;
+        overflow: hidden;
     }
 
     .main-wrapper.chat-open .chat-panel {
-      transform: translateX(0);
+        transform: translateX(0);
     }
 
     .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 93px 24px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      background: transparent !important;
-      box-shadow: none !important;
-      border: none !important;
-      position: relative;
-      z-index: 2;
-      scroll-behavior: smooth;
+        flex: 1;
+        overflow-y: auto;
+        padding: 93px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        position: relative;
+        z-index: 2;
     }
-
     /* --- Chat shader canvas --- */
     #chatShaderCanvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 0;
-      background: transparent;
-      display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1; /* <- канвас под чат */
+        background: transparent;
+        display: block;
     }
 
     .chat-message.user,
     .chat-message.ai {
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(6px) brightness(1.05);
-      border-radius: 16px;
-      padding: 12px 18px;
-      max-width: 85%;
-      font-size: 14px;
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.04);
-      box-shadow: 0 2px 16px 0 rgba(0,0,0,0.08);
-      word-break: break-word;
-      line-height: 1.6;
-      transition: background 0.2s, box-shadow 0.2s;
+        background: rgba(255,255,255,0);
+        backdrop-filter: blur(3px);
+        border-radius: 16px;
+        padding: 8px 12px;
+        max-width: 85%;
+        font-size: 12px;
     }
-    .chat-message.user {
-      align-self: flex-end;
-      background: linear-gradient(95deg, rgba(90,120,255,0.14) 0%, rgba(255,255,255,0.07) 100%);
-      color: #eaeaff;
-    }
-    .chat-message.ai {
-      align-self: flex-start;
-      background: linear-gradient(95deg, rgba(255,255,255,0.12) 0%, rgba(80,90,140,0.10) 100%);
-      color: #fff;
+
+    #transcript pre, #transcript code {
+        background: transparent;
+        box-shadow: none;
+        border: none;
     }
 
     .chat-input {
-      display: flex;
-      gap: 9px;
-      padding: 16px 20px 22px;
-      background: rgba(24, 26, 34, 0.91);
-      border: none;
-      position: relative;
-      z-index: 3;
-      box-shadow: 0 -2px 24px 0 rgba(0,0,0,0.10);
+        display: flex;
+        gap: 9px;
+        padding: 16px 20px 22px;
+        background: rgba(0,0,0,0);
+        border: none;
     }
 
     .chat-input input {
-      flex: 1;
-      padding: 10px 16px;
-      height: 38px;
-      background: rgba(255,255,255,0.06);
-      border: none;
-      border-radius: 18px;
-      color: #fff;
-      outline: none;
-      font-size: 14px;
-      transition: background 0.2s;
-      box-shadow: 0 1px 6px 0 rgba(0,0,0,0.06);
-    }
-    .chat-input input:focus {
-      background: rgba(255,255,255,0.12);
+        flex: 1;
+        padding: 10px 10px;
+        height: 25px;
+        background: rgba(0,0,0,0);
+        border: none;
+        border-radius: 20px;
+        color: #fff;
+        outline: none;
     }
     .chat-input button {
-      background: linear-gradient(95deg, #6c82ff 0%, #b8c6ff 100%);
-      border: none;
-      color: #fff;
-      outline: none;
-      border-radius: 18px;
-      font-size: 15px;
-      padding: 0 18px;
-      height: 38px;
-      cursor: pointer;
-      box-shadow: 0 1px 6px 0 rgba(0,0,0,0.08);
-      transition: background 0.18s;
-    }
-    .chat-input button:active {
-      background: linear-gradient(95deg, #4a54e1 0%, #8fa7ff 100%);
+        background: rgba(0,0,0,0);
+        border: none;
+        color: #fff;
+        outline: none;
+        border-radius: 20px;
     }
     </style>
     <!-- Подключение Prism.js для подсветки кода -->
