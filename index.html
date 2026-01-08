@@ -313,120 +313,70 @@
         transform: translateX(-80%);
     }
 
+    /* --------- Chat panel glass refactor --------- */
     .chat-panel {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 80%;
-      height: 100%;
-      transform: translateX(100%);
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
-      display: flex;
-      flex-direction: column;
-      transition: transform .4s cubic-bezier(.4,0,.2,1);
-      z-index: 2;
-      pointer-events: auto;
-      overflow: hidden;
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 80%;
+        height: 100%;
+        transform: translateX(100%);
+        background: rgba(0,0,0,0);
+        backdrop-filter: none;
+        display: flex;
+        flex-direction: column;
+        transition: transform .4s cubic-bezier(.4,0,.2,1);
+        z-index: 1;
+        pointer-events: auto;
+        overflow: hidden;
     }
 
     .main-wrapper.chat-open .chat-panel {
-      transform: translateX(0);
-    }
-
-    .close-chat {
-        background: none;
-        border: none;
-        color: #fff;
-        font-size: 32px;
-        cursor: pointer;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
+        transform: translateX(0);
     }
 
     .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 93px 24px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
+        flex: 1;
+        overflow-y: auto;
+        padding: 93px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        background: rgba(0,0,0,0);
+        box-shadow: none !important;
+        border: none !important;
     }
 
-    .chat-message {
-      padding: 10px 14px;
-      border-radius: 16px;
-      max-width: 85%;
-      background: rgba(255,255,255,0.06);
-      backdrop-filter: none !important;
-      animation: messageSlide 0.3s ease;
-    }
-
-    .chat-message.user {
-        background: rgba(150, 80, 200, 0.4);
-        align-self: flex-end;
-    }
-
+    .chat-message.user,
     .chat-message.ai {
-        background: rgba(80, 40, 120, 0.4);
-        align-self: flex-start;
+        background: rgba(255,255,255,0);
+        backdrop-filter: blur(12px);
+        border-radius: 16px;
+        padding: 10px 14px;
+        max-width: 85%;
     }
 
-    .chat-message .sender {
-        font-size: 11px;
-        opacity: 0.7;
-        margin-bottom: 4px;
-    }
-
-    .chat-message .text {
-        font-size: 14px;
-        line-height: 1.4;
+    #transcript pre, #transcript code {
+        background: transparent;
+        box-shadow: none;
+        border: none;
     }
 
     .chat-input {
-      padding: 16px 20px 22px;
-      display: flex;
-      gap: 12px;
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
-      border: none;
+        display: flex;
+        gap: 12px;
+        padding: 16px 20px 22px;
+        background: rgba(0,0,0,0);
+        border: none;
     }
 
-    .chat-input input {
-      flex: 1;
-      padding: 12px 16px;
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
-      border: none;
-      border-radius: 20px;
-      color: #fff;
-      outline: none;
-    }
-
+    .chat-input input,
     .chat-input button {
-      padding: 10px 18px;
-      background: rgba(0,0,0,0) !important;
-      backdrop-filter: none !important;
-      border: none;
-      border-radius: 18px;
-      color: #fff;
-    }
-
-    @keyframes messageSlide {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes swipePulse {
-        0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
-        50% { opacity: 0.8; transform: translateY(-50%) translateX(-5px); }
-    }
-
-    .main-wrapper.chat-open .swipe-indicator {
-        display: none;
+        background: rgba(0,0,0,0);
+        border: none;
+        color: #fff;
+        outline: none;
+        border-radius: 20px;
     }
     </style>
     <!-- Подключение Prism.js для подсветки кода -->
@@ -460,12 +410,12 @@
 
   <!-- Chat panel -->
   <div class="chat-panel" id="chatPanel">
-    <canvas id="chatShaderCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
-    <div class="chat-messages" id="chatMessages" style="position:relative;z-index:1;"></div>
-    <div class="chat-input" style="position:relative;z-index:1;">
-      <input type="text" id="chatInput" placeholder="Type message...">
-      <button id="sendBtn">Send</button>
-    </div>
+      <canvas id="chatShaderCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
+      <div class="chat-messages" id="chatMessages" style="position:relative;z-index:2;"></div>
+      <div class="chat-input" style="position:relative;z-index:2;">
+          <input type="text" id="chatInput" placeholder="Type message...">
+          <button id="sendBtn">Send</button>
+      </div>
   </div>
 
 </div>
@@ -1265,30 +1215,24 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // === Chat Shader Canvas ===
+        // === Chat Shader Canvas (transparent, glass) ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
-        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true });
+        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true, antialias: true, premultipliedAlpha: false });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
-        chatRenderer.setSize(window.innerWidth, window.innerHeight);
-        chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
-
-        chatShaderCanvas.style.position = 'absolute';
-        chatShaderCanvas.style.top = '0';
-        chatShaderCanvas.style.left = '0';
-        chatShaderCanvas.style.width = '100%';
-        chatShaderCanvas.style.height = '100%';
-        chatShaderCanvas.style.pointerEvents = 'none';
-        chatShaderCanvas.style.zIndex = '0';
+        chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+        chatRenderer.setClearColor(0x000000, 0);
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
+            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
 
         window.addEventListener('resize', () => {
-            chatRenderer.setSize(window.innerWidth, window.innerHeight);
+            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
