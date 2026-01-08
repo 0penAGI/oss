@@ -273,44 +273,47 @@
     <style>
     /* === Chat swipe layout === */
     .main-wrapper {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
-        will-change: transform;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      transition: transform .4s cubic-bezier(.4,0,.2,1);
+      will-change: transform;
+      overflow: hidden;
     }
 
     .main-wrapper.chat-open {
-        transform: translateX(-80%);
+      transform: translateX(-80%);
     }
 
     .main-content {
-        min-width: 100%;
-        height: 100%;
-        position: relative;
+      min-width: 100%;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      flex-shrink: 0;
     }
 
-    /* Chat Panel */
     .chat-panel {
-        position: fixed;
-        right: -80%;
-        top: 0;
-        width: 80%;
-        height: 100%;
-        background: rgba(40, 23, 46, 0.98);
-        backdrop-filter: blur(20px);
-        display: flex;
-        flex-direction: column;
-        transition: right 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
-        z-index: 100;
-        box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 80%;
+      height: 100%;
+      transform: translateX(100%);
+      background: rgba(40,23,46,.98);
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      transition: transform .4s cubic-bezier(.4,0,.2,1);
+      z-index: 100;
+      box-shadow: -5px 0 30px rgba(0,0,0,.5);
     }
-    
+
     .main-wrapper.chat-open .chat-panel {
-        right: 0;
+      transform: translateX(0);
     }
 
     .chat-header {
@@ -437,40 +440,43 @@
 <body>
 <!-- Main wrapper для слайдинга -->
 <div class="main-wrapper" id="mainWrapper">
-    
-    <!-- Existing content wrapper -->
-    <div class="main-content">
-        <canvas id="webgl-canvas"></canvas>
-        <video id="camera-video" autoplay playsinline style="display:none;"></video>
+
+  <!-- ВСЁ содержимое оборачиваем в main-content -->
+  <div class="main-content">
+    <canvas id="webgl-canvas"></canvas>
+    <video id="camera-video" autoplay playsinline style="display:none;"></video>
+
+    <div class="content">
+      <div class="soul-container">
+        <div class="aura"></div>
+        <div id="orb" class="soul-orb"></div>
+        <div id="orb-interactive"></div>
+      </div>
+
+      <div id="status">resonating</div>
+      <div id="transcript"></div>
     </div>
 
-    <!-- Chat panel -->
-    <div class="chat-panel" id="chatPanel">
-        <div class="chat-header">
-            <h3>Chat History</h3>
-            <button class="close-chat" id="closeChat">×</button>
-        </div>
-        <div class="chat-messages" id="chatMessages"></div>
-        <div class="chat-input">
-            <input type="text" id="chatInput" placeholder="Type message...">
-            <button id="sendBtn">Send</button>
-        </div>
+    <img id="img" src="" alt="Generated Image"
+      style="max-width:90%; border-radius:8px; box-shadow:0 0 20px rgba(255,255,255,.3);">
+  </div>
+
+  <!-- Chat panel -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-header">
+      <h3>Chat History</h3>
+      <button class="close-chat" id="closeChat">×</button>
     </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input">
+      <input type="text" id="chatInput" placeholder="Type message...">
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
 
 </div>
 
-<div class="swipe-indicator">← SWIPE</div>
 
-    <div class="content">
-        <div class="soul-container">
-            <div class="aura"></div>
-            <div id="orb" class="soul-orb"></div>
-            <div id="orb-interactive"></div>
-        </div>
-       
-        <div id="status">resonating</div>
-        <div id="transcript"></div>
-    </div>
 
 
     <script type="module">
@@ -4018,8 +4024,8 @@
             stopCameraAnalysisLoop();
         }
 
-        // ===== Chat Panel Management =====
-        const mainWrapper = document.getElementById('mainWrapper') || document.body;
+        // ===== Chat Panel Management (ИСПРАВЛЕННЫЙ) =====
+        const mainWrapper = document.getElementById('mainWrapper');
         const chatPanel = document.getElementById('chatPanel');
         const closeChat = document.getElementById('closeChat');
         const chatMessages = document.getElementById('chatMessages');
@@ -4028,51 +4034,64 @@
 
         let chatOpen = false;
         let touchStartX = 0;
+        let touchStartY = 0;
         let touchEndX = 0;
         let isDragging = false;
 
         // Swipe Detection
-        mainWrapper.addEventListener('touchstart', (e) => {
-          touchStartX = e.changedTouches[0].screenX;
+        document.body.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].clientX;
+          touchStartY = e.changedTouches[0].clientY;
           isDragging = true;
         }, { passive: true });
 
-        mainWrapper.addEventListener('touchmove', (e) => {
+        document.body.addEventListener('touchmove', (e) => {
           if (!isDragging) return;
-          touchEndX = e.changedTouches[0].screenX;
+
+          touchEndX = e.changedTouches[0].clientX;
+          const touchY = e.changedTouches[0].clientY;
+
+          const deltaX = Math.abs(touchEndX - touchStartX);
+          const deltaY = Math.abs(touchY - touchStartY);
+          if (deltaY > deltaX) return;
 
           const diff = touchEndX - touchStartX;
 
-          if (!chatOpen && diff < -50) {
+          if (!chatOpen && diff < -30) {
             const translateX = Math.max(diff, -window.innerWidth * 0.8);
+            mainWrapper.style.transition = 'none';
             mainWrapper.style.transform = `translateX(${translateX}px)`;
-          } else if (chatOpen && diff > 50) {
-            const translateX = Math.min(diff - window.innerWidth * 0.8, 0);
+          } else if (chatOpen && diff > 30) {
+            const currentOffset = -window.innerWidth * 0.8;
+            const translateX = Math.min(currentOffset + diff, 0);
+            mainWrapper.style.transition = 'none';
             mainWrapper.style.transform = `translateX(${translateX}px)`;
           }
         }, { passive: true });
 
-        mainWrapper.addEventListener('touchend', () => {
+        document.body.addEventListener('touchend', () => {
           if (!isDragging) return;
           isDragging = false;
 
           const swipeDistance = touchEndX - touchStartX;
+
+          mainWrapper.style.transition = '';
           mainWrapper.style.transform = '';
 
-          if (swipeDistance < -80 && !chatOpen) openChat();
-          else if (swipeDistance > 80 && chatOpen) closeChatPanel();
+          if (swipeDistance < -60 && !chatOpen) openChat();
+          else if (swipeDistance > 60 && chatOpen) closeChatPanel();
         }, { passive: true });
 
         function openChat() {
           chatOpen = true;
           mainWrapper.classList.add('chat-open');
-          if (typeof vibrate === 'function') vibrate('light');
+          if (typeof vibrate === 'function') vibrate('medium');
         }
 
         function closeChatPanel() {
           chatOpen = false;
           mainWrapper.classList.remove('chat-open');
-          if (typeof vibrate === 'function') vibrate('light');
+          if (typeof vibrate === 'function') vibrate('medium');
         }
 
         if (closeChat) {
@@ -4085,9 +4104,12 @@
 
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ${sender}`;
+
+          const safeText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
           msgDiv.innerHTML = `
             <div class="sender">${sender === 'user' ? 'You' : 'AI'}</div>
-            <div class="text">${text}</div>
+            <div class="text">${safeText}</div>
           `;
           chatMessages.appendChild(msgDiv);
           chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -4101,10 +4123,7 @@
 
             addChatMessage(text, 'user');
             chatInput.value = '';
-
-            setTimeout(() => {
-              addChatMessage('Received: ' + text, 'ai');
-            }, 500);
+            if (typeof sendToBot === 'function') sendToBot(text);
           });
 
           chatInput.addEventListener('keydown', (e) => {
@@ -4112,22 +4131,22 @@
           });
         }
 
-        // Speech recognition hook
+        // recognition integration
         if (window.recognition) {
-          const originalOnResult = recognition.onresult;
+          const origRecognitionOnResult = recognition.onresult;
           recognition.onresult = function(event) {
             const text = event.results[0][0].transcript;
             addChatMessage(text, 'user');
-            if (originalOnResult) originalOnResult.call(this, event);
+            if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
           };
         }
 
-        // Speak hook
+        // speak integration
         if (window.speak) {
-          const originalSpeak = speak;
+          const origSpeak = window.speak;
           window.speak = function(text) {
             addChatMessage(text, 'ai');
-            if (originalSpeak) originalSpeak.call(this, text);
+            if (origSpeak) origSpeak.call(this, text);
           };
         }
     </script>
