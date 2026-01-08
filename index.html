@@ -4040,9 +4040,20 @@
 
         // Swipe Detection
         document.body.addEventListener('touchstart', (e) => {
-          touchStartX = e.changedTouches[0].clientX;
-          touchStartY = e.changedTouches[0].clientY;
-          isDragging = true;
+            const touch = e.changedTouches[0];
+            const x = touch.clientX;
+            const y = touch.clientY;
+
+            // если чат открыт и палец внутри чата — свайп не обрабатываем
+            if (chatOpen && x < window.innerWidth * 0.2) {
+                isDragging = false;
+                return;
+            }
+
+            touchStartX = x;
+            touchStartY = y;
+            touchEndX = x;
+            isDragging = true;
         }, { passive: true });
 
         document.body.addEventListener('touchmove', (e) => {
@@ -4061,7 +4072,7 @@
             const translateX = Math.max(diff, -window.innerWidth * 0.8);
             mainWrapper.style.transition = 'none';
             mainWrapper.style.transform = `translateX(${translateX}px)`;
-          } else if (chatOpen && diff > 30) {
+          } else if (chatOpen && diff > 0) {
             const currentOffset = -window.innerWidth * 0.8;
             const translateX = Math.min(currentOffset + diff, 0);
             mainWrapper.style.transition = 'none';
