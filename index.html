@@ -1288,41 +1288,41 @@
 
         // --- chatMaterial + shader (XDust-style noise background) ---
         const chatFragmentShader = `
-            uniform float time;
-            varying vec3 vColor;
+        uniform float time;
+        varying vec3 vColor;
 
-            // 2D шум
-            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7)))*43758.5453); }
-            float noise(vec2 p) {
-                vec2 i = floor(p);
-                vec2 f = fract(p);
-                f = f*f*(3.0-2.0*f);
-                float a = hash(i);
-                float b = hash(i + vec2(1.0,0.0));
-                float c = hash(i + vec2(0.0,1.0));
-                float d = hash(i + vec2(1.0,1.0));
-                return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+        // 2D шум для красивого перелива
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+        float noise(vec2 p){
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            f = f*f*(3.0-2.0*f);
+            float a = hash(i);
+            float b = hash(i + vec2(1.0,0.0));
+            float c = hash(i + vec2(0.0,1.0));
+            float d = hash(i + vec2(1.0,1.0));
+            return mix(mix(a,b,f.x), mix(c,d,f.x), f.y);
+        }
+        float fbm(vec2 p){
+            float v = 0.0;
+            float a = 0.5;
+            for(int i=0;i<5;i++){
+                v += a*noise(p);
+                p *= 2.5;
+                a *= 0.5;
             }
-            float fbm(vec2 p){
-                float v = 0.0;
-                float a = 0.5;
-                for(int i=0;i<5;i++){
-                    v += a*noise(p);
-                    p *= 2.5;
-                    a *= 0.5;
-                }
-                return v;
-            }
+            return v;
+        }
 
-            void main() {
-                vec2 uv = gl_PointCoord.xy;
-                float n = fbm(uv*3.0 + time*0.2);
-                vec3 col = vColor * 0.4 + vec3(0.1,0.12,0.2)*n;
-                float dist = length(uv - 0.5);
-                float alpha = (1.0 - dist) * 0.8;
-                gl_FragColor = vec4(col, alpha);
-            }
-            `;
+        void main() {
+            vec2 uv = gl_PointCoord.xy;
+            float n = fbm(uv*4.0 + time*0.3); // шум с плавной анимацией
+            vec3 col = mix(vec3(0.08,0.09,0.15), vColor*0.6, n);
+            float dist = length(uv - 0.5);
+            float alpha = (1.0 - dist) * 0.85 * n;
+            gl_FragColor = vec4(col, alpha);
+        }
+        `;
 
         const chatMaterial = new THREE.ShaderMaterial({
             uniforms: { time: { value: 0 } },
