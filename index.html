@@ -419,14 +419,16 @@
   </div>
 
   <!-- Chat panel -->
-  <div class="chat-panel" id="chatPanel">
-      <canvas id="chatShaderCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;"></canvas>
-      <div class="chat-messages" id="chatMessages" style="position:relative;z-index:2;"></div>
-      <div class="chat-input" style="position:relative;z-index:2;">
-          <input type="text" id="chatInput" placeholder="Type message...">
-          <button id="sendBtn">Send</button>
-      </div>
-  </div>
+    <div class="chat-panel" id="chatPanel" style="position:absolute;right:0;top:0;width:80%;height:100%;overflow:hidden;">
+        <canvas id="chatShaderCanvas"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;display:block;"
+        ></canvas>
+        <div class="chat-messages" id="chatMessages" style="position:relative;z-index:2;background:transparent;box-shadow:none;"></div>
+        <div class="chat-input" style="position:relative;z-index:2;background:transparent;box-shadow:none;">
+            <input type="text" id="chatInput" placeholder="Type message...">
+            <button id="sendBtn">Send</button>
+        </div>
+    </div>
 
 </div>
 
@@ -1228,7 +1230,15 @@
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
         chatShaderCanvas.style.width = '100%';
         chatShaderCanvas.style.height = '100%';
+        chatShaderCanvas.style.position = 'absolute';
+        chatShaderCanvas.style.top = '0';
+        chatShaderCanvas.style.left = '0';
+        chatShaderCanvas.style.zIndex = '0';
+        chatShaderCanvas.style.pointerEvents = 'none';
+        chatShaderCanvas.style.background = 'transparent';
+        chatShaderCanvas.style.display = 'block';
 
+        // Set up chat shader WebGLRenderer with transparency
         const chatRenderer = new THREE.WebGLRenderer({
             canvas: chatShaderCanvas,
             alpha: true,
@@ -1236,32 +1246,44 @@
             premultipliedAlpha: false
         });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
-        chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+        function resizeChatCanvas() {
+            // Get the chat panel size
+            const chatPanel = document.getElementById('chatPanel');
+            const width = chatPanel.clientWidth;
+            const height = chatPanel.clientHeight;
+            chatShaderCanvas.width = width;
+            chatShaderCanvas.height = height;
+            chatRenderer.setSize(width, height, false);
+        }
+        // Initial resize
+        resizeChatCanvas();
         chatRenderer.setClearColor(0x000000, 0);
         chatRenderer.setClearAlpha(0);
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
+            // Always ensure canvas matches panel size
+            resizeChatCanvas();
+            // Set feedbackMaterial resolution for chat shader
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
 
-        // Объединённый ресайз для main + chat canvas
-        window.addEventListener('resize', () => {
-            // main canvas
+        // Unified resize handler for both main and chat canvases
+        function handleResize() {
+            // Main canvas
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             feedbackRT1.setSize(window.innerWidth, window.innerHeight);
             feedbackRT2.setSize(window.innerWidth, window.innerHeight);
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-
-            // chat canvas
-            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
-        });
+            // Chat canvas
+            resizeChatCanvas();
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
+        }
+        window.addEventListener('resize', handleResize);
 
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
