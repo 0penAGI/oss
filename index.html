@@ -2190,18 +2190,31 @@
         });
 
         let internalNotes = [];
+        // === Фильтр повторов и минимальный интервал для noteObservation ===
+        let lastInternalNote = null;
+        let lastNoteTime = 0;
         function noteObservation(desc) {
+            const now = performance.now();
+            // Фильтр: если повтор или слишком быстро — не добавлять
+            if (
+                desc === lastInternalNote &&
+                (now - lastNoteTime < 8000)
+            ) {
+                return;
+            }
+            lastInternalNote = desc;
+            lastNoteTime = now;
             internalNotes.push(desc);
-            if(internalNotes.length > 50) internalNotes.shift();
+            if (internalNotes.length > 50) internalNotes.shift();
             // --- Memory Palace: add each observation as a node
             memoryPalace.addNode({
-              id: crypto.randomUUID(),
-              type: 'observation',
-              emotion: (typeof selfAwareness?.mood === 'number'
-                        ? (selfAwareness.mood + 1) / 2
-                        : 0.5),
-              timestamp: performance.now(),
-              connections: []
+                id: crypto.randomUUID(),
+                type: 'observation',
+                emotion: (typeof selfAwareness?.mood === 'number'
+                    ? (selfAwareness.mood + 1) / 2
+                    : 0.5),
+                timestamp: now,
+                connections: []
             });
         }
 
