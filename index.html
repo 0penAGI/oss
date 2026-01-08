@@ -4034,8 +4034,6 @@
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
-        const mainContent = document.querySelector('.main-content');
-
         let chatOpen = false;
         let touchStartX = 0;
         let touchStartY = 0;
@@ -4061,42 +4059,40 @@
         }, { passive: true });
 
         document.body.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
+          if (!isDragging) return;
 
-            const touch = e.changedTouches[0];
-            const dx = touch.clientX - touchStartX;
-            const dy = Math.abs(touch.clientY - touchStartY);
+          touchEndX = e.changedTouches[0].clientX;
+          const touchY = e.changedTouches[0].clientY;
 
-            if (dy > Math.abs(dx)) return;
+          const deltaX = Math.abs(touchEndX - touchStartX);
+          const deltaY = Math.abs(touchY - touchStartY);
+          if (deltaY > deltaX) return;
 
-            if (!chatOpen && dx < 0) {
-                const offset = Math.max(dx, -window.innerWidth * 0.8);
-                mainContent.style.transition = 'none';
-                mainContent.style.transform = `translateX(${offset}px)`;
-            }
+          const diff = touchEndX - touchStartX;
 
-            if (chatOpen && dx > 0) {
-                const offset = Math.min(-window.innerWidth * 0.8 + dx, 0);
-                mainContent.style.transition = 'none';
-                mainContent.style.transform = `translateX(${offset}px)`;
-            }
+          if (!chatOpen && diff < -30) {
+            const translateX = Math.max(diff, -window.innerWidth * 0.8);
+            mainWrapper.style.transition = 'none';
+            mainWrapper.style.transform = `translateX(${translateX}px)`;
+          } else if (chatOpen && diff > 0) {
+            const currentOffset = -window.innerWidth * 0.8;
+            const translateX = Math.min(currentOffset + diff, 0);
+            mainWrapper.style.transition = 'none';
+            mainWrapper.style.transform = `translateX(${translateX}px)`;
+          }
         }, { passive: true });
 
         document.body.addEventListener('touchend', () => {
-            if (!isDragging) return;
-            isDragging = false;
+          if (!isDragging) return;
+          isDragging = false;
 
-            mainContent.style.transition = '';
+          const swipeDistance = touchEndX - touchStartX;
 
-            const dx = touchEndX - touchStartX;
+          mainWrapper.style.transition = '';
+          mainWrapper.style.transform = '';
 
-            if (dx < -60 && !chatOpen) {
-                openChat();
-            } else if (dx > 60 && chatOpen) {
-                closeChatPanel();
-            } else {
-                mainContent.style.transform = chatOpen ? 'translateX(-80%)' : '';
-            }
+          if (swipeDistance < -60 && !chatOpen) openChat();
+          else if (swipeDistance > 60 && chatOpen) closeChatPanel();
         }, { passive: true });
 
         function openChat() {
