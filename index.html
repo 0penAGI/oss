@@ -84,7 +84,6 @@
         }
         
         @keyframes statusFade { 0%,100%{opacity:0.34} 50%{opacity:1} }
-        
         #transcript {
             font-size: 13.5px;
             max-width: 90%;
@@ -100,16 +99,14 @@
             backdrop-filter: none;
             box-shadow: none;
             border: none;
-           
-            user-select: none; /* полностью запретить выделение */
+            /* Разрешить выделение текста */
             cursor: pointer;   /* показать, что можно кликнуть */
 
             /* Важные правила для предотвращения разрыва слов */
             word-break: keep-all !important;     /* не разрывать слова */
             overflow-wrap: break-word !important; /* переносить только по целым словам */
             hyphens: manual !important;           /* отключить автоматические переносы */
-            white-space: pre-wrap !important;
-            cursor: pointer;     /* сохранять пробелы и переносы строк */
+            white-space: pre-wrap !important;     /* сохранять пробелы и переносы строк */
         }
 
 
@@ -120,10 +117,6 @@
             hyphens: manual !important;
             white-space: pre-wrap !important;
             display: inline;
-            #transcript {
-            user-select: none; /* полностью запретить выделение */
-            cursor: pointer;   /* показать, что можно кликнуть */
-}
         }
 
         /* Code formatting for transcript code blocks */
@@ -177,7 +170,7 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0; }
         }
-        /* Для отдельных символов с анимацией: */
+   
         .glass-char {
             display: inline-block;
             opacity: 0;
@@ -204,7 +197,7 @@
                 transform: translateY(0) scale(1);
             }
         }
-        /* Для слов внутри типографского эффекта: */
+      
         .word {
             white-space: nowrap !important;
             display: inline-block !important;
@@ -219,7 +212,7 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Запретить выделение для интерактивного орба */
+  
         #orb-interactive, #orb {
             user-select: none;       /* стандарт */
             -webkit-user-select: none; /* Safari/Chrome */
@@ -227,17 +220,8 @@
             -ms-user-select: none;     /* IE10+ */
         }
 
-        /* Статус и транскрипт остаются выделяемыми */
-        #status, #transcript, #current-response {
+        #status, #current-response {
             user-select: none; /* статус не выделяем */
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-        }
-
-        /* Только транскрипт остаётся выделяемым */
-        #transcript {
-            user-select: none;
             -webkit-user-select: none;
             -moz-user-select: none;
             -ms-user-select: none;
@@ -254,15 +238,20 @@
       display: inline-block;
       opacity: 0;
       filter: blur(6px);
-      transform: translateY(6px);
-      animation: chatCharIn 380ms ease-out forwards;
+      transform: translateY(6px) scale(0.96);
+      animation: chatCharIn 0.42s cubic-bezier(0.33,1,0.68,1) forwards;
     }
 
     @keyframes chatCharIn {
-      to {
+      0% {
+        opacity: 0;
+        filter: blur(6px);
+        transform: translateY(6px) scale(0.96);
+      }
+      100% {
         opacity: 1;
         filter: blur(0);
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
       }
     }
 
