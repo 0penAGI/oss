@@ -1135,8 +1135,6 @@
             orbEnergy += 0.02 * data.interaction;
         });
 
-        // --- Chat panel state ---   
-
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
         function animate() {
             requestAnimationFrame(animate);
@@ -1217,15 +1215,15 @@
             // медленное увеличение времени
             liquidMaterial.uniforms.time.value += 0.015;
 
-            renderer.render(feedbackScene, feedbackCamera);
+                renderer.render(feedbackScene, feedbackCamera);
 
-            // swap render targets
+                // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-            // Emulate multi-agent system: graphic, content, ux pulse every frame
+                // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
@@ -1238,7 +1236,15 @@
         }
         animate();
 
-        // --- Chat Shader Canvas and Renderer ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
         chatShaderCanvas.style.width = '100%';
         chatShaderCanvas.style.height = '100%';
@@ -1272,35 +1278,17 @@
         chatRenderer.setClearColor(0x000000, 0);
         chatRenderer.setClearAlpha(0);
 
-        // --- Animate chat shader (with panel open/close state) ---
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            // Only animate if chat is open
-            if (!chatOpen) return;
             // Always ensure canvas matches panel size
             resizeChatCanvas();
             // Set feedbackMaterial resolution for chat shader
             feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
+        animateChatShader();
 
-        // --- Chat panel open/close functions ---
-        function openChat() {
-            chatOpen = true;
-            // Add .chat-open class to main wrapper
-            document.getElementById('mainWrapper').classList.add('chat-open');
-            // Start animating chat shader
-            animateChatShader();
-        }
-        function closeChatPanel() {
-            chatOpen = false;
-            // Remove .chat-open class from main wrapper
-            document.getElementById('mainWrapper').classList.remove('chat-open');
-            // Optionally clear or hide chat shader canvas (optional)
-            // chatShaderCanvas.width = 0; chatShaderCanvas.height = 0;
-        }
-
-        // --- Unified resize handler for both main and chat canvases ---
+        // Unified resize handler for both main and chat canvases
         function handleResize() {
             // Main canvas
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -1311,7 +1299,6 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
             // Chat canvas
             resizeChatCanvas();
-            // Update feedbackMaterial resolution for chat shader as well
             feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
         }
         window.addEventListener('resize', handleResize);
