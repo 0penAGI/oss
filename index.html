@@ -1269,12 +1269,18 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // === Chat Shader Canvas ===
+        // === Chat Shader Canvas (patched) ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
-        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true, premultipliedAlpha: false });
+        const chatRenderer = new THREE.WebGLRenderer({ 
+            canvas: chatShaderCanvas, 
+            alpha: true, 
+            premultipliedAlpha: false, 
+            antialias: true 
+        });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
         chatRenderer.setSize(window.innerWidth, window.innerHeight);
         chatRenderer.outputColorSpace = THREE.SRGBColorSpace;
+        chatRenderer.setClearColor(0x000000, 0); // transparent clear
 
         chatShaderCanvas.style.position = 'absolute';
         chatShaderCanvas.style.top = '0';
@@ -1287,13 +1293,16 @@
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
-            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.width, chatShaderCanvas.height);
+            // ensure shader uses correct canvas size
+            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
             chatRenderer.render(feedbackScene, feedbackCamera);
         }
         animateChatShader();
 
         window.addEventListener('resize', () => {
-            chatRenderer.setSize(window.innerWidth, window.innerHeight);
+            chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
+            feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
         });
 
         // === Глобальная переменная для последнего описания камеры ===
