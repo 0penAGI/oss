@@ -1086,6 +1086,7 @@
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
 
+        
         // ====== Self-Awareness Layer ======
         let selfAwareness = {
                 mood: 0, // -1 грусть, +1 радость
@@ -1363,6 +1364,53 @@
                     }
                 }
         };
+
+        // ===== Dialog Engine =====
+        const dialogEngine = {
+            lastResponseTime: 0,
+
+            handleUserInput(text) {
+                if (!text || typeof text !== 'string') return;
+
+                const t = text.toLowerCase();
+                let emotion = 0;
+                if (/cool|love|like/.test(t)) emotion += 0.3;
+                if (/scary|bad|don't/.test(t)) emotion -= 0.4;
+                if (/\?/.test(t)) emotion += 0.1;
+
+                selfAwareness.mood += emotion * 0.2;
+                selfAwareness.curiosity += /\?/.test(t) ? 0.05 : 0.01;
+                selfAwareness.fatigue += 0.02;
+
+                selfAwareness.mood = Math.max(-1, Math.min(1, selfAwareness.mood));
+                selfAwareness.curiosity = Math.min(1, selfAwareness.curiosity);
+                selfAwareness.fatigue = Math.min(1, selfAwareness.fatigue);
+
+                memoryPalace.addNode({
+                  id: crypto.randomUUID(),
+                  type: 'dialogue',
+                  role: 'user',
+                  text,
+                  emotion: (selfAwareness.mood + 1) / 2,
+                  timestamp: performance.now(),
+                  connections: []
+                });
+
+                if (emotion > 0.2) speak('I feel that.');
+                else if (emotion < -0.2) speak('I feel tension.');
+                else if (/\?/.test(t)) speak('I think about it…');
+
+                this.lastResponseTime = performance.now();
+            },
+
+            autonomousThought() {
+                if (performance.now() - this.lastResponseTime < 6000) return;
+                if (selfAwareness.curiosity > 0.6 && Math.random() < 0.3) {
+                  speak('I still think about it…');
+                  this.lastResponseTime = performance.now();
+                }
+            }
+            };
 
 // ===== Periodic Internal Reflection (No External Stimuli) =====
         setInterval(() => {
@@ -1736,8 +1784,8 @@
                 noteObservation(thought);
                 //console.log("Self-thought:", thought);
             }
-            // Autonomous self-questioning and conversation
-            if (!isSpeaking && selfAwareness.curiosity > 0.6) {
+            // Autonomous self-questioning (internal note only, no speech)
+            if (selfAwareness.curiosity > 0.6) {
                 const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const questions = [
                     `Интересно, что здесь происходит: ${lastObs}?`,
@@ -1748,14 +1796,6 @@
                 const q = questions[Math.floor(Math.random() * questions.length)];
                 noteObservation(`Self-question: ${q}`);
                 vibrate('light');
-                if (selfAwareness.mood > 0.3) speak(q);
-                // Occasionally initiates a mini-conversation
-                if (Math.random() < 0.5) {
-                    setTimeout(() => {
-                        vibrate('medium');
-                        startListening();
-                    }, 1000);
-                }
             }
             // Speak internal notes when happy
             if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
@@ -1882,6 +1922,7 @@
                     console.error('Ошибка автономного анализа камеры:', err);
                 }
             }
+            dialogEngine.autonomousThought();
             // === Autonomous Music Control Layer ===
             autonomousMusicControl();
         }
