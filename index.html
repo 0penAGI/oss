@@ -315,18 +315,18 @@
 
     /* --------- Chat panel glass refactor --------- */
     .chat-panel {
-        position: fixed;
-        top: 0;
+        position: absolute;
         right: 0;
+        top: 0;
         width: 80%;
         height: 100%;
         transform: translateX(100%);
-        background: transparent;
-        backdrop-filter: blur(16px) saturate(1.2);
+        background: rgba(0,0,0,0);
+        backdrop-filter: none;
         display: flex;
         flex-direction: column;
         transition: transform .4s cubic-bezier(.4,0,.2,1);
-        z-index: 20; /* above main content */
+        z-index: 1;
         pointer-events: auto;
         overflow: hidden;
     }
@@ -342,16 +342,14 @@
         display: flex;
         flex-direction: column;
         gap: 14px;
-        background: transparent;
+        background: rgba(0,0,0,0);
         box-shadow: none !important;
         border: none !important;
-        position: relative;
-        z-index: 2;
     }
 
     .chat-message.user,
     .chat-message.ai {
-        background: rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0);
         backdrop-filter: blur(12px);
         border-radius: 16px;
         padding: 8px 12px;
@@ -359,29 +357,32 @@
         font-size: 12px;
     }
 
+    #transcript pre, #transcript code {
+        background: transparent;
+        box-shadow: none;
+        border: none;
+    }
+
     .chat-input {
         display: flex;
-        gap: 14px;
+        gap: 12px;
         padding: 16px 20px 22px;
-        background: transparent;
+        background: rgba(0,0,0,0);
         border: none;
-        position: relative;
-        z-index: 2;
     }
 
     .chat-input input {
         flex: 1;
         padding: 10px 10px;
         height: 25px;
-        background: rgba(255,255,255,0.05);
+        background: rgba(0,0,0,0);
         border: none;
         border-radius: 20px;
         color: #fff;
         outline: none;
     }
-
     .chat-input button {
-        background: rgba(255,255,255,0.05);
+        background: rgba(0,0,0,0);
         border: none;
         color: #fff;
         outline: none;
