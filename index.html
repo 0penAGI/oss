@@ -3436,79 +3436,25 @@
     }
 
         // 
-        // Typewriter effect that prints whole words (not letters), with word-appear animation and non-breaking spaces
-        function typeWriterEffect(element, text) {
-            return new Promise((resolve) => {
-                // Split text into words and whitespace
-                const words = text.match(/\S+|\s+/g) || [];
-                let wordIndex = 0;
-                // Ensure the word-appear animation CSS is present
-                if (!document.getElementById('word-appear-style')) {
-                    const style = document.createElement('style');
-                    style.id = 'word-appear-style';
-                    style.textContent = `
-                        @keyframes word-appear {
-                            0% {
-                                opacity: 0;
-                                filter: blur(4px);
-                                transform: translateY(6px) scale(0.97);
-                            }
-                            50% {
-                                opacity: 1;
-                                filter: blur(0.5px);
-                                transform: translateY(0) scale(1.02);
-                            }
-                            100% {
-                                opacity: 1;
-                                filter: blur(0);
-                                transform: translateY(0) scale(1);
-                            }
-                        }
-                        .word-appear {
-                            display: inline-block;
-                            opacity: 0;
-                            animation: word-appear 420ms cubic-bezier(.22,.7,.41,1.03) forwards;
-                            margin-right: 0.08em;
-                            will-change: opacity, filter, transform;
-                        }
-                    `;
-                    document.head.appendChild(style);
+        // === Unified letter-by-letter chat typing effect ===
+        function typeChatMessage(text, container, speed = 40) {
+            container.innerHTML = '';
+            container.classList.add('chat-cursor');
+            let i = 0;
+            function tick() {
+                if (i >= text.length) {
+                    container.classList.remove('chat-cursor');
+                    return;
                 }
-                function typeNextWord() {
-                    if (wordIndex >= words.length) {
-                        resolve();
-                        return;
-                    }
-                    const word = words[wordIndex++];
-                    // If it's whitespace, add as non-breaking spaces
-                    if (/^\s+$/.test(word)) {
-                        const spaceSpan = document.createElement('span');
-                        // Replace all spaces with &nbsp; for non-breaking
-                        spaceSpan.innerHTML = word.replace(/ /g, '&nbsp;');
-                        spaceSpan.style.cssText = 'display:inline;white-space:pre;';
-                        element.appendChild(spaceSpan);
-                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        setTimeout(typeNextWord, 18);
-                        return;
-                    }
-                    // Create span for the word with animation
-                    const wordSpan = document.createElement('span');
-                    wordSpan.className = 'word-appear';
-                    // Animation delay for chaining effect
-                    const appearDelay = wordIndex * 22 + Math.random() * 15;
-                    wordSpan.style.animationDelay = `${appearDelay}ms`;
-                    wordSpan.textContent = word;
-                    element.appendChild(wordSpan);
-                    if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    // Delay between words (longer for punctuation/long words)
-                    let delay = 62 + Math.random() * 30;
-                    if (word.length > 8) delay += 30;
-                    if (/[.,!?;:]$/.test(word)) delay += 110;
-                    if (/[.!?]$/.test(word)) delay += 160;
-                    setTimeout(typeNextWord, delay);
-                }
-                typeNextWord();
-            });
+                const span = document.createElement('span');
+                span.className = 'chat-char';
+                span.textContent = text[i];
+                container.appendChild(span);
+                i++;
+                container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                setTimeout(tick, speed + Math.random() * 20);
+            }
+            tick();
         }
         
         // Гуманизация текста: убирает лишние пробелы и добавляет паузы
@@ -4222,15 +4168,15 @@
 
           chatMessages.scrollTop = chatMessages.scrollHeight;
 
-          // Add copy-on-click for the message
+          // Add copy-on-click for all messages
           msgDiv.addEventListener('click', () => {
               navigator.clipboard.writeText(text).then(() => {
-                  // Optional: flash effect
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
           });
 
+          // Typing animation for AI messages
           if (sender === 'ai') {
             typeChatMessage(text, textDiv);
           } else {
