@@ -1345,6 +1345,8 @@
 
         const chatMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), chatMaterial);
 
+    
+
         const chatScene = new THREE.Scene();
         chatScene.add(chatMesh);
 
@@ -1359,6 +1361,7 @@
             // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
         }
 
+        
         // --- Обновление анимации XDust на фоне чата ---
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
@@ -1409,7 +1412,23 @@
         autoReactiveChat();
 
         // Унифицированный resize для главного и чат-канваса
-        function handleResize() {
+        let baseWidth = window.innerWidth;
+        let baseHeight = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            const dw = Math.abs(window.innerWidth - baseWidth);
+            const dh = Math.abs(window.innerHeight - baseHeight);
+
+            // если изменение маленькое — это клавиатура, игнорируем для WebGL канваса
+            if (dw < 50 && dh < 100) {
+                resizeChatCanvas(); // чат под клавиатуру
+                return;
+            }
+
+            // большое изменение — реальный ресайз
+            baseWidth = window.innerWidth;
+            baseHeight = window.innerHeight;
+
             // Main canvas
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -1420,8 +1439,7 @@
 
             // Chat canvas
             resizeChatCanvas();
-        }
-        window.addEventListener('resize', handleResize);
+        });
 
         // Запуск анимации чата
         animateChatShader();
