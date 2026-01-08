@@ -374,7 +374,7 @@
     .chat-input input {
         flex: 1;
         padding: 10px 16px;
-        height: 36px;
+        height: 27px;
         background: rgba(0,0,0,0);
         border: none;
         border-radius: 20px;
@@ -1225,12 +1225,20 @@
             feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
         });
 
-        // === Chat Shader Canvas (transparent, glass) ===
         const chatShaderCanvas = document.getElementById('chatShaderCanvas');
-        const chatRenderer = new THREE.WebGLRenderer({ canvas: chatShaderCanvas, alpha: true, antialias: true, premultipliedAlpha: false });
+        chatShaderCanvas.style.width = '100%';
+        chatShaderCanvas.style.height = '100%';
+
+        const chatRenderer = new THREE.WebGLRenderer({
+            canvas: chatShaderCanvas,
+            alpha: true,
+            antialias: true,
+            premultipliedAlpha: false
+        });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
         chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
         chatRenderer.setClearColor(0x000000, 0);
+        chatRenderer.setClearAlpha(0);
 
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
@@ -1240,7 +1248,17 @@
         }
         animateChatShader();
 
+        // Объединённый ресайз для main + chat canvas
         window.addEventListener('resize', () => {
+            // main canvas
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT1.setSize(window.innerWidth, window.innerHeight);
+            feedbackRT2.setSize(window.innerWidth, window.innerHeight);
+            feedbackMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+
+            // chat canvas
             chatRenderer.setSize(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight, false);
             feedbackMaterial.uniforms.resolution.value.set(chatShaderCanvas.clientWidth, chatShaderCanvas.clientHeight);
         });
