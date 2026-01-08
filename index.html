@@ -325,8 +325,8 @@
       width: 80%;
       height: 100%;
       transform: translateX(100%);
-      background: rgba(0, 0, 0, 0.0);
-      backdrop-filter: blur(8px);
+      background: transparent !important;
+      backdrop-filter: none !important;
       display: flex;
       flex-direction: column;
       transition: transform .4s cubic-bezier(.4,0,.2,1);
@@ -357,8 +357,8 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      background: rgba(0,0,0,0.05);
-      backdrop-filter: blur(8px);
+      background: transparent !important;
+      backdrop-filter: none !important;
     }
 
     .chat-message {
@@ -366,13 +366,8 @@
       border-radius: 16px;
       max-width: 85%;
       background: rgba(255,255,255,0.06);
-      backdrop-filter: blur(6px);
+      backdrop-filter: none !important;
       animation: messageSlide 0.3s ease;
-    }
-            
-    @keyframes messageSlide {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
     }
 
     .chat-message.user {
@@ -400,7 +395,7 @@
       padding: 16px 20px 22px;
       display: flex;
       gap: 12px;
-      background: transparent;
+      background: transparent !important;
       border: none;
     }
 
@@ -412,7 +407,7 @@
       border-radius: 20px;
       color: #fff;
       outline: none;
-      backdrop-filter: blur(8px);
+      backdrop-filter: none !important;
     }
 
     .chat-input button {
@@ -421,10 +416,13 @@
       border: none;
       border-radius: 18px;
       color: #fff;
-      backdrop-filter: blur(8px);
+      backdrop-filter: none !important;
     }
 
-
+    @keyframes messageSlide {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
     @keyframes swipePulse {
         0%, 100% { opacity: 0.4; transform: translateY(-50%) translateX(0); }
@@ -433,16 +431,6 @@
 
     .main-wrapper.chat-open .swipe-indicator {
         display: none;
-    }
-    </style>
-    <style>
-    .main-wrapper,
-    .main-content,
-    .chat-panel,
-    .chat-messages,
-    .chat-input,
-    .content {
-        background: transparent !important;
     }
     </style>
     <!-- Подключение Prism.js для подсветки кода -->
