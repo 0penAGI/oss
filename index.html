@@ -4352,76 +4352,114 @@
         let chatOpen = false;
         let touchStartX = 0;
         let touchStartY = 0;
-        let touchEndX = 0;
+        let lastTouchX = 0;
         let isDragging = false;
+        let draggingRAF = null;
+        let dragTranslateX = 0;
 
-        // Swipe Detection
-        document.body.addEventListener('touchstart', (e) => {
-            const touch = e.changedTouches[0];
-            const x = touch.clientX;
-            const y = touch.clientY;
+        // Add CSS transition for mainWrapper for smoothness
+        if (mainWrapper) {
+          mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+        }
 
-            if (chatOpen && x < window.innerWidth * 0.2) {
-                isDragging = false;
-                return;
+        // Smooth swipe logic with requestAnimationFrame
+        function setMainWrapperTransform(x, withTransition = false) {
+          if (mainWrapper) {
+            if (withTransition) {
+              mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+            } else {
+              mainWrapper.style.transition = 'none';
             }
+            mainWrapper.style.transform = `translateX(${x}px)`;
+          }
+        }
 
-            touchStartX = x;
-            touchStartY = y;
-            touchEndX = x;
-            isDragging = true;
+        function resetMainWrapperTransform() {
+          if (mainWrapper) {
+            mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+            mainWrapper.style.transform = '';
+          }
+        }
+
+        document.body.addEventListener('touchstart', (e) => {
+          const touch = e.changedTouches[0];
+          const x = touch.clientX;
+          const y = touch.clientY;
+          // Prevent accidental drag from left edge if already open
+          if (chatOpen && x < window.innerWidth * 0.2) {
+            isDragging = false;
+            return;
+          }
+          touchStartX = x;
+          touchStartY = y;
+          lastTouchX = x;
+          isDragging = true;
+          dragTranslateX = 0;
+          if (mainWrapper) mainWrapper.style.willChange = 'transform';
         }, { passive: true });
 
         document.body.addEventListener('touchmove', (e) => {
           if (!isDragging) return;
-
-          touchEndX = e.changedTouches[0].clientX;
-          const touchY = e.changedTouches[0].clientY;
-
-          const deltaX = Math.abs(touchEndX - touchStartX);
+          const touch = e.changedTouches[0];
+          lastTouchX = touch.clientX;
+          const touchY = touch.clientY;
+          const deltaX = Math.abs(lastTouchX - touchStartX);
           const deltaY = Math.abs(touchY - touchStartY);
           if (deltaY > deltaX) return;
-
-          const diff = touchEndX - touchStartX;
-
-          if (!chatOpen && diff < -30) {
-            const translateX = Math.max(diff, -window.innerWidth * 0.8);
-            mainWrapper.style.transition = 'none';
-            mainWrapper.style.transform = `translateX(${translateX}px)`;
+          const diff = lastTouchX - touchStartX;
+          // Only allow left swipe to open, right swipe to close
+          if (!chatOpen && diff < -10) {
+            dragTranslateX = Math.max(diff, -window.innerWidth * 0.8);
           } else if (chatOpen && diff > 0) {
             const currentOffset = -window.innerWidth * 0.8;
-            const translateX = Math.min(currentOffset + diff, 0);
-            mainWrapper.style.transition = 'none';
-            mainWrapper.style.transform = `translateX(${translateX}px)`;
+            dragTranslateX = Math.min(currentOffset + diff, 0);
+          } else if (!chatOpen) {
+            dragTranslateX = 0;
           }
+          // Smoothly update transform with requestAnimationFrame
+          if (draggingRAF) cancelAnimationFrame(draggingRAF);
+          draggingRAF = requestAnimationFrame(() => {
+            setMainWrapperTransform(dragTranslateX, false);
+          });
         }, { passive: true });
 
         document.body.addEventListener('touchend', (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-
-            const swipeDistance = touchEndX - touchStartX;
-
-            if (swipeDistance > 60 && chatOpen) {
-                closeChatPanel();
-            } else if (swipeDistance < -60 && !chatOpen) {
-                openChat();
-            }
-
-            // Сбрасываем временный transform всегда
-            mainWrapper.style.transition = '';
-            mainWrapper.style.transform = '';
+          if (!isDragging) return;
+          isDragging = false;
+          if (mainWrapper) mainWrapper.style.willChange = '';
+          if (draggingRAF) {
+            cancelAnimationFrame(draggingRAF);
+            draggingRAF = null;
+          }
+          const swipeDistance = lastTouchX - touchStartX;
+          // Thresholds for opening/closing
+          if (swipeDistance > 60 && chatOpen) {
+            closeChatPanel();
+          } else if (swipeDistance < -60 && !chatOpen) {
+            openChat();
+          } else {
+            // Snap back to original state
+            resetMainWrapperTransform();
+          }
         });
 
         function openChat() {
           chatOpen = true;
-          mainWrapper.classList.add('chat-open');
+          if (mainWrapper) {
+            mainWrapper.classList.add('chat-open');
+            mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+            mainWrapper.style.transform = '';
+          }
           if (typeof vibrate === 'function') vibrate('medium');
         }
 
         function closeChatPanel() {
           chatOpen = false;
-          mainWrapper.classList.remove('chat-open');
+          if (mainWrapper) {
+            mainWrapper.classList.remove('chat-open');
+            mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+            mainWrapper.style.transform = '';
+          }
           if (typeof vibrate === 'function') vibrate('medium');
         }
 
