@@ -3579,10 +3579,14 @@ let isChatMode = false;
         startThinkingVibration();
 
         // Подготовка UI с курсором
-        let responseContainer = null;
-        if (!isChatMode) {
+        let responseContainer = document.getElementById("current-response");
+
+        if (!responseContainer) {
             transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
             responseContainer = document.getElementById("current-response");
+        } else {
+            responseContainer.innerHTML = '';
+            responseContainer.classList.add('typing-cursor');
         }
         audioBuffer = "";
         spokenLength = 0;
