@@ -553,11 +553,34 @@
                 .catch(err => console.error('Ошибка копирования текста: ', err));
         });
 
+                // --- Копирование текста AI-сообщения в чате по клику ---
+        document.addEventListener('click', (e) => {
+            const target = e.target.closest('.chat-message.ai .text');
+            if (!target) return;
+            const text = target.innerText;
+            if (!text) return;
+
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    console.log('AI message copied!');
+                    copyPopup.style.opacity = '1';
+                    copyPopup.style.transform = 'translate(-50%, -200%)';
+                    setTimeout(() => {
+                        copyPopup.style.opacity = '0';
+                        copyPopup.style.transform = 'translate(-50%, -180%)';
+                    }, 1000);
+                })
+                .catch(err => console.error('Error copying AI message: ', err));
+        });
+
+
         // ===== Popup для уведомления о копировании =====
         let copyPopup = document.createElement('div');
         copyPopup.id = 'copy-popup';
         copyPopup.textContent = 'Text copied';
         document.body.appendChild(copyPopup);
+
+
 
         // CSS для попапа
         const style = document.createElement('style');
