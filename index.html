@@ -507,7 +507,7 @@
                 antialias: true
             });
             // Safari WebGPU: лёгкий downscale для стабильности памяти
-            renderer.setPixelRatio(window.devicePixelRatio * 0.75);
+            renderer.setPixelRatio(window.devicePixelRatio * 0.63);
         } else {
             renderer = new THREE.WebGLRenderer({
                 canvas,
