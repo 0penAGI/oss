@@ -3192,9 +3192,9 @@
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
-let isSpeaking = false;
-let isThinking = false;
-let isChatMode = false;
+        let isSpeaking = false;
+        let isThinking = false;
+        let isChatMode = false;
 
         // === SpeechSynthesis Voices Loader ===
         function updateVoices() {
@@ -4687,6 +4687,10 @@ let isChatMode = false;
         // Chat messages
         function addChatMessage(text, sender = 'user') {
           if (!chatMessages) return;
+          // === SYNC TYPED USER TEXT TO ORB "You" ===
+          if (sender === 'user' && typeof appendTranscript === 'function') {
+              appendTranscript(text); // всегда обновляет последний You в орбе
+          }
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ${sender}`;
           const senderDiv = document.createElement('div');
@@ -4739,6 +4743,10 @@ let isChatMode = false;
         if (sendBtn && chatInput) {
           sendBtn.addEventListener('click', () => {
             const text = chatInput.value.trim();
+            // === SYNC TYPED USER TEXT TO ORB "You" (CHAT INPUT) ===
+            if (typeof appendTranscript === 'function') {
+                appendTranscript(text);
+            }
             if (!text) return;
             // Новый вариант: используем typeChatMessage для пользователя
             const msgDiv = document.createElement('div');
