@@ -3976,15 +3976,6 @@
             // Гуманизация текста + разбиение на фрагменты
             const cleanText = humanizeText(text);
             let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
-            // ограничиваем длину для живости и читаемости
-            sentences = sentences.flatMap(s => {
-                if (s.length <= 120) return [s];
-                let out = [];
-                for (let i = 0; i < s.length; i += 80) {
-                    out.push(s.slice(i, i + 80));
-                }
-                return out;
-            });
             let fragments = [];
 
             for (let s of sentences) {
@@ -4008,10 +3999,6 @@
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
                 enhancedFragments.push(frag);
-                // редкие микропаузи для "неровного" человеческого ритма
-                if (Math.random() < 0.07) {
-                    enhancedFragments.push('');
-                }
 
                 // разреженность усиливается усталостью и холодом, а также резонансом
                 const pauseChance =
