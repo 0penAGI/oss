@@ -4367,12 +4367,94 @@
             stopCameraAnalysisLoop();
         }
 
+
         // ===== Chat Panel Management =====
-        // === Chat typing animation (typeWriterEffect) ===
+        // === Chat typing animation with word-by-word effect ===
+
+        // Новый typeWriterWordsEffect: разбивает текст на слова, печатает анимированно по буквам внутри слова, с паузами между словами
+        function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
+            // text: строка для печати
+            // charDelay: задержка между буквами (мс)
+            // wordDelay: задержка между словами (мс)
+            return new Promise((resolve) => {
+                element.innerHTML = '';
+                // Разбиваем на слова с сохранением пробелов/знаков препинания
+                // Для корректного выделения знаков препинания используем split с regexp
+                // Например: "Привет, мир!" => ["Привет", ",", " ", "мир", "!"]
+                const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
+                // Массив: слова, пробелы и знаки препинания как отдельные элементы
+                let parts = [];
+                let lastIndex = 0;
+                let m;
+                while ((m = wordRegex.exec(text)) !== null) {
+                    if (m.index > lastIndex) {
+                        parts.push(text.slice(lastIndex, m.index));
+                    }
+                    parts.push(m[0]);
+                    lastIndex = wordRegex.lastIndex;
+                }
+                if (lastIndex < text.length) {
+                    parts.push(text.slice(lastIndex));
+                }
+                // Функция для печати одного слова/пробела/знака
+                let i = 0;
+                function typePart() {
+                    if (i >= parts.length) {
+                        resolve();
+                        return;
+                    }
+                    const part = parts[i];
+                    i++;
+                    // Если пробел или только знаки препинания
+                    if (/^\s+$/.test(part)) {
+                        // Просто добавить пробел
+                        const span = document.createElement('span');
+                        span.textContent = part;
+                        element.appendChild(span);
+                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        setTimeout(typePart, wordDelay / 2);
+                        return;
+                    }
+                    // Если это только знаки препинания (.,!? и т.д.)
+                    if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
+                        const span = document.createElement('span');
+                        span.textContent = part;
+                        element.appendChild(span);
+                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        // Микропаузa для знаков препинания чуть больше
+                        let puncPause = 90;
+                        if (/[.!?]/.test(part)) puncPause += 120;
+                        setTimeout(typePart, puncPause);
+                        return;
+                    }
+                    // Иначе это слово: печатаем по буквам с анимацией
+                    let charIdx = 0;
+                    function typeChar() {
+                        if (charIdx >= part.length) {
+                            // После слова — пауза
+                            setTimeout(typePart, wordDelay + Math.random() * 40);
+                            return;
+                        }
+                        const c = part[charIdx];
+                        charIdx++;
+                        const span = document.createElement('span');
+                        span.className = 'chat-char';
+                        span.textContent = c;
+                        element.appendChild(span);
+                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        setTimeout(typeChar, charDelay + Math.random() * 10);
+                    }
+                    typeChar();
+                }
+                typePart();
+            });
+        }
+
+        // typeChatMessage теперь использует typeWriterWordsEffect
         function typeChatMessage(text, container) {
             container.innerHTML = '';
             container.classList.add('chat-cursor');
-            typeWriterEffect(container, text).then(() => {
+            typeWriterWordsEffect(container, text).then(() => {
                 container.classList.remove('chat-cursor');
             });
         }
