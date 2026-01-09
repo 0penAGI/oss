@@ -3759,30 +3759,43 @@ let orbTypingQueue = Promise.resolve();
         //
         // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
         function typeWriterEffect(element, text, options = {}) {
-            // options: { charDelay, wordPause }
-            let delay = typeof options === "number" ? options : (options.charDelay ?? 28);
-            let wordPause = typeof options === "object" && typeof options.wordPause === "number" ? options.wordPause : 0;
+            let delay = typeof options === "number"
+                ? options
+                : (options.charDelay ?? 28);
+            let wordPause = typeof options === "object" && typeof options.wordPause === "number"
+                ? options.wordPause
+                : 0;
+
+            const chars = Array.from(text); // ВАЖНО: поддержка эмодзи
             return new Promise((resolve) => {
                 element.innerHTML = '';
                 let i = 0;
+
                 function nextChar() {
-                    if (i >= text.length) {
+                    if (i >= chars.length) {
                         resolve();
                         return;
                     }
+
+                    const ch = chars[i];
                     const span = document.createElement('span');
                     span.className = 'chat-char';
-                    span.textContent = text[i];
+                    span.textContent = ch;
                     element.appendChild(span);
-                    if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+
+                    if (element.parentElement) {
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    }
+
                     let d = delay;
-                    // Если текущий символ — пробел, добавить паузу между словами
-                    if (wordPause > 0 && text[i] === ' ') {
+                    if (wordPause > 0 && ch === ' ') {
                         d += wordPause;
                     }
+
                     i++;
                     setTimeout(nextChar, d);
                 }
+
                 nextChar();
             });
         }
