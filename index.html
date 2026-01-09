@@ -414,10 +414,10 @@
     position: fixed;
     left: 0;
     width: 100%;
-    height: 33px;
+    height: 42px;
     pointer-events: none;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
     z-index: 1000;
 }
 
@@ -426,10 +426,12 @@
     background: linear-gradient(
         to bottom,
         rgba(255,255,255,0.08) 0%,
-        rgba(255,255,255,0.06) 20%,
-        rgba(255,255,255,0.03) 60%,
-        rgba(255,255,255,0.0) 100%
+        rgba(255,255,255,0.05) 20%,
+        rgba(255,255,255,0.02) 50%,
+        rgba(255,255,255,0) 100%
     );
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
 }
 
 .glass-bottom {
@@ -437,10 +439,12 @@
     background: linear-gradient(
         to top,
         rgba(255,255,255,0.08) 0%,
-        rgba(255,255,255,0.06) 20%,
-        rgba(255,255,255,0.03) 60%,
-        rgba(255,255,255,0.0) 100%
+        rgba(255,255,255,0.05) 20%,
+        rgba(255,255,255,0.02) 50%,
+        rgba(255,255,255,0) 100%
     );
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
 }
     </style>
 </head>
@@ -1077,7 +1081,8 @@
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
 
-                float glassMask = smoothstep(0.75, 0.66, r);
+            float glassMask = smoothstep(0.8, 0.4, r);
+            glassMask = pow(glassMask, 1.5);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // === Gravity Displacement Around Orb ===
