@@ -530,7 +530,7 @@
         const scene = new THREE.Scene();
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
-        let targetEnergy = 0.45; // baseline listening
+        let targetEnergy = 0.25; // baseline listening
         let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
         const transcriptDiv = document.getElementById('transcript');
@@ -3667,7 +3667,13 @@
                     window._chatStreamMsg = msgDiv.querySelector('.text');
                 }
 
-                window._chatStreamMsg.textContent = window._chatStreamBuffer;
+                // Use typeChatMessage for AI messages during streaming
+                if (!window._chatStreamMsgTyping) {
+                    window._chatStreamMsgTyping = true;
+                    typeChatMessage(window._chatStreamMsg, window._chatStreamBuffer).then(() => {
+                        window._chatStreamMsgTyping = false;
+                    });
+                }
                 chatMessages.scrollTop = chatMessages.scrollHeight;
 
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
