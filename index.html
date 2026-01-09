@@ -4587,7 +4587,7 @@
             });
         }
 
-        // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics*
+        // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics* и увеличением <b>/<strong>
         function typeChatMessage(text, container) {
             container.innerHTML = '';
 
@@ -4604,8 +4604,13 @@
             }
 
             typeWriterWordsEffect(container, text).then(() => {
-                // markdown italics post-process
-                container.innerHTML = container.innerHTML.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+                // post-process formatting
+                container.innerHTML = container.innerHTML
+                    // markdown-style italics
+                    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
+                    // emphasize <b> and <strong> with size
+                    .replace(/<b>(.*?)<\/b>/gi, '<b style="font-size:1.3em;">$1</b>')
+                    .replace(/<strong>(.*?)<\/strong>/gi, '<strong style="font-size:1.3em;">$1</strong>');
 
                 if (cursor && cursor.parentNode) {
                     cursor.remove();
