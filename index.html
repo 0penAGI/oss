@@ -4374,10 +4374,53 @@
           }
         }
 
+
+        // Animate mainWrapper translateX from 'from' to 'to' px over 'duration' ms with ease
+        function animateTranslateX(from, to, duration = 320) {
+          if (!mainWrapper) return;
+          const start = performance.now();
+          function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+          }
+          function step(now) {
+            const elapsed = now - start;
+            let t = Math.min(1, elapsed / duration);
+            t = easeOutCubic(t);
+            const value = from + (to - from) * t;
+            mainWrapper.style.transition = 'none';
+            mainWrapper.style.transform = `translateX(${value}px)`;
+            if (t < 1) {
+              requestAnimationFrame(step);
+            } else {
+              // Snap to final position and restore transition
+              mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
+              if (to === 0) {
+                mainWrapper.style.transform = '';
+              } else {
+                mainWrapper.style.transform = `translateX(${to}px)`;
+              }
+            }
+          }
+          requestAnimationFrame(step);
+        }
+
         function resetMainWrapperTransform() {
           if (mainWrapper) {
-            mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
-            mainWrapper.style.transform = '';
+            // Animate back to 0
+            // Get current translateX
+            const style = window.getComputedStyle(mainWrapper);
+            let matrix = style.transform;
+            let currentX = 0;
+            if (matrix && matrix !== 'none') {
+              const m = matrix.match(/matrix(3d)?\((.+)\)/);
+              if (m) {
+                const parts = m[2].split(', ');
+                if (parts.length >= 6) {
+                  currentX = parseFloat(parts[4]);
+                }
+              }
+            }
+            animateTranslateX(currentX, 0, 320);
           }
         }
 
@@ -4438,8 +4481,11 @@
           } else if (swipeDistance < -60 && !chatOpen) {
             openChat();
           } else {
-            // Snap back to original state
-            resetMainWrapperTransform();
+            // Animate snap back to original state
+            // Use the current dragTranslateX as start
+            if (mainWrapper) {
+              animateTranslateX(dragTranslateX, 0, 320);
+            }
           }
         });
 
