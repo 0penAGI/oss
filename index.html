@@ -1817,6 +1817,44 @@
         };
 
         // ===== Dialog Engine =====
+
+        // ===== Markov + Embeddings Context Layer =====
+        const markovContext = {
+          order: 2,
+          transitions: new Map(), // key -> Map(next -> count)
+          embed(text) {
+            // простое embedding: нормализованный bag-of-words хэш
+            const v = new Map();
+            text.toLowerCase().split(/\W+/).filter(Boolean).forEach(w => {
+              v.set(w, (v.get(w) || 0) + 1);
+            });
+            const norm = Math.sqrt([...v.values()].reduce((s, x) => s + x*x, 0)) || 1;
+            v.forEach((x, k) => v.set(k, x / norm));
+            return v;
+          },
+          similarity(a, b) {
+            let s = 0;
+            a.forEach((v, k) => { if (b.has(k)) s += v * b.get(k); });
+            return s;
+          },
+          update(sequence) {
+            if (sequence.length < this.order + 1) return;
+            const key = sequence.slice(-this.order - 1, -1).join('|');
+            const next = sequence[sequence.length - 1];
+            if (!this.transitions.has(key)) this.transitions.set(key, new Map());
+            const m = this.transitions.get(key);
+            m.set(next, (m.get(next) || 0) + 1);
+          },
+          predict(context) {
+            const key = context.slice(-this.order).join('|');
+            const m = this.transitions.get(key);
+            if (!m) return null;
+            let best = null, bestW = -Infinity;
+            m.forEach((w, k) => { if (w > bestW) { bestW = w; best = k; } });
+            return best;
+          },
+          memory: [] // { text, emb }
+        };
         const dialogEngine = {
             lastResponseTime: 0,
 
@@ -1851,6 +1889,11 @@
                 else if (emotion < -0.2) speak('I feel tension.');
                 else if (/\?/.test(t)) speak('I think about it…');
 
+                // === Markov + Embeddings update ===
+                markovContext.memory.push({ text, emb: markovContext.embed(text) });
+                if (markovContext.memory.length > 100) markovContext.memory.shift();
+                markovContext.update(markovContext.memory.map(m => m.text));
+
                 this.lastResponseTime = performance.now();
             },
 
@@ -1876,6 +1919,18 @@
                         }
                     } else {
                         idea = "";
+                    }
+
+                    // === Markov prediction with embedding context ===
+                    const ctx = markovContext.memory.slice(-markovContext.order).map(m => m.text);
+                    const predicted = markovContext.predict(ctx);
+                    if (predicted) {
+                        // выбираем ближайший по embedding контекст
+                        const pEmb = markovContext.embed(predicted);
+                        const nearest = markovContext.memory
+                          .map(m => ({ m, s: markovContext.similarity(pEmb, m.emb) }))
+                          .sort((a,b)=>b.s-a.s)[0];
+                        if (nearest && nearest.s > 0.2) idea += ' | ' + nearest.m.text;
                     }
 
                     // === Новый фильтр: не добавлять дублирующиеся заметки ===
