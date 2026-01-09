@@ -3192,8 +3192,9 @@
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
-        let isSpeaking = false;
-        let isThinking = false;
+let isSpeaking = false;
+let isThinking = false;
+let isChatMode = false;
 
         // === SpeechSynthesis Voices Loader ===
         function updateVoices() {
@@ -3511,8 +3512,8 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
         let spokenLength = 0; // сколько символов уже отдано в речь
-let chatTypingQueue = Promise.resolve();
-let orbTypingQueue = Promise.resolve();
+        let chatTypingQueue = Promise.resolve();
+        let orbTypingQueue = Promise.resolve();
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
     let thinkingVibrationInterval = null;
     let speakingVibrationInterval = null;
@@ -3578,9 +3579,11 @@ let orbTypingQueue = Promise.resolve();
         startThinkingVibration();
 
         // Подготовка UI с курсором
-        transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-
-        const responseContainer = document.getElementById("current-response");
+        let responseContainer = null;
+        if (!isChatMode) {
+            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+            responseContainer = document.getElementById("current-response");
+        }
         audioBuffer = "";
         spokenLength = 0;
         // --- sDelay-driven speech sync ---
@@ -3684,17 +3687,19 @@ let orbTypingQueue = Promise.resolve();
                 }
 
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                orbTypingQueue = orbTypingQueue.then(() =>
-                    typeWriterEffect(responseContainer, chunk, {
-                        charDelay: 6,
-                        wordPause: 0
-                    })
-                );
-                // Микропаузa на границах фраз
-                if (/[.!?\n]/.test(chunk)) {
+                if (responseContainer) {
                     orbTypingQueue = orbTypingQueue.then(() =>
-                        new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                        typeWriterEffect(responseContainer, chunk, {
+                            charDelay: 6,
+                            wordPause: 0
+                        })
                     );
+                    // Микропаузa на границах фраз
+                    if (/[.!?\n]/.test(chunk)) {
+                        orbTypingQueue = orbTypingQueue.then(() =>
+                            new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                        );
+                    }
                 }
 
                 // Копим для озвучки
@@ -3728,7 +3733,9 @@ let orbTypingQueue = Promise.resolve();
             window._chatStreamPrinted = 0;
             orbTypingQueue = Promise.resolve();
 
-            responseContainer.classList.remove("typing-cursor");
+            if (responseContainer) {
+                responseContainer.classList.remove("typing-cursor");
+            }
             status.innerText = "speaking";
             // One strong vibration at the end of receiving
             if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
@@ -4649,6 +4656,7 @@ let orbTypingQueue = Promise.resolve();
 
         function openChat() {
           chatOpen = true;
+          isChatMode = true;
           if (mainWrapper) {
             mainWrapper.classList.add('chat-open');
             mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
@@ -4659,6 +4667,7 @@ let orbTypingQueue = Promise.resolve();
 
         function closeChatPanel() {
           chatOpen = false;
+          isChatMode = false;
           if (mainWrapper) {
             mainWrapper.classList.remove('chat-open');
             mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
