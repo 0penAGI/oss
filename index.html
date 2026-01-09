@@ -4354,6 +4354,7 @@
         let isDragging = false;
         let draggingRAF = null;
         let dragTranslateX = 0;
+        let startTranslateX = 0;
 
         // Add CSS transition for mainWrapper for smoothness
         if (mainWrapper) {
@@ -4430,7 +4431,9 @@
           touchStartY = y;
           lastTouchX = x;
           isDragging = true;
-          dragTranslateX = 0;
+          // Save current mainWrapper offset for baseline
+          startTranslateX = getMainWrapperTranslateX();
+          dragTranslateX = startTranslateX;
           if (mainWrapper) mainWrapper.style.willChange = 'transform';
         }, { passive: true });
 
@@ -4442,26 +4445,18 @@
           const deltaX = Math.abs(lastTouchX - touchStartX);
           const deltaY = Math.abs(touchY - touchStartY);
           if (deltaY > deltaX) return;
-          const diff = lastTouchX - touchStartX;
+          // Calculate dragTranslateX relative to startTranslateX
+          let diff = lastTouchX - touchStartX;
           const maxOffset = -window.innerWidth * 0.8;
-          // Opening (from orb): drag left, negative
-          if (!chatOpen && diff < 0) {
-            dragTranslateX = Math.max(diff, maxOffset);
-          }
-          // Closing (from open): drag right, positive
-          else if (chatOpen && diff > 0) {
-            dragTranslateX = Math.min(diff, 0);
-            // start from maxOffset, so add diff to maxOffset (but clamp to 0)
-            dragTranslateX = Math.min(maxOffset + diff, 0);
-          }
-          // If not enough movement, stay at 0
-          else if (!chatOpen) {
-            dragTranslateX = 0;
-          }
+          dragTranslateX = startTranslateX + diff;
+          // Clamp dragTranslateX between maxOffset and 0
+          dragTranslateX = Math.max(Math.min(dragTranslateX, 0), maxOffset);
           // Only mainWrapper transform, never chatPanel
           if (draggingRAF) cancelAnimationFrame(draggingRAF);
           draggingRAF = requestAnimationFrame(() => {
             setMainWrapperTransform(dragTranslateX, false);
+            // Ensure chatPanel transform is always cleared
+            if (chatPanel) chatPanel.style.transform = '';
           });
         }, { passive: true });
 
@@ -4473,20 +4468,34 @@
             cancelAnimationFrame(draggingRAF);
             draggingRAF = null;
           }
-          const swipeDistance = lastTouchX - touchStartX;
           const maxOffset = -window.innerWidth * 0.8;
-          // Thresholds for opening/closing
-          if (swipeDistance > 60 && chatOpen) {
-            closeChatPanel();
-          } else if (swipeDistance < -60 && !chatOpen) {
-            openChat();
-          } else {
-            // Animate snap back to original state (from current real offset, not just dragTranslateX)
-            if (mainWrapper) {
-              const currentX = getMainWrapperTranslateX();
+          // Use the real current offset of mainWrapper to decide snap direction
+          const currentX = getMainWrapperTranslateX();
+          // If swiped left enough, open chat; if swiped right enough, close chat; else snap back
+          const swipeDistance = lastTouchX - touchStartX;
+          // Opening (swipe left, negative offset)
+          if (!chatOpen && currentX < maxOffset * 0.4) {
+            // Animate to open position
+            animateTranslateX(currentX, maxOffset, 320);
+            setTimeout(() => openChat(), 340);
+          }
+          // Closing (swipe right, positive offset)
+          else if (chatOpen && currentX > maxOffset * 0.6) {
+            // Animate to closed position (0)
+            animateTranslateX(currentX, 0, 320);
+            setTimeout(() => closeChatPanel(), 340);
+          }
+          else {
+            // Animate back to original state
+            // If chatOpen, snap to maxOffset; else, snap to 0
+            if (chatOpen) {
+              animateTranslateX(currentX, maxOffset, 320);
+            } else {
               animateTranslateX(currentX, 0, 320);
             }
           }
+          // Ensure chatPanel transform is always cleared
+          if (chatPanel) chatPanel.style.transform = '';
         });
 
         function openChat() {
@@ -4494,7 +4503,7 @@
           if (mainWrapper) {
             mainWrapper.classList.add('chat-open');
             mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
-            mainWrapper.style.transform = '';
+            mainWrapper.style.transform = `translateX(${-window.innerWidth * 0.8}px)`;
           }
           if (typeof vibrate === 'function') vibrate('medium');
         }
