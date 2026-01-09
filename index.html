@@ -414,10 +414,10 @@
     position: fixed;
     left: 0;
     width: 100%;
-    height: 42px;
+    height: 11px;
     pointer-events: none;
-    backdrop-filter: blur(7px);
-    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     z-index: 1000;
 }
 
@@ -430,8 +430,8 @@
         rgba(255,255,255,0.02) 50%,
         rgba(255,255,255,0) 100%
     );
-    backdrop-filter: blur(7px);
-    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
 
 .glass-bottom {
@@ -443,8 +443,8 @@
         rgba(255,255,255,0.02) 50%,
         rgba(255,255,255,0) 100%
     );
-    backdrop-filter: blur(7px);
-    -webkit-backdrop-filter: blur(7px);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
 }
     </style>
 </head>
@@ -530,8 +530,8 @@
         const scene = new THREE.Scene();
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
-        let targetEnergy = 0.25; // baseline listening
-        let responseInertia = 0.08; // базовая инерция реакции (чем меньше — тем медленнее)
+        let targetEnergy = 0.45; // baseline listening
+        let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
         const transcriptDiv = document.getElementById('transcript');
 
@@ -568,7 +568,7 @@
                 left: 50%;
                 transform: translate(-50%, -180%);
                 background: rgba(255,255,255,0.001);
-                color: #eee;
+                color: #eef;
                 padding: 4px 10px;
                 font-size: 11px;
                 pointer-events: none;
@@ -582,7 +582,7 @@
 
         // === Телесная память жестов ===
         const touchMemory = [];
-        const MAX_TOUCH_POINTS = 32;
+        const MAX_TOUCH_POINTS = 16;
         // === Обработка кликов по канвасу для телесной памяти ===
         renderer.domElement.addEventListener('pointerdown', (event) => {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -673,7 +673,7 @@
             void main() {
                 vColor = customColor;
                 vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (300.0 / -mvPosition.z);
+                gl_PointSize = size * (314.0 / -mvPosition.z);
                 gl_Position = projectionMatrix * mvPosition;
             }
         `;
@@ -1025,7 +1025,7 @@
 
         // Uniforms for flow interpolation
         let prevFlow = new THREE.Vector2(0.55, 0.55);
-        let flow = new THREE.Vector2(0.55, 0.55);
+        let flow = new THREE.Vector2(0.52, 0.42);
 
         const liquidVertexShader = `
             varying vec2 vUv;
@@ -1052,7 +1052,7 @@
             float noise(vec2 p) {
                 vec2 i = floor(p);
                 vec2 f = fract(p);
-                f = f * f * (3.0 - 5.0 * f);
+                f = f * f * (3.0 - 5.5 * f);
                 float a = hash(i);
                 float b = hash(i + vec2(1.0, 0.0));
                 float c = hash(i + vec2(0.0, 1.0));
@@ -1073,7 +1073,7 @@
 
             void main() {
                 vec2 uv = vUv;
-                vec2 center = uv - 0.314;
+                vec2 center = uv - 0.114;
                 float r = length(center);
                 float t = time * 0.001;
 
