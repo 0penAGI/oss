@@ -3877,10 +3877,22 @@
             document.head.appendChild(style);
         }
         
-        // Гуманизация текста: убирает лишние пробелы и добавляет паузы
+        // Гуманизация текста: убирает лишние пробелы, HTML, ремарки и markdown-символы
         function humanizeText(text) {
-            let clean = text.replace(/<[^>]*>/g, '').replace(/[*_#]/g, '');
+            // убрать HTML
+            let clean = text.replace(/<[^>]*>/g, '');
+
+            // убрать ремарки в скобках: (тихо), (пауза), (гудение) и т.п.
+            // поддержка круглых и квадратных скобок
+            clean = clean.replace(/\([^)]*\)/g, '');
+            clean = clean.replace(/\[[^\]]*\]/g, '');
+
+            // убрать markdown-символы
+            clean = clean.replace(/[*_#]/g, '');
+
+            // нормализовать пробелы
             clean = clean.replace(/\s+/g, ' ').trim();
+
             return clean;
         }
 
