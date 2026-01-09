@@ -4452,7 +4452,9 @@
             textDiv.innerHTML = '';
             typeWriterEffect(textDiv, text);
           } else {
-            textDiv.textContent = text;
+            // Markdown для user сообщений (bold и italic)
+            textDiv.innerHTML = text.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+                                    .replace(/\*([^*]+)\*/g, '<i>$1</i>');
           }
         }
 
