@@ -1447,9 +1447,7 @@
         // === Глобальная переменная для последнего описания камеры ===
         let latestCameraDescription = "";
 
-        // === Import franc-min for language detection ===
-        import { franc } from 'https://cdn.jsdelivr.net/npm/franc-min@6.1.0/franc.min.js';
-
+        
         // ====== Self-Awareness Layer ======
         let selfAwareness = {
                 mood: 0, // 
@@ -1500,12 +1498,7 @@
                     .join('|');
                 },
                 analyzeFrame(frameDescription) {
-                  // --- определение языка frameDescription ---
-                  let detectedLang = 'und';
-                  try {
-                    detectedLang = franc(frameDescription || '');
-                  } catch (e) { detectedLang = 'und'; }
-                  this.lastObservations.push({ text: frameDescription, lang: detectedLang });
+                  this.lastObservations.push(frameDescription);
                   // --- извлечение признаков (features) ---
                   let faceCount = 0;
                   if (/лиц: (\d+)/.test(frameDescription)) {
@@ -1716,12 +1709,11 @@
                     if (lastObs.length === 0) return;
                     // Для каждой ищем соответствующий узел в memoryPalace
                     let emotions = [];
-                    for (let obsObj of lastObs) {
-                        const obsText = typeof obsObj === 'object' && obsObj.text ? obsObj.text : obsObj;
+                    for (let obs of lastObs) {
                         let node = [...memoryPalace.nodes.values()]
-                            .filter(n => n.type === 'observation' && typeof n.emotion === 'number' && n.lastAccess && obsText && obsText.includes)
+                            .filter(n => n.type === 'observation' && typeof n.emotion === 'number' && n.lastAccess && obs && obs.includes)
                             .sort((a, b) => b.lastAccess - a.lastAccess)
-                            .find(n => obsText && n && typeof n.timestamp === 'number' && Math.abs(performance.now() - n.timestamp) < 60000);
+                            .find(n => obs && n && typeof n.timestamp === 'number' && Math.abs(performance.now() - n.timestamp) < 60000);
                         if (node) emotions.push(node.emotion);
                     }
                     if (emotions.length > 0) {
@@ -1782,8 +1774,7 @@
                         const contextIdeas = resonantNodes
                             .map(n => n.type === 'observation' && n.id ? `вспомнил: ${n.id.slice(0, 6)}` : null)
                             .filter(Boolean);
-                        // join using .text field
-                        noteText = recentObs.map(o => (typeof o === 'object' && o.text ? o.text : o)).join("; ");
+                        noteText = recentObs.join("; ");
                         if (contextIdeas.length > 0) {
                             noteText += ". Также: " + contextIdeas.join(", ") + ".";
                         }
@@ -2210,14 +2201,14 @@
             // --- Internal dialogue: self-questioning and autonomous speech ---
             // Self-thoughts and observations
             if (selfAwareness.curiosity > 0.5) {
-                const lastObs = selfAwareness.lastObservations.slice(-3).map(o => (typeof o === 'object' && o.text ? o.text : o)).join('; ');
+                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const thought = `Заметка: анализирую последние кадры -> ${lastObs}`;
                 noteObservation(thought);
                 //console.log("Self-thought:", thought);
             }
             // Autonomous self-questioning (internal note only, no speech)
             if (selfAwareness.curiosity > 0.6) {
-                const lastObs = selfAwareness.lastObservations.slice(-3).map(o => (typeof o === 'object' && o.text ? o.text : o)).join('; ');
+                const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const questions = [
                     `Интересно, что здесь происходит: ${lastObs}?`,
                     `Какие детали я ещё могу заметить? ${lastObs}`,
