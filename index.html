@@ -334,7 +334,7 @@
     .main-wrapper.chat-open .chat-panel {
         transform: translateX(0);
     }
-
+    
     .chat-messages {
         flex: 1;
         overflow-y: auto;
@@ -402,6 +402,13 @@
         outline: none;
         border-radius: 20px;
         padding: 0 14px; 
+    }
+    /* --- Chat message containers text wrapping --- */
+    .chat-message .text {
+        white-space: pre-wrap;
+        word-break: normal;
+        overflow-wrap: break-word;
+        hyphens: auto;
     }
     </style>
     <!--  Prism.js for code-->
@@ -3779,7 +3786,7 @@
 
             const chars = Array.from(text); // ВАЖНО: поддержка эмодзи
             return new Promise((resolve) => {
-                element.innerHTML = '';
+                element.innerHTML = element.innerHTML || '';
                 let i = 0;
 
                 function nextChar() {
@@ -3817,11 +3824,12 @@
             style.id = 'chat-char-style';
             style.textContent = `
                 .chat-char {
-                    display: inline-block;
+                    display: inline;
                     opacity: 0;
                     filter: blur(3px);
                     transform: translateY(2px);
                     animation: char-appear 0.32s forwards;
+                    white-space: pre-wrap;
                 }
                 @keyframes char-appear {
                     to {
@@ -3829,7 +3837,7 @@
                         filter: blur(0);
                         transform: translateY(0);
                     }
-                }
+                }               
             `;
             document.head.appendChild(style);
         }
@@ -4427,7 +4435,7 @@
             // charDelay: задержка между буквами (мс)
             // wordDelay: задержка между словами (мс)
             return new Promise((resolve) => {
-                element.innerHTML = '';
+                // НЕ очищаем контейнер здесь!
                 // Разбиваем на слова с сохранением пробелов/знаков препинания
                 // Для корректного выделения знаков препинания используем split с regexp
                 // Например: "Привет, мир!" => ["Привет", ",", " ", "мир", "!"]
@@ -4819,5 +4827,3 @@
     
 </body>
 </html>
-</style>
-<style>
