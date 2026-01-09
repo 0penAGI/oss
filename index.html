@@ -4439,10 +4439,12 @@
 
           chatMessages.scrollTop = chatMessages.scrollHeight;
 
-          // Add copy-on-click for the message
+          // Add copy-on-click for the message (copies visible text for both user and ai)
           msgDiv.addEventListener('click', () => {
+              const text = textDiv.innerText; // берем видимый текст (учитывает форматирование)
+              if (!text) return;
               navigator.clipboard.writeText(text).then(() => {
-                  // Optional: flash effect
+                  // визуальный отклик
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
