@@ -3675,6 +3675,7 @@
             status.innerText = "receiving data";
             vibrateSpeaking();
 
+            let chatShouldStick = stickChatToBottom(chatMessages);
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
@@ -3712,10 +3713,14 @@
                 if (delta.trim().length > 0 && window._chatStreamMsg) {
                     window._chatStreamHasText = true;
                     window._chatStreamPrinted = full.length;
-                    chatTypingQueue = chatTypingQueue.then(() =>
-                        typeWriterWordsEffect(window._chatStreamMsg, delta)
-                    );
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    chatShouldStick = stickChatToBottom(chatMessages);
+                    chatTypingQueue = chatTypingQueue.then(() => {
+                        return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
+                            if (chatShouldStick) {
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
+                            }
+                        });
+                    });
                 }
 
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
@@ -4467,6 +4472,15 @@
         }
 
 
+        // Utility: stick chat to bottom if near bottom
+        function stickChatToBottom(container, threshold = 24) {
+            return (
+                container.scrollHeight -
+                container.scrollTop -
+                container.clientHeight
+            ) <= threshold;
+        }
+
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
 
@@ -4792,7 +4806,7 @@
           msgDiv.appendChild(senderDiv);
           msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
-          chatMessages.scrollTop = chatMessages.scrollHeight;
+          // removed direct scroll here for autoscroll patch
           // Add copy-on-click for the message (allow copying for both user and AI)
           msgDiv.addEventListener('click', () => {
               const copyText = sender === 'user' ? text : textDiv.textContent;
@@ -4819,7 +4833,7 @@
           msgDiv.appendChild(senderDiv);
           msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
-          chatMessages.scrollTop = chatMessages.scrollHeight;
+          // removed direct scroll here for autoscroll patch
           msgDiv.addEventListener('click', () => {
               navigator.clipboard.writeText(textDiv.textContent).then(() => {
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
@@ -4850,7 +4864,7 @@
             msgDiv.appendChild(senderDiv);
             msgDiv.appendChild(textDiv);
             chatMessages.appendChild(msgDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            // removed direct scroll here for autoscroll patch
             msgDiv.addEventListener('click', () => {
                 navigator.clipboard.writeText(text).then(() => {
                     msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
@@ -4882,7 +4896,7 @@
             msgDiv.appendChild(senderDiv);
             msgDiv.appendChild(textDiv);
             chatMessages.appendChild(msgDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            // removed direct scroll here for autoscroll patch
             msgDiv.addEventListener('click', () => {
                 navigator.clipboard.writeText(text).then(() => {
                     msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
@@ -4905,6 +4919,7 @@
             if (origSpeak) origSpeak.call(this, text);
           };
         }
+
     </script>
 
     
