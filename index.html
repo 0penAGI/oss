@@ -530,7 +530,7 @@
         const scene = new THREE.Scene();
 
         let orbEnergy = 0;        // 0..1 — текущая энергия
-        let targetEnergy = 0.45; // baseline listening
+        let targetEnergy = 0.22; // baseline listening
         let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
         const transcriptDiv = document.getElementById('transcript');
@@ -3665,10 +3665,22 @@
                     `;
                     chatMessages.appendChild(msgDiv);
                     window._chatStreamMsg = msgDiv.querySelector('.text');
+                    // === INIT PRINTED COUNTER ===
+                    window._chatStreamPrinted = 0;
                 }
 
-                window._chatStreamMsg.textContent = window._chatStreamBuffer;
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                // --- REPLACE STREAM TEXT UPDATE LOGIC ---
+                const printed = window._chatStreamPrinted || 0;
+                const full = window._chatStreamBuffer;
+                const delta = full.slice(printed);
+
+                if (delta.length > 0) {
+                    window._chatStreamPrinted = full.length;
+                    typingQueue = typingQueue.then(() =>
+                        typeWriterWordsEffect(window._chatStreamMsg, delta)
+                    );
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
 
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
                 typingQueue = typingQueue.then(() =>
@@ -3709,6 +3721,7 @@
             // === END CHAT STREAM ===
             window._chatStreamBuffer = '';
             window._chatStreamMsg = null;
+            window._chatStreamPrinted = 0;
 
             responseContainer.classList.remove("typing-cursor");
             status.innerText = "speaking";
