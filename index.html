@@ -4573,7 +4573,8 @@
               });
           });
           textDiv.innerHTML = '';
-          typeWriterEffect(textDiv, text);
+          // Используем typeChatMessage для анимации сообщений и пользователя, и AI
+          typeChatMessage(text, textDiv);
         }
 
         // Send message
@@ -4581,7 +4582,25 @@
           sendBtn.addEventListener('click', () => {
             const text = chatInput.value.trim();
             if (!text) return;
-            addChatMessage(text, 'user');
+            // Новый вариант: используем typeChatMessage для пользователя
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-message user`;
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'sender';
+            senderDiv.textContent = 'You';
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text';
+            msgDiv.appendChild(senderDiv);
+            msgDiv.appendChild(textDiv);
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            msgDiv.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                    setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+                });
+            });
+            typeChatMessage(text, textDiv);
             chatInput.value = '';
             if (typeof sendToBot === 'function') sendToBot(text);
           });
@@ -4595,7 +4614,25 @@
           const origRecognitionOnResult = recognition.onresult;
           recognition.onresult = function(event) {
             const text = event.results[0][0].transcript;
-            addChatMessage(text, 'user');
+            // Новый вариант: typeChatMessage для пользователя
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-message user`;
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'sender';
+            senderDiv.textContent = 'You';
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text';
+            msgDiv.appendChild(senderDiv);
+            msgDiv.appendChild(textDiv);
+            chatMessages.appendChild(msgDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            msgDiv.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                    setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+                });
+            });
+            typeChatMessage(text, textDiv);
             if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
           };
         }
@@ -4605,7 +4642,25 @@
           const origSpeak = window.speak;
           window.speak = function(text) {
             if (!window._chatStreamMsg) {
-                addChatMessage(text, 'ai');
+                // Используем typeChatMessage для AI сообщений
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `chat-message ai`;
+                const senderDiv = document.createElement('div');
+                senderDiv.className = 'sender';
+                senderDiv.textContent = 'AI';
+                const textDiv = document.createElement('div');
+                textDiv.className = 'text';
+                msgDiv.appendChild(senderDiv);
+                msgDiv.appendChild(textDiv);
+                chatMessages.appendChild(msgDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                msgDiv.addEventListener('click', () => {
+                    navigator.clipboard.writeText(textDiv.textContent).then(() => {
+                        msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+                    });
+                });
+                typeChatMessage(text, textDiv);
             }
             if (origSpeak) origSpeak.call(this, text);
           };
