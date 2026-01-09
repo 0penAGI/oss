@@ -4804,13 +4804,14 @@ let isChatMode = false;
           };
         }
 
-        // speak integration 
+        // speak integration — AI печатает ТЕМ ЖЕ typewriter-эффектом, что и пользователь
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
-            if (!window._chatStreamMsg) {
-                // Используем addAIMessage для AI сообщений с анимацией букв
-                addAIMessage(text);
+            // НИКОГДА не вставляем AI-текст мгновенно
+            // Весь AI-текст должен идти только через typeChatMessage / stream
+            if (!window._chatStreamMsg && text && text.trim()) {
+              addAIMessage(text); // addAIMessage уже использует typeChatMessage
             }
             if (origSpeak) origSpeak.call(this, text);
           };
