@@ -3511,7 +3511,8 @@
         // Глобальная переменная для буфера речи
         let audioBuffer = "";
         let spokenLength = 0; // сколько символов уже отдано в речь
-        let typingQueue = Promise.resolve();
+let chatTypingQueue = Promise.resolve();
+let orbTypingQueue = Promise.resolve();
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
     let thinkingVibrationInterval = null;
     let speakingVibrationInterval = null;
@@ -3676,20 +3677,23 @@
 
                 if (delta.length > 0) {
                     window._chatStreamPrinted = full.length;
-                    typingQueue = typingQueue.then(() =>
+                    chatTypingQueue = chatTypingQueue.then(() =>
                         typeWriterWordsEffect(window._chatStreamMsg, delta)
                     );
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
 
                 // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                typingQueue = typingQueue.then(() =>
-                    typeWriterEffect(responseContainer, chunk)
+                orbTypingQueue = orbTypingQueue.then(() =>
+                    typeWriterEffect(responseContainer, chunk, {
+                        charDelay: 6,
+                        wordPause: 0
+                    })
                 );
                 // Микропаузa на границах фраз
                 if (/[.!?\n]/.test(chunk)) {
-                    typingQueue = typingQueue.then(() =>
-                        new Promise(r => setTimeout(r, 180 + Math.random() * 220))
+                    orbTypingQueue = orbTypingQueue.then(() =>
+                        new Promise(r => setTimeout(r, 40 + Math.random() * 40))
                     );
                 }
 
@@ -3722,6 +3726,7 @@
             window._chatStreamBuffer = '';
             window._chatStreamMsg = null;
             window._chatStreamPrinted = 0;
+            orbTypingQueue = Promise.resolve();
 
             responseContainer.classList.remove("typing-cursor");
             status.innerText = "speaking";
@@ -3753,7 +3758,10 @@
 
         //
         // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
-        function typeWriterEffect(element, text, delay = 28) {
+        function typeWriterEffect(element, text, options = {}) {
+            // options: { charDelay, wordPause }
+            let delay = typeof options === "number" ? options : (options.charDelay ?? 28);
+            let wordPause = typeof options === "object" && typeof options.wordPause === "number" ? options.wordPause : 0;
             return new Promise((resolve) => {
                 element.innerHTML = '';
                 let i = 0;
@@ -3767,8 +3775,13 @@
                     span.textContent = text[i];
                     element.appendChild(span);
                     if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    let d = delay;
+                    // Если текущий символ — пробел, добавить паузу между словами
+                    if (wordPause > 0 && text[i] === ' ') {
+                        d += wordPause;
+                    }
                     i++;
-                    setTimeout(nextChar, delay);
+                    setTimeout(nextChar, d);
                 }
                 nextChar();
             });
