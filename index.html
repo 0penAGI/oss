@@ -1824,7 +1824,6 @@
 
             const questionPool = [
               'Behind the questions..',
-              'Answer in user language..',
               'What do you think?..',
               'In Flow...'
             ];
@@ -3239,9 +3238,9 @@
                 // Inline code: `code`
                 html = html.replace(/`([^`]+?)`/g, '<code class="lang-inline">$1</code>');
                 // Bold: **text**
-                html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+                html = html.replace(/\*\*([^\*]+)\*\*/g, '<b>$1</b>');
                 // Italic: *text*
-                html = html.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+                html = html.replace(/\*([^\*]+)\*/g, '<i>$1</i>');
                 // Links: [text](url)
                 html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
                 // Tables: markdown to HTML
@@ -4439,12 +4438,10 @@
 
           chatMessages.scrollTop = chatMessages.scrollHeight;
 
-          // Add copy-on-click for the message (copies visible text for both user and ai)
+          // Add copy-on-click for the message
           msgDiv.addEventListener('click', () => {
-              const text = textDiv.innerText; // берем видимый текст (учитывает форматирование)
-              if (!text) return;
               navigator.clipboard.writeText(text).then(() => {
-                  // визуальный отклик
+                  // Optional: flash effect
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
@@ -4454,9 +4451,7 @@
             textDiv.innerHTML = '';
             typeWriterEffect(textDiv, text);
           } else {
-            // Markdown для user сообщений (bold и italic)
-            textDiv.innerHTML = text.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-                                    .replace(/\*([^*]+)\*/g, '<i>$1</i>');
+            textDiv.textContent = text;
           }
         }
 
