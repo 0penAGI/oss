@@ -4508,11 +4508,15 @@
             });
         }
 
-        // typeChatMessage теперь использует typeWriterWordsEffect
+        // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics*
         function typeChatMessage(text, container) {
             container.innerHTML = '';
             container.classList.add('chat-cursor');
+
             typeWriterWordsEffect(container, text).then(() => {
+                // Post-process markdown-style italics: *text* -> <i>text</i>
+                // Replace only after typing is finished, so stars do not remain visible
+                container.innerHTML = container.innerHTML.replace(/\*([^*]+)\*/g, '<i>$1</i>');
                 container.classList.remove('chat-cursor');
             });
         }
