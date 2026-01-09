@@ -3578,6 +3578,15 @@ let isChatMode = false;
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
+        /* === ORB USER LINE (You:) === */
+        const lastUserLine = transcriptDiv.querySelector('.orb-user-last');
+        if (lastUserLine) lastUserLine.classList.remove('orb-user-last');
+
+        const userLine = document.createElement('div');
+        userLine.className = 'orb-user orb-user-last';
+        userLine.innerHTML = `<span style="color: rgba(255,255,255,0.6)">You:</span> ${text}`;
+        transcriptDiv.appendChild(userLine);
+
         // Подготовка UI с курсором
         let responseContainer = document.getElementById("current-response");
 
