@@ -3578,17 +3578,6 @@ let isChatMode = false;
         }, 20000); // через 20 секунд
         startThinkingVibration();
 
-        /* === ORB USER LINE (You:) — ВСЕГДА ОДНА, ОБНОВЛЯЕМАЯ === */
-        let userLine = transcriptDiv.querySelector('.orb-user');
-
-        if (!userLine) {
-            userLine = document.createElement('div');
-            userLine.className = 'orb-user';
-            transcriptDiv.appendChild(userLine);
-        }
-
-        userLine.innerHTML = `<span style="color: rgba(255,255,255,0.6)">You:</span> ${text}`;
-
         // Подготовка UI с курсором
         let responseContainer = document.getElementById("current-response");
 
@@ -4806,14 +4795,13 @@ let isChatMode = false;
           };
         }
 
-        // speak integration — AI печатает ТЕМ ЖЕ typewriter-эффектом, что и пользователь
+        // speak integration 
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
-            // НИКОГДА не вставляем AI-текст мгновенно
-            // Весь AI-текст должен идти только через typeChatMessage / stream
-            if (!window._chatStreamMsg && text && text.trim()) {
-              addAIMessage(text); // addAIMessage уже использует typeChatMessage
+            if (!window._chatStreamMsg) {
+                // Используем addAIMessage для AI сообщений с анимацией букв
+                addAIMessage(text);
             }
             if (origSpeak) origSpeak.call(this, text);
           };
