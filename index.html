@@ -3686,10 +3686,18 @@
                     window._chatStreamBuffer = '';
                     window._chatStreamMsg = null;
                 }
+                if (typeof window._chatStreamHasText === 'undefined') {
+                    window._chatStreamHasText = false;
+                }
 
                 window._chatStreamBuffer += chunk;
 
-                if (!window._chatStreamMsg) {
+                // --- REPLACE STREAM TEXT UPDATE LOGIC ---
+                const printed = window._chatStreamPrinted || 0;
+                const full = window._chatStreamBuffer;
+                const delta = full.slice(printed);
+
+                if (!window._chatStreamMsg && delta.trim().length > 0) {
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-message ai';
                     msgDiv.innerHTML = `
@@ -3698,16 +3706,11 @@
                     `;
                     chatMessages.appendChild(msgDiv);
                     window._chatStreamMsg = msgDiv.querySelector('.text');
-                    // === INIT PRINTED COUNTER ===
                     window._chatStreamPrinted = 0;
                 }
 
-                // --- REPLACE STREAM TEXT UPDATE LOGIC ---
-                const printed = window._chatStreamPrinted || 0;
-                const full = window._chatStreamBuffer;
-                const delta = full.slice(printed);
-
-                if (delta.length > 0) {
+                if (delta.trim().length > 0 && window._chatStreamMsg) {
+                    window._chatStreamHasText = true;
                     window._chatStreamPrinted = full.length;
                     chatTypingQueue = chatTypingQueue.then(() =>
                         typeWriterWordsEffect(window._chatStreamMsg, delta)
@@ -3757,6 +3760,13 @@
             }
 
             // === END CHAT STREAM ===
+            if (
+                window._chatStreamMsg &&
+                !window._chatStreamHasText
+            ) {
+                window._chatStreamMsg.closest('.chat-message')?.remove();
+            }
+            window._chatStreamHasText = false;
             window._chatStreamBuffer = '';
             window._chatStreamMsg = null;
             window._chatStreamPrinted = 0;
