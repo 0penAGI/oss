@@ -260,19 +260,18 @@
     /* === AI typing square cursor === */
     .ai-cursor {
         display: inline-block;
-        width: 8px;
-        height: 8px;
-        margin-left: 4px;
-        background: rgba(255,255,255,0.9);
-        box-shadow: 0 0 6px rgba(255,255,255,0.6);
-        animation: ai-cursor-blink 0.8s steps(1) infinite;
-        vertical-align: baseline;
-        transform: translateY(1px);
+        width: 0.6em;
+        height: 1.1em;
+        margin-left: 2px;
+        background: rgba(255,255,255,0.85);
+        box-shadow: 0 0 8px rgba(255,255,255,0.6);
+        animation: ai-cursor-blink 0.9s steps(1) infinite;
+        vertical-align: bottom;
     }
 
     @keyframes ai-cursor-blink {
-        0%   { opacity: 1; }
-        50%  { opacity: 0; }
+        0% { opacity: 1; }
+        50% { opacity: 0; }
         100% { opacity: 1; }
     }
     </style>
@@ -4454,6 +4453,17 @@
             // charDelay: задержка между буквами (мс)
             // wordDelay: задержка между словами (мс)
             return new Promise((resolve) => {
+                const isAI = element.closest('.chat-message')?.classList.contains('ai');
+
+                let cursor = null;
+                if (isAI) {
+                    cursor = element.querySelector('.ai-cursor');
+                    if (!cursor) {
+                        cursor = document.createElement('span');
+                        cursor.className = 'ai-cursor';
+                        element.appendChild(cursor);
+                    }
+                }
                 // НЕ очищаем контейнер здесь!
                 // Разбиваем на слова с сохранением пробелов/знаков препинания
                 // Для корректного выделения знаков препинания используем split с regexp
@@ -4477,6 +4487,10 @@
                 let i = 0;
                 function typePart() {
                     if (i >= parts.length) {
+                        if (isAI) {
+                            const cursor = element.querySelector('.ai-cursor');
+                            if (cursor) cursor.remove();
+                        }
                         resolve();
                         return;
                     }
