@@ -4602,12 +4602,8 @@
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
           });
-          if (sender === 'ai') {
-            textDiv.innerHTML = '';
-            typeWriterEffect(textDiv, text);
-          } else {
-            textDiv.textContent = text;
-          }
+          textDiv.innerHTML = '';
+          typeWriterEffect(textDiv, text);
         }
 
         // Send message
