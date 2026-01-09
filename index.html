@@ -356,7 +356,7 @@
         width: 100%;
         height: 100%;
         pointer-events: none;
-        z-index: -1; /* <- канвас под чат */
+        z-index: -1; 
         background: transparent;
         display: block;
     }
@@ -404,7 +404,7 @@
         padding: 0 14px; 
     }
     </style>
-    <!-- Подключение Prism.js для подсветки кода -->
+    <!--  Prism.js for code-->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
@@ -416,8 +416,8 @@
     width: 100%;
     height: 18px;
     pointer-events: none;
-    backdrop-filter: blur(0.6px);
-    -webkit-backdrop-filter: blur(0.7px);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
     z-index: 1000;
 }
 
@@ -430,8 +430,8 @@
         rgba(255,255,255,0.02) 50%,
         rgba(255,255,255,0) 100%
     );
-    backdrop-filter: blur(0.68px);
-    -webkit-backdrop-filter: blur(0.68px);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
 }
 
 .glass-bottom {
@@ -443,8 +443,8 @@
         rgba(255,255,255,0.02) 50%,
         rgba(255,255,255,0) 100%
     );
-    backdrop-filter: blur(0.68px);
-    -webkit-backdrop-filter: blur(0.68px);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
 }
     </style>
 </head>
@@ -551,26 +551,6 @@
                     }, 1000);
                 })
                 .catch(err => console.error('Ошибка копирования текста: ', err));
-        });
-
-        // --- Копирование текста AI-сообщения в чате по клику ---
-        document.addEventListener('click', (e) => {
-            const target = e.target.closest('.chat-message.ai .text');
-            if (!target) return;
-            const text = target.innerText;
-            if (!text) return;
-
-            navigator.clipboard.writeText(text)
-                .then(() => {
-                    console.log('AI message copied!');
-                    copyPopup.style.opacity = '1';
-                    copyPopup.style.transform = 'translate(-50%, -200%)';
-                    setTimeout(() => {
-                        copyPopup.style.opacity = '0';
-                        copyPopup.style.transform = 'translate(-50%, -180%)';
-                    }, 1000);
-                })
-                .catch(err => console.error('Error copying AI message: ', err));
         });
 
         // ===== Popup для уведомления о копировании =====
@@ -3391,6 +3371,7 @@
 
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
+            addChatMessage(text, 'user');
             // --- Автоопределение языка по тексту ---
             const detectedLang = detectLanguage(text);
             if (detectedLang !== currentLang) {
