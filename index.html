@@ -4570,9 +4570,10 @@
           msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
           chatMessages.scrollTop = chatMessages.scrollHeight;
-          // Add copy-on-click for the message
+          // Add copy-on-click for the message (allow copying for both user and AI)
           msgDiv.addEventListener('click', () => {
-              navigator.clipboard.writeText(text).then(() => {
+              const copyText = sender === 'user' ? text : textDiv.textContent;
+              navigator.clipboard.writeText(copyText).then(() => {
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
