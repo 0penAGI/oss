@@ -4605,6 +4605,9 @@
         function typeChatMessage(text, container) {
             container.innerHTML = '';
 
+            // Убираем звездочки сразу, чтобы они не печатались во время тайпинга
+            const cleanText = text.replace(/\*/g, '');
+
             // курсор (только если AI)
             const isAI = container.closest('.chat-message')?.classList.contains('ai');
             let cursor = null;
@@ -4617,7 +4620,7 @@
                 container.classList.add('chat-cursor');
             }
 
-            typeWriterWordsEffect(container, text).then(() => {
+            typeWriterWordsEffect(container, cleanText).then(() => {
                 // post-process formatting
                 container.innerHTML = container.innerHTML
                     // markdown-style italics
