@@ -256,6 +256,25 @@
       animation: blink 1.3s step-end infinite;
       opacity: 0.8;
     }
+
+    /* === AI typing square cursor === */
+    .ai-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-left: 4px;
+        background: rgba(255,255,255,0.9);
+        box-shadow: 0 0 6px rgba(255,255,255,0.6);
+        animation: ai-cursor-blink 0.8s steps(1) infinite;
+        vertical-align: baseline;
+        transform: translateY(1px);
+    }
+
+    @keyframes ai-cursor-blink {
+        0%   { opacity: 1; }
+        50%  { opacity: 0; }
+        100% { opacity: 1; }
+    }
     </style>
     <style>
         #orb-interactive {
@@ -4469,6 +4488,9 @@
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
+                        // Ensure cursor is always last
+                        const cursor = element.querySelector('.ai-cursor');
+                        if (cursor) element.appendChild(cursor);
                         if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
                         setTimeout(typePart, wordDelay / 2);
                         return;
@@ -4478,6 +4500,9 @@
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
+                        // Ensure cursor is always last
+                        const cursor = element.querySelector('.ai-cursor');
+                        if (cursor) element.appendChild(cursor);
                         if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
                         // Микропаузa для знаков препинания чуть больше
                         let puncPause = 90;
@@ -4499,6 +4524,9 @@
                         span.className = 'chat-char';
                         span.textContent = c;
                         element.appendChild(span);
+                        // Ensure cursor is always last
+                        const cursor = element.querySelector('.ai-cursor');
+                        if (cursor) element.appendChild(cursor);
                         if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
                         setTimeout(typeChar, charDelay + Math.random() * 10);
                     }
@@ -4511,12 +4539,26 @@
         // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics*
         function typeChatMessage(text, container) {
             container.innerHTML = '';
-            container.classList.add('chat-cursor');
+
+            // курсор (только если AI)
+            const isAI = container.closest('.chat-message')?.classList.contains('ai');
+            let cursor = null;
+
+            if (isAI) {
+                cursor = document.createElement('span');
+                cursor.className = 'ai-cursor';
+                container.appendChild(cursor);
+            } else {
+                container.classList.add('chat-cursor');
+            }
 
             typeWriterWordsEffect(container, text).then(() => {
-                // Post-process markdown-style italics: *text* -> <i>text</i>
-                // Replace only after typing is finished, so stars do not remain visible
+                // markdown italics post-process
                 container.innerHTML = container.innerHTML.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+
+                if (cursor && cursor.parentNode) {
+                    cursor.remove();
+                }
                 container.classList.remove('chat-cursor');
             });
         }
