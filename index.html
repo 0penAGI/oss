@@ -1777,7 +1777,7 @@
                         });
 
                         const contextIdeas = resonantNodes
-                            .map(n => n.type === 'observation' && n.id ? `вспомнил: ${n.id.slice(0, 6)}` : null)
+                            .map(n => n.type === 'observation' && n.id ? `which language: ${n.id.slice(0, 6)}` : null)
                             .filter(Boolean);
 
                         idea = "Thinking: " + recentObs.join("; ");
@@ -1836,12 +1836,13 @@
             const questionPool = [
               'Behind the questions..',
               'What do you think?..',
+              'I answer on users langage?..',
               'In Flow...'
             ];
 
             const q = questionPool[Math.floor(Math.random() * questionPool.length)];
 
-            const reflection = `Внутренний вопрос: ${q}`;
+            const reflection = `Inner Quest: ${q}`;
             selfAwareness.innerMonologue.push(reflection);
             selfAwareness.identity.narrative.push({
               t: now,
