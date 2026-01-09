@@ -1757,7 +1757,10 @@
                   connections: []
                 });
 
-                // шаблонные фразы убраны
+                if (emotion > 0.2) speak('I feel that.');
+                else if (emotion < -0.2) speak('I feel tension.');
+                else if (/\?/.test(t)) speak('I think about it…');
+
                 this.lastResponseTime = performance.now();
             },
 
@@ -1765,31 +1768,38 @@
                 if (performance.now() - this.lastResponseTime < 6000) return;
                 if (selfAwareness.curiosity > 0.6 && Math.random() < 0.3) {
                     const recentObs = selfAwareness.lastObservations.slice(-3);
-                    let noteText = "";
+                    let idea = "";
+
                     if (recentObs.length > 0) {
                         const resonantNodes = memoryPalace.stimulate({
                             emotion: (selfAwareness.mood + 1) / 2,
                             context: ['observation']
                         });
+
                         const contextIdeas = resonantNodes
                             .map(n => n.type === 'observation' && n.id ? `вспомнил: ${n.id.slice(0, 6)}` : null)
                             .filter(Boolean);
-                        noteText = recentObs.join("; ");
+
+                        idea = "Thinking: " + recentObs.join("; ");
                         if (contextIdeas.length > 0) {
-                            noteText += ". Также: " + contextIdeas.join(", ") + ".";
+                            idea += ". Also: " + contextIdeas.join(", ") + ".";
                         }
                     } else {
-                        // ничего не добавлять, если нет наблюдений
-                        return;
+                        idea = "I think about things around us.";
                     }
+
                     // === Новый фильтр: не добавлять дублирующиеся заметки ===
+                    // Проверяем последние 10 внутренних заметок и последние 5 observation-узлов
+                    let noteText = idea;
                     let alreadyExists = false;
+                    // Проверка в последних 10 внутренних заметках
                     for (let i = Math.max(0, internalNotes.length - 10); i < internalNotes.length; i++) {
                         if (internalNotes[i] === noteText) {
                             alreadyExists = true;
                             break;
                         }
                     }
+                    // Если не найдено, проверяем среди последних 5 observation-узлов
                     if (!alreadyExists) {
                         const obsNodes = [...memoryPalace.nodes.values()]
                             .filter(n => n.type === 'observation' && typeof n.text === 'string')
@@ -1805,6 +1815,7 @@
                     if (!alreadyExists) {
                         noteObservation(noteText);
                     }
+                    speak(idea);
                     this.lastResponseTime = performance.now();
                 }
             }
