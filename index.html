@@ -4331,12 +4331,10 @@
         }
 
         // ===== Chat Panel Management =====
-
         // === Chat typing animation (typeWriterEffect) ===
         function typeChatMessage(text, container) {
             container.innerHTML = '';
             container.classList.add('chat-cursor');
-
             typeWriterEffect(container, text).then(() => {
                 container.classList.remove('chat-cursor');
             });
@@ -4362,7 +4360,26 @@
           mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
         }
 
-        // Smooth swipe logic with requestAnimationFrame
+        // Utility: get current translateX (px) of mainWrapper
+        function getMainWrapperTranslateX() {
+          if (!mainWrapper) return 0;
+          const style = window.getComputedStyle(mainWrapper);
+          let matrix = style.transform;
+          if (matrix && matrix !== 'none') {
+            const m = matrix.match(/matrix(3d)?\((.+)\)/);
+            if (m) {
+              const parts = m[2].split(',').map(x => x.trim());
+              // 2d: matrix(a, b, c, d, tx, ty)
+              // 3d: matrix3d(...)
+              if (parts.length >= 6) {
+                return parseFloat(parts[4]);
+              }
+            }
+          }
+          return 0;
+        }
+
+        // Set mainWrapper transform (only mainWrapper, never chatPanel)
         function setMainWrapperTransform(x, withTransition = false) {
           if (mainWrapper) {
             if (withTransition) {
@@ -4370,10 +4387,9 @@
             } else {
               mainWrapper.style.transition = 'none';
             }
-            mainWrapper.style.transform = `translateX(${x}px)`;
+            mainWrapper.style.transform = x === 0 ? '' : `translateX(${x}px)`;
           }
         }
-
 
         // Animate mainWrapper translateX from 'from' to 'to' px over 'duration' ms with ease
         function animateTranslateX(from, to, duration = 320) {
@@ -4388,42 +4404,19 @@
             t = easeOutCubic(t);
             const value = from + (to - from) * t;
             mainWrapper.style.transition = 'none';
-            mainWrapper.style.transform = `translateX(${value}px)`;
+            mainWrapper.style.transform = value === 0 ? '' : `translateX(${value}px)`;
             if (t < 1) {
               requestAnimationFrame(step);
             } else {
               // Snap to final position and restore transition
               mainWrapper.style.transition = 'transform 0.32s cubic-bezier(.33,1.2,.5,1), box-shadow 0.22s';
-              if (to === 0) {
-                mainWrapper.style.transform = '';
-              } else {
-                mainWrapper.style.transform = `translateX(${to}px)`;
-              }
+              mainWrapper.style.transform = to === 0 ? '' : `translateX(${to}px)`;
             }
           }
           requestAnimationFrame(step);
         }
 
-        function resetMainWrapperTransform() {
-          if (mainWrapper) {
-            // Animate back to 0
-            // Get current translateX
-            const style = window.getComputedStyle(mainWrapper);
-            let matrix = style.transform;
-            let currentX = 0;
-            if (matrix && matrix !== 'none') {
-              const m = matrix.match(/matrix(3d)?\((.+)\)/);
-              if (m) {
-                const parts = m[2].split(', ');
-                if (parts.length >= 6) {
-                  currentX = parseFloat(parts[4]);
-                }
-              }
-            }
-            animateTranslateX(currentX, 0, 320);
-          }
-        }
-
+        // Improved swipe logic (no jump when snapping back, proper offset, only mainWrapper transform)
         document.body.addEventListener('touchstart', (e) => {
           const touch = e.changedTouches[0];
           const x = touch.clientX;
@@ -4450,16 +4443,22 @@
           const deltaY = Math.abs(touchY - touchStartY);
           if (deltaY > deltaX) return;
           const diff = lastTouchX - touchStartX;
-          // Only allow left swipe to open, right swipe to close
-          if (!chatOpen && diff < -10) {
-            dragTranslateX = Math.max(diff, -window.innerWidth * 0.8);
-          } else if (chatOpen && diff > 0) {
-            const currentOffset = -window.innerWidth * 0.8;
-            dragTranslateX = Math.min(currentOffset + diff, 0);
-          } else if (!chatOpen) {
+          const maxOffset = -window.innerWidth * 0.8;
+          // Opening (from orb): drag left, negative
+          if (!chatOpen && diff < 0) {
+            dragTranslateX = Math.max(diff, maxOffset);
+          }
+          // Closing (from open): drag right, positive
+          else if (chatOpen && diff > 0) {
+            dragTranslateX = Math.min(diff, 0);
+            // start from maxOffset, so add diff to maxOffset (but clamp to 0)
+            dragTranslateX = Math.min(maxOffset + diff, 0);
+          }
+          // If not enough movement, stay at 0
+          else if (!chatOpen) {
             dragTranslateX = 0;
           }
-          // Smoothly update transform with requestAnimationFrame
+          // Only mainWrapper transform, never chatPanel
           if (draggingRAF) cancelAnimationFrame(draggingRAF);
           draggingRAF = requestAnimationFrame(() => {
             setMainWrapperTransform(dragTranslateX, false);
@@ -4475,16 +4474,17 @@
             draggingRAF = null;
           }
           const swipeDistance = lastTouchX - touchStartX;
+          const maxOffset = -window.innerWidth * 0.8;
           // Thresholds for opening/closing
           if (swipeDistance > 60 && chatOpen) {
             closeChatPanel();
           } else if (swipeDistance < -60 && !chatOpen) {
             openChat();
           } else {
-            // Animate snap back to original state
-            // Use the current dragTranslateX as start
+            // Animate snap back to original state (from current real offset, not just dragTranslateX)
             if (mainWrapper) {
-              animateTranslateX(dragTranslateX, 0, 320);
+              const currentX = getMainWrapperTranslateX();
+              animateTranslateX(currentX, 0, 320);
             }
           }
         });
@@ -4516,32 +4516,24 @@
         // Chat messages
         function addChatMessage(text, sender = 'user') {
           if (!chatMessages) return;
-
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ${sender}`;
-
           const senderDiv = document.createElement('div');
           senderDiv.className = 'sender';
           senderDiv.textContent = sender === 'user' ? 'You' : 'AI';
-
           const textDiv = document.createElement('div');
           textDiv.className = 'text';
-
           msgDiv.appendChild(senderDiv);
           msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
-
           chatMessages.scrollTop = chatMessages.scrollHeight;
-
           // Add copy-on-click for the message
           msgDiv.addEventListener('click', () => {
               navigator.clipboard.writeText(text).then(() => {
-                  // Optional: flash effect
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
                   setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
               });
           });
-
           if (sender === 'ai') {
             textDiv.innerHTML = '';
             typeWriterEffect(textDiv, text);
@@ -4555,12 +4547,10 @@
           sendBtn.addEventListener('click', () => {
             const text = chatInput.value.trim();
             if (!text) return;
-
             addChatMessage(text, 'user');
             chatInput.value = '';
             if (typeof sendToBot === 'function') sendToBot(text);
           });
-
           chatInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') sendBtn.click();
           });
@@ -4580,15 +4570,12 @@
         if (window.speak) {
           const origSpeak = window.speak;
           window.speak = function(text) {
-
             if (!window._chatStreamMsg) {
                 addChatMessage(text, 'ai');
             }
             if (origSpeak) origSpeak.call(this, text);
           };
         }
-
-        ////<img id="img" src="" alt="Generated Image" style="max-width: 90%; border-radius: 2px; box-shadow: 0 0 20px rgba(255,255,255,0.0);">
     </script>
 
     
