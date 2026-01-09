@@ -3676,29 +3676,28 @@
             vibrateSpeaking();
 
             let chatShouldStick = stickChatToBottom(chatMessages);
+            // === STREAM TO CHAT (AI) ===
+            window._chatStreamBuffer = '';
+            window._chatStreamMsg = null;
+            window._chatStreamHasText = false;
+            window._chatStreamPrinted = 0;
+
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
                 const chunk = decoder.decode(value, { stream: true });
 
-                // === STREAM TO CHAT (AI) ===
-                if (typeof window._chatStreamBuffer === 'undefined') {
-                    window._chatStreamBuffer = '';
-                    window._chatStreamMsg = null;
-                }
-                if (typeof window._chatStreamHasText === 'undefined') {
-                    window._chatStreamHasText = false;
-                }
-
                 window._chatStreamBuffer += chunk;
 
-                // --- REPLACE STREAM TEXT UPDATE LOGIC ---
                 const printed = window._chatStreamPrinted || 0;
                 const full = window._chatStreamBuffer;
                 const delta = full.slice(printed);
 
-                if (!window._chatStreamMsg && delta.trim().length > 0) {
+                // удаляем пробелы и служебную пустоту
+                const cleanDelta = delta.replace(/\s+/g, '');
+
+                if (!window._chatStreamMsg && cleanDelta.length > 0) {
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-message ai';
                     msgDiv.innerHTML = `
@@ -3707,11 +3706,14 @@
                     `;
                     chatMessages.appendChild(msgDiv);
                     window._chatStreamMsg = msgDiv.querySelector('.text');
-                    window._chatStreamPrinted = 0;
+                    window._chatStreamPrinted = printed;
+                }
+
+                if (cleanDelta.length > 0) {
+                    window._chatStreamHasText = true;
                 }
 
                 if (delta.trim().length > 0 && window._chatStreamMsg) {
-                    window._chatStreamHasText = true;
                     window._chatStreamPrinted = full.length;
                     chatShouldStick = stickChatToBottom(chatMessages);
                     chatTypingQueue = chatTypingQueue.then(() => {
