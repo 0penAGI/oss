@@ -4054,6 +4054,7 @@
 
         //
         // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
+        // Теперь поддерживает выделение *…* (или *текст*) как orb-large (увеличенный текст)
         function typeWriterEffect(element, text, options = {}) {
             let delay = typeof options === "number"
                 ? options
@@ -4062,52 +4063,91 @@
                 ? options.wordPause
                 : 0;
 
-            const chars = Array.from(text); // ВАЖНО: поддержка эмодзи
+            // Разбиваем текст на фрагменты: обычные и *выделенные*
+            // Поддержка вложенных *
+            function parseOrbSegments(str) {
+                // Возвращает массив {type: 'plain'|'orb', text: ...}
+                let segments = [];
+                let re = /\*([^\*]+)\*/g;
+                let lastIndex = 0;
+                let m;
+                while ((m = re.exec(str)) !== null) {
+                    if (m.index > lastIndex) {
+                        segments.push({ type: 'plain', text: str.slice(lastIndex, m.index) });
+                    }
+                    segments.push({ type: 'orb', text: m[1] });
+                    lastIndex = re.lastIndex;
+                }
+                if (lastIndex < str.length) {
+                    segments.push({ type: 'plain', text: str.slice(lastIndex) });
+                }
+                return segments;
+            }
+
             return new Promise((resolve) => {
                 element.innerHTML = element.innerHTML || '';
-                let i = 0;
-
-                function nextChar() {
-                    if (i >= chars.length) {
+                const segments = parseOrbSegments(text);
+                let segIdx = 0;
+                function typeSegment() {
+                    if (segIdx >= segments.length) {
                         resolve();
                         return;
                     }
-
-                    const ch = chars[i];
-                    let span;
-                    // --- ORB: выделяем *…* как orb-large ---
-                    if (
-                        ch === '*' &&
-                        chars[i + 1] === '…' &&
-                        chars[i + 2] === '*'
-                    ) {
-                        // Оборачиваем "…"
-                        span = document.createElement('span');
-                        span.className = 'chat-char orb-large';
-                        span.textContent = '…';
-                        element.appendChild(span);
-                        i += 3;
-                    } else {
-                        span = document.createElement('span');
-                        span.className = 'chat-char';
-                        span.textContent = ch;
-                        element.appendChild(span);
-                        i++;
+                    const seg = segments[segIdx++];
+                    if (seg.type === 'plain') {
+                        // Печатаем по буквам обычным способом
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        function nextChar() {
+                            if (i >= chars.length) {
+                                typeSegment();
+                                return;
+                            }
+                            const ch = chars[i];
+                            let span = document.createElement('span');
+                            span.className = 'chat-char';
+                            span.textContent = ch;
+                            element.appendChild(span);
+                            i++;
+                            if (element.parentElement) {
+                                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                            }
+                            let d = delay;
+                            if (wordPause > 0 && ch === ' ') {
+                                d += wordPause;
+                            }
+                            setTimeout(nextChar, d);
+                        }
+                        nextChar();
+                    } else if (seg.type === 'orb') {
+                        // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        let orbSpan = document.createElement('span');
+                        orbSpan.className = 'chat-char orb-large';
+                        element.appendChild(orbSpan);
+                        function nextOrbChar() {
+                            if (i >= chars.length) {
+                                typeSegment();
+                                return;
+                            }
+                            let cspan = document.createElement('span');
+                            cspan.className = 'chat-char orb-large';
+                            cspan.textContent = chars[i++];
+                            orbSpan.appendChild(cspan);
+                            if (element.parentElement) {
+                                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                            }
+                            let d = delay;
+                            if (wordPause > 0 && chars[i-1] === ' ') {
+                                d += wordPause;
+                            }
+                            setTimeout(nextOrbChar, d);
+                        }
+                        nextOrbChar();
                     }
-
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    }
-
-                    let d = delay;
-                    if (wordPause > 0 && ch === ' ') {
-                        d += wordPause;
-                    }
-
-                    setTimeout(nextChar, d);
                 }
-
-                nextChar();
+                typeSegment();
             });
         }
 
