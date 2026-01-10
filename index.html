@@ -3495,23 +3495,20 @@
         recognition.onresult = async (event) => {
             let interimTranscript = '';
             let finalTranscript = '';
-
+            // Собираем все сегменты
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 const res = event.results[i];
-                if (res.isFinal) finalTranscript += res[0].transcript;
-                else interimTranscript += res[0].transcript;
+                if (res.isFinal) {
+                    finalTranscript += res[0].transcript;
+                } else {
+                    interimTranscript += res[0].transcript;
+                }
             }
-
-            // --- Промежуточные результаты: показываем только в orb, не создаём чат ---
+            // --- Промежуточные результаты: показываем и в orb, и в чат (typeChatMessage) ---
             if (interimTranscript && interimTranscript.trim()) {
                 appendTranscript(interimTranscript);
-            }
-
-            // --- Финальный результат: создаём/обновляем сообщение в чате один раз ---
-            if (finalTranscript && finalTranscript.trim()) {
-                const text = finalTranscript.trim();
-
-                // Найти последний незавершённый user chat-message
+                // В чат как промежуточное сообщение пользователя (user typing)
+                // Найти последний user chat-message без .finalized
                 let lastMsg = null;
                 for (let i = chatMessages.children.length - 1; i >= 0; --i) {
                     const el = chatMessages.children[i];
@@ -3520,9 +3517,49 @@
                         break;
                     }
                 }
-
                 if (!lastMsg) {
-                    // Создаём новый
+                    // Создаем новый
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-message user';
+                    const senderDiv = document.createElement('div');
+                    senderDiv.className = 'sender';
+                    senderDiv.textContent = 'You';
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'text';
+                    msgDiv.appendChild(senderDiv);
+                    msgDiv.appendChild(textDiv);
+                    chatMessages.appendChild(msgDiv);
+                    lastMsg = msgDiv;
+                }
+                // Обновляем текст с анимацией (без финализации)
+                const textDiv = lastMsg.querySelector('.text');
+                if (textDiv) {
+                    // Просто заменяем содержимое без анимации, чтобы не дублировать буквы
+                    textDiv.textContent = interimTranscript;
+                }
+            }
+            // --- Если нет промежуточного, но есть финальный (быстрый ввод) — обновляем orb ---
+            else if (finalTranscript && finalTranscript.trim()) {
+                appendTranscript(finalTranscript);
+            }
+
+            // --- Финальный результат: обработка команд, отправка в чат, orb, боту и т.д. ---
+            if (finalTranscript && finalTranscript.trim()) {
+                const text = finalTranscript.trim();
+                // --- Обновляем orb ---
+                appendTranscript(text);
+                // --- В чат: финализируем сообщение пользователя (заменяем/создаем) ---
+                // Найти последний незавершенный user chat-message
+                let lastMsg = null;
+                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
+                    const el = chatMessages.children[i];
+                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
+                        lastMsg = el;
+                        break;
+                    }
+                }
+                if (!lastMsg) {
+                    // Создаем новый
                     const msgDiv = document.createElement('div');
                     msgDiv.className = 'chat-message user finalized';
                     const senderDiv = document.createElement('div');
@@ -3537,15 +3574,13 @@
                 } else {
                     lastMsg.classList.add('finalized');
                 }
-
-                // Анимируем текст сразу и один раз
+                // Анимируем текст как финальный (typeChatMessage)
                 const textDiv = lastMsg.querySelector('.text');
                 if (textDiv) {
                     textDiv.innerHTML = '';
                     typeChatMessage(text, textDiv);
                 }
-
-                // copy-on-click
+                // Добавляем copy-on-click для сообщения
                 lastMsg.onclick = () => {
                     navigator.clipboard.writeText(text).then(() => {
                         lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
@@ -3553,11 +3588,87 @@
                     });
                 };
 
-                // Автоопределение языка
+                // --- Автоопределение языка по тексту ---
                 const detectedLang = detectLanguage(text);
-                if (detectedLang !== currentLang) setLanguage(detectedLang);
+                if (detectedLang !== currentLang) {
+                    setLanguage(detectedLang);
+                }
 
-                // Команды и остальные обработчики
+                // --- Голосовые команды для смены языка ---
+                // Русский
+                if (/\b(говори по-русски|русский язык|переключи на русский)\b/i.test(text)) {
+                    setLanguage('ru-RU');
+                    speak("Я переключилась на русский язык.");
+                    return;
+                }
+                // Английский
+                if (/\b(speak english|english language|switch to english)\b/i.test(text)) {
+                    setLanguage('en-US');
+                    speak("I switched to English.");
+                    return;
+                }
+                // Немецкий
+                if (/\b(sprich deutsch|deutsche sprache|auf deutsch)\b/i.test(text)) {
+                    setLanguage('de-DE');
+                    speak("Ich spreche jetzt Deutsch.");
+                    return;
+                }
+                // Французский
+                if (/\b(parle français|langue française|en français)\b/i.test(text)) {
+                    setLanguage('fr-FR');
+                    speak("Je parle maintenant français.");
+                    return;
+                }
+                // Испанский
+                if (/\b(habla español|idioma español|en español)\b/i.test(text)) {
+                    setLanguage('es-ES');
+                    speak("Ahora hablo español.");
+                    return;
+                }
+                // Китайский
+                if (/\b(说中文|中文|讲中文)\b/i.test(text)) {
+                    setLanguage('zh-CN');
+                    speak("我现在说中文。");
+                    return;
+                }
+
+                // --- Голосовая команда для включения музыки напрямую ---
+                if (/\b(включи музыку|музыка включена|старт музыки|play music|start music)\b/i.test(text)) {
+                    if (!musicPlaying) {
+                        if (musicCtx.state === 'suspended') await musicCtx.resume();
+                        startMusic();
+                    }
+                    return;
+                }
+                // Голосовые команды камеры
+                if (/\b(включи камеру|покажи камеру|открой камеру|камера|show camera|open camera|start camera)\b/i.test(text)) {
+                    if (cameraVideo.style.display !== 'block') {
+                        startCamera(currentCamera);
+                        cameraEnabled = true;
+                    }
+                }
+                if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру|hide camera|close camera|stop camera)\b/i.test(text)) {
+                    if (cameraVideo.style.display === 'block') {
+                        stopCamera();
+                        cameraEnabled = false;
+                    }
+                }
+                if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру|switch camera|change camera)\b/i.test(text)) {
+                    switchCamera();
+                }
+
+                // Голосовые команды для ambient
+                const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки', 'soundscape', 'nature sounds'];
+                if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
+                    triggerAmbient();
+                }
+
+                vibrate('medium');
+                // simple voice gender commands
+                if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
+                if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
+                if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
+
                 await sendToBot(text);
                 await generateImageFromText(text);
             }
