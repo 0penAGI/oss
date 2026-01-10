@@ -73,8 +73,8 @@ def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "yourtokenfrombotfather"
-    MODEL_PATH = "/Users/yourprofile/Documents/model"
+    TOKEN = "telegramtoken"
+    MODEL_PATH = "/Users/...your/Documents/model"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -877,7 +877,9 @@ class Swarm:
 
     async def collect_external_thoughts(self, limit: int = 5) -> list[dict]:
         thoughts = []
-        while not self.external_channel.empty() and len(thoughts) < limit:
+        for _ in range(limit):
+            if self.external_channel.empty():
+                break
             try:
                 thoughts.append(self.external_channel.get_nowait())
             except:
@@ -1733,13 +1735,17 @@ def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, s
     # Inject swarm thoughts into context
     try:
         loop = asyncio.get_event_loop()
-        swarm_thoughts = loop.run_until_complete(swarm.collect_external_thoughts())
+        if not swarm.external_channel.empty():
+            swarm_thoughts = loop.run_until_complete(swarm.collect_external_thoughts())
+        else:
+            swarm_thoughts = []
     except:
         swarm_thoughts = []
-    for t in swarm_thoughts:
+    if swarm_thoughts:
+        compressed = " ".join(t.get("content","") for t in swarm_thoughts)
         messages.append({
             "role": "system",
-            "content": f"[SWARM:{t.get('agent')}] {t.get('content')}"
+            "content": f"Internal swarm signal: {compressed}"
         })
     
     return messages
