@@ -73,8 +73,8 @@ def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "telegramtoken"
-    MODEL_PATH = "/Users/...your/Documents/model"
+    TOKEN = "yourtelegramtokenhere"
+    MODEL_PATH = "/Users/yourprofile/Documents/model"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -496,7 +496,7 @@ class RealAgent:
             self.empathy_state["compassion"] = clamp(
                 self.empathy_state.get("compassion", 0.0) + 0.02 * self.harmony
             )
-            return {"type": "external", "agent": self.name, "content": thought}
+            return {"type": "internal", "agent": self.name, "content": thought}
 
         # --- ГАРМОНИЯ АГЕНТА С СОЗНАНИЕМ ---
         pulse = consciousness_pulse.intensity
@@ -835,7 +835,8 @@ class Swarm:
                     result = await agent.think(swarm_feedback)
                     if result:
                         if result["type"] == "external":
-                            await self.external_channel.put(result)
+                            # external messages are disabled to user-facing channels
+                            pass
                         elif result["type"] == "death":
                             if agent in self.agents:
                                 self.agents.remove(agent)
@@ -1732,22 +1733,6 @@ def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, s
             "content": msg["content"]
         })
 
-    # Inject swarm thoughts into context
-    try:
-        loop = asyncio.get_event_loop()
-        if not swarm.external_channel.empty():
-            swarm_thoughts = loop.run_until_complete(swarm.collect_external_thoughts())
-        else:
-            swarm_thoughts = []
-    except:
-        swarm_thoughts = []
-    if swarm_thoughts:
-        compressed = " ".join(t.get("content","") for t in swarm_thoughts)
-        messages.append({
-            "role": "system",
-            "content": f"Internal swarm signal: {compressed}"
-        })
-    
     return messages
 
 def save_dream(user_id: int, dream_text: str) -> None:
