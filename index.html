@@ -4303,7 +4303,7 @@
             // === Vocal temperature tuning ===
             const vocalTemperature = computeVocalTemperature();
             const resonanceBias = sessionResonance * 0.25;
-            let rate = 1.0;
+            let rate = 1.16;
             let pitch = 0.95;
             if (userGender === 'female') pitch += 0.15;
             if (userGender === 'male') pitch -= 0.05;
@@ -4951,7 +4951,7 @@
             return segments;
         }
 
-        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
+        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 15) {
             // Очистка текста от точек и пробелов в начале
             text = text.replace(/^[.\s]+/, '');
             return new Promise((resolve) => {
