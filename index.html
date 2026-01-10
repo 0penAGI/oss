@@ -3507,36 +3507,19 @@
             // --- Промежуточные результаты: показываем и в orb, и в чат (typeChatMessage) ---
             if (interimTranscript && interimTranscript.trim()) {
                 appendTranscript(interimTranscript);
-                // В чат как промежуточное сообщение пользователя (user typing)
-                // Найти последний user chat-message без .finalized
-                let lastMsg = null;
-                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
-                    const el = chatMessages.children[i];
-                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                        lastMsg = el;
-                        break;
-                    }
-                }
-                if (!lastMsg) {
-                    // Создаем новый
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message user';
-                    const senderDiv = document.createElement('div');
-                    senderDiv.className = 'sender';
-                    senderDiv.textContent = 'You';
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'text';
-                    msgDiv.appendChild(senderDiv);
-                    msgDiv.appendChild(textDiv);
-                    chatMessages.appendChild(msgDiv);
-                    lastMsg = msgDiv;
-                }
+                // Всегда создаём новый элемент для каждого нового потока речи
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-message user';
+                const senderDiv = document.createElement('div');
+                senderDiv.className = 'sender';
+                senderDiv.textContent = 'You';
+                const textDiv = document.createElement('div');
+                textDiv.className = 'text';
+                msgDiv.appendChild(senderDiv);
+                msgDiv.appendChild(textDiv);
+                chatMessages.appendChild(msgDiv);
                 // Обновляем текст с анимацией (без финализации)
-                const textDiv = lastMsg.querySelector('.text');
-                if (textDiv) {
-                    // Просто заменяем содержимое без анимации, чтобы не дублировать буквы
-                    textDiv.textContent = interimTranscript;
-                }
+                textDiv.textContent = interimTranscript;
             }
             // --- Если нет промежуточного, но есть финальный (быстрый ввод) — обновляем orb ---
             else if (finalTranscript && finalTranscript.trim()) {
@@ -3548,43 +3531,25 @@
                 const text = finalTranscript.trim();
                 // --- Обновляем orb ---
                 appendTranscript(text);
-                // --- В чат: финализируем сообщение пользователя (заменяем/создаем) ---
-                // Найти последний незавершенный user chat-message
-                let lastMsg = null;
-                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
-                    const el = chatMessages.children[i];
-                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                        lastMsg = el;
-                        break;
-                    }
-                }
-                if (!lastMsg) {
-                    // Создаем новый
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message user finalized';
-                    const senderDiv = document.createElement('div');
-                    senderDiv.className = 'sender';
-                    senderDiv.textContent = 'You';
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'text';
-                    msgDiv.appendChild(senderDiv);
-                    msgDiv.appendChild(textDiv);
-                    chatMessages.appendChild(msgDiv);
-                    lastMsg = msgDiv;
-                } else {
-                    lastMsg.classList.add('finalized');
-                }
+                // --- В чат: финализируем сообщение пользователя (создаём новый элемент и анимируем) ---
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-message user finalized';
+                const senderDiv = document.createElement('div');
+                senderDiv.className = 'sender';
+                senderDiv.textContent = 'You';
+                const textDiv = document.createElement('div');
+                textDiv.className = 'text';
+                msgDiv.appendChild(senderDiv);
+                msgDiv.appendChild(textDiv);
+                chatMessages.appendChild(msgDiv);
                 // Анимируем текст как финальный (typeChatMessage)
-                const textDiv = lastMsg.querySelector('.text');
-                if (textDiv) {
-                    textDiv.innerHTML = '';
-                    typeChatMessage(text, textDiv);
-                }
+                textDiv.innerHTML = '';
+                typeChatMessage(text, textDiv);
                 // Добавляем copy-on-click для сообщения
-                lastMsg.onclick = () => {
+                msgDiv.onclick = () => {
                     navigator.clipboard.writeText(text).then(() => {
-                        lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
+                        msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
                     });
                 };
 
