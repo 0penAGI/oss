@@ -4058,8 +4058,13 @@
             pitch *= 1.0 - resonanceBias * 0.08;
 
             // Гуманизация текста + разбиение на фрагменты
-                        // Очистка текста для речи: удаляем бэкслеши, лишние пробелы и служебные символы
-            let cleanedForSpeech = humanizeText(text).replace(/\\+/g, '').replace(/\s+/g, ' ').trim();
+            // Очистка текста для речи: удаляем все бэкслеши и спецсимволы, нормализуем запятые и пробелы
+            let cleanedForSpeech = humanizeText(text)
+                .replace(/\\+/g, '')             // удаляем все бэкслеши
+                .replace(/\s*,\s*/g, ', ')       // нормализуем запятые
+                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.,!? ]+/g, '') // удаляем все спецсимволы кроме букв, цифр, пробелов и пунктуации
+                .replace(/\s+/g, ' ')            // лишние пробелы → один пробел
+                .trim();
             let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
             // ограничиваем длину для живости и читаемости
             sentences = sentences.flatMap(s => {
