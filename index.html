@@ -1364,7 +1364,7 @@
         });
         chatRenderer.setPixelRatio(window.devicePixelRatio);
 
-        // --- XDust на фоне чата ---
+        // --- XDust for chat ---
         const chatParticleCount = window.innerWidth < 768 ? 2000 : 5000;
         const chatPositions = new Float32Array(chatParticleCount * 3);
         const chatSizes = new Float32Array(chatParticleCount);
@@ -2785,8 +2785,7 @@
             }
         }
 
-        // === Пасхалка: реакция на частые нажатия на orb ===
-        // счётчик тапов и таймер
+        // egg
         let tapCount = 0;
         let tapTimer = null;
 
@@ -2794,14 +2793,14 @@
             vibrate('medium');
             triggerAmbient();
 
-            // отслеживание частых тапов
+            // taps
             tapCount++;
             if (tapTimer) clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // сброс через 3 сек
+            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // 
 
             if (tapCount >= 5) {
-                // пасхалка
-                speak("Эй, ну всё! Хватит тыкать!");
+               
+                speak("Ouch!");
                 tapCount = 0;
                 return;
             }
@@ -4055,127 +4054,127 @@
 //
 // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
 // Теперь поддерживает *orb-large* и **italic orb**
-function typeWriterEffect(element, text, options = {}) {
-    let delay = typeof options === "number"
-        ? options
-        : (options.charDelay ?? 28);
-    let wordPause = typeof options === "object" && typeof options.wordPause === "number"
-        ? options.wordPause
-        : 0;
+        function typeWriterEffect(element, text, options = {}) {
+            let delay = typeof options === "number"
+                ? options
+                : (options.charDelay ?? 28);
+            let wordPause = typeof options === "object" && typeof options.wordPause === "number"
+                ? options.wordPause
+                : 0;
 
-    // Разбиваем текст на фрагменты: обычные, *выделенные* и **курсив**
-    function parseOrbSegments(str) {
-        // Поддержка:
-        // *text*        -> orb-large
-        // **text**      -> orb-large + italic
-        let segments = [];
-        let lastIndex = 0;
-        let re = /(\*\*([^\*\n]+?)\*\*|\*([^\*\n]+?)\*)/g;
-        let m;
-        while ((m = re.exec(str)) !== null) {
-            if (m.index > lastIndex) {
-                segments.push({ type: 'plain', text: str.slice(lastIndex, m.index) });
+            // Разбиваем текст на фрагменты: обычные, *выделенные* и **курсив**
+            function parseOrbSegments(str) {
+                // Поддержка:
+                // *text*        -> orb-large
+                // **text**      -> orb-large + italic
+                let segments = [];
+                let lastIndex = 0;
+                let re = /(\*\*([^\*\n]+?)\*\*|\*([^\*\n]+?)\*)/g;
+                let m;
+                while ((m = re.exec(str)) !== null) {
+                    if (m.index > lastIndex) {
+                        segments.push({ type: 'plain', text: str.slice(lastIndex, m.index) });
+                    }
+                    if (m[2]) {
+                        segments.push({ type: 'orb-italic', text: m[2] });
+                    } else if (m[3]) {
+                        segments.push({ type: 'orb', text: m[3] });
+                    }
+                    lastIndex = re.lastIndex;
+                }
+                if (lastIndex < str.length) {
+                    segments.push({ type: 'plain', text: str.slice(lastIndex) });
+                }
+                return segments;
             }
-            if (m[2]) {
-                segments.push({ type: 'orb-italic', text: m[2] });
-            } else if (m[3]) {
-                segments.push({ type: 'orb', text: m[3] });
-            }
-            lastIndex = re.lastIndex;
-        }
-        if (lastIndex < str.length) {
-            segments.push({ type: 'plain', text: str.slice(lastIndex) });
-        }
-        return segments;
-    }
 
-    return new Promise((resolve) => {
-        element.innerHTML = element.innerHTML || '';
-        const segments = parseOrbSegments(text);
-        let segIdx = 0;
-        function typeSegment() {
-            if (segIdx >= segments.length) {
-                resolve();
-                return;
-            }
-            const seg = segments[segIdx++];
-            if (seg.type === 'plain') {
-                // Печатаем по буквам обычным способом
-                const chars = Array.from(seg.text);
-                let i = 0;
-                function nextChar() {
-                    if (i >= chars.length) {
-                        typeSegment();
+            return new Promise((resolve) => {
+                element.innerHTML = element.innerHTML || '';
+                const segments = parseOrbSegments(text);
+                let segIdx = 0;
+                function typeSegment() {
+                    if (segIdx >= segments.length) {
+                        resolve();
                         return;
                     }
-                    const ch = chars[i];
-                    let span = document.createElement('span');
-                    span.className = 'chat-char';
-                    span.textContent = ch;
-                    element.appendChild(span);
-                    i++;
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    const seg = segments[segIdx++];
+                    if (seg.type === 'plain') {
+                        // Печатаем по буквам обычным способом
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        function nextChar() {
+                            if (i >= chars.length) {
+                                typeSegment();
+                                return;
+                            }
+                            const ch = chars[i];
+                            let span = document.createElement('span');
+                            span.className = 'chat-char';
+                            span.textContent = ch;
+                            element.appendChild(span);
+                            i++;
+                            if (element.parentElement) {
+                                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                            }
+                            let d = delay;
+                            if (wordPause > 0 && ch === ' ') {
+                                d += wordPause;
+                            }
+                            setTimeout(nextChar, d);
+                        }
+                        nextChar();
+                    } else if (seg.type === 'orb') {
+                        // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        let orbSpan = document.createElement('span');
+                        orbSpan.className = 'chat-char orb-large';
+                        element.appendChild(orbSpan);
+                        function nextOrbChar() {
+                            if (i >= chars.length) {
+                                typeSegment();
+                                return;
+                            }
+                            let cspan = document.createElement('span');
+                            cspan.className = 'chat-char orb-large';
+                            cspan.textContent = chars[i++];
+                            orbSpan.appendChild(cspan);
+                            if (element.parentElement) {
+                                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                            }
+                            let d = delay;
+                            if (wordPause > 0 && chars[i-1] === ' ') {
+                                d += wordPause;
+                            }
+                            setTimeout(nextOrbChar, d);
+                        }
+                        nextOrbChar();
+                    } else if (seg.type === 'orb-italic') {
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        let orbSpan = document.createElement('span');
+                        orbSpan.className = 'chat-char orb-large orb-italic';
+                        element.appendChild(orbSpan);
+                        function nextOrbChar() {
+                            if (i >= chars.length) {
+                                typeSegment();
+                                return;
+                            }
+                            let cspan = document.createElement('span');
+                            cspan.className = 'chat-char orb-large orb-italic';
+                            cspan.textContent = chars[i++];
+                            orbSpan.appendChild(cspan);
+                            if (element.parentElement) {
+                                element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                            }
+                            setTimeout(nextOrbChar, delay);
+                        }
+                        nextOrbChar();
                     }
-                    let d = delay;
-                    if (wordPause > 0 && ch === ' ') {
-                        d += wordPause;
-                    }
-                    setTimeout(nextChar, d);
                 }
-                nextChar();
-            } else if (seg.type === 'orb') {
-                // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
-                const chars = Array.from(seg.text);
-                let i = 0;
-                let orbSpan = document.createElement('span');
-                orbSpan.className = 'chat-char orb-large';
-                element.appendChild(orbSpan);
-                function nextOrbChar() {
-                    if (i >= chars.length) {
-                        typeSegment();
-                        return;
-                    }
-                    let cspan = document.createElement('span');
-                    cspan.className = 'chat-char orb-large';
-                    cspan.textContent = chars[i++];
-                    orbSpan.appendChild(cspan);
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    }
-                    let d = delay;
-                    if (wordPause > 0 && chars[i-1] === ' ') {
-                        d += wordPause;
-                    }
-                    setTimeout(nextOrbChar, d);
-                }
-                nextOrbChar();
-            } else if (seg.type === 'orb-italic') {
-                const chars = Array.from(seg.text);
-                let i = 0;
-                let orbSpan = document.createElement('span');
-                orbSpan.className = 'chat-char orb-large orb-italic';
-                element.appendChild(orbSpan);
-                function nextOrbChar() {
-                    if (i >= chars.length) {
-                        typeSegment();
-                        return;
-                    }
-                    let cspan = document.createElement('span');
-                    cspan.className = 'chat-char orb-large orb-italic';
-                    cspan.textContent = chars[i++];
-                    orbSpan.appendChild(cspan);
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    }
-                    setTimeout(nextOrbChar, delay);
-                }
-                nextOrbChar();
-            }
+                typeSegment();
+            });
         }
-        typeSegment();
-    });
-}
 
         // CSS для плавного появления букв (добавить в <head>)
         if (!document.getElementById('chat-char-style')) {
@@ -4200,7 +4199,6 @@ function typeWriterEffect(element, text, options = {}) {
                 .orb-large {
                     font-size: 1.01em;
                     font-weight: bold;
-                    color: #fffbe7;
                     text-shadow: 0 0 12px #ffebb2, 0 0 32px #fcd37d66;
                     vertical-align: left;
                     line-height: 1;
@@ -5183,8 +5181,8 @@ function typeWriterEffect(element, text, options = {}) {
                 }
                 .chat-bold {
                     font-weight: bold;
-                    font-size: 1.1em;
-                    letter-spacing: 0.01em;
+                    font-size: 1.03em;
+                    letter-spacing: 0.001em;
                     filter: none;
                 }
                 .chat-glitch {
