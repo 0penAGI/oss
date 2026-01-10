@@ -4608,7 +4608,7 @@
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
         // Fixed: Prevent empty AI messages, preserve cursor and autoscroll
-        function typeWriterWordsEffect(element, text, charDelay = 8, wordDelay = 30) {
+        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
             return new Promise((resolve) => {
                 // If text is empty or whitespace, resolve immediately
                 if (!text || !text.trim()) {
