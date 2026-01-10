@@ -4553,13 +4553,17 @@
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
 
-        // Новый typeWriterWordsEffect: разбивает текст на слова, печатает анимированно по буквам внутри слова, с паузами между словами
         function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
-            // text: строка для печати
-            // charDelay: задержка между буквами (мс)
-            // wordDelay: задержка между словами (мс)
             return new Promise((resolve) => {
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
+                const chatContainer = document.getElementById('chatMessages');
+                const stick = stickChatToBottom(chatContainer);
+
+                function scrollIfStick() {
+                    if (stick && chatContainer) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                }
 
                 let cursor = null;
                 if (isAI) {
@@ -4570,15 +4574,12 @@
                         element.appendChild(cursor);
                     }
                 }
-                // НЕ очищаем контейнер здесь!
-                // Разбиваем на слова с сохранением пробелов/знаков препинания
-                // Для корректного выделения знаков препинания используем split с regexp
-                // Например: "Привет, мир!" => ["Привет", ",", " ", "мир", "!"]
+
                 const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-                // Массив: слова, пробелы и знаки препинания как отдельные элементы
                 let parts = [];
                 let lastIndex = 0;
                 let m;
+
                 while ((m = wordRegex.exec(text)) !== null) {
                     if (m.index > lastIndex) {
                         parts.push(text.slice(lastIndex, m.index));
@@ -4589,7 +4590,7 @@
                 if (lastIndex < text.length) {
                     parts.push(text.slice(lastIndex));
                 }
-                // Функция для печати одного слова/пробела/знака
+
                 let i = 0;
                 function typePart() {
                     if (i >= parts.length) {
@@ -4597,61 +4598,55 @@
                             const cursor = element.querySelector('.ai-cursor');
                             if (cursor) cursor.remove();
                         }
+                        scrollIfStick();
                         resolve();
                         return;
                     }
-                    const part = parts[i];
-                    i++;
-                    // Если пробел или только знаки препинания
+
+                    const part = parts[i++];
+
+                    // spaces
                     if (/^\s+$/.test(part)) {
-                        // Просто добавить пробел
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
-                        // Ensure cursor is always last
-                        const cursor = element.querySelector('.ai-cursor');
                         if (cursor) element.appendChild(cursor);
-                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        scrollIfStick();
                         setTimeout(typePart, wordDelay / 2);
                         return;
                     }
-                    // Если это только знаки препинания (.,!? и т.д.)
+
+                    // punctuation
                     if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
-                        // Ensure cursor is always last
-                        const cursor = element.querySelector('.ai-cursor');
                         if (cursor) element.appendChild(cursor);
-                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                        // Микропаузa для знаков препинания чуть больше
+                        scrollIfStick();
                         let puncPause = 90;
                         if (/[.!?]/.test(part)) puncPause += 120;
                         setTimeout(typePart, puncPause);
                         return;
                     }
-                    // Иначе это слово: печатаем по буквам с анимацией
+
+                    // word — letter by letter
                     let charIdx = 0;
                     function typeChar() {
                         if (charIdx >= part.length) {
-                            // После слова — пауза
                             setTimeout(typePart, wordDelay + Math.random() * 40);
                             return;
                         }
-                        const c = part[charIdx];
-                        charIdx++;
                         const span = document.createElement('span');
                         span.className = 'chat-char';
-                        span.textContent = c;
+                        span.textContent = part[charIdx++];
                         element.appendChild(span);
-                        // Ensure cursor is always last
-                        const cursor = element.querySelector('.ai-cursor');
                         if (cursor) element.appendChild(cursor);
-                        if (element.parentElement) element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                        scrollIfStick();
                         setTimeout(typeChar, charDelay + Math.random() * 10);
                     }
                     typeChar();
                 }
+
                 typePart();
             });
         }
