@@ -3491,103 +3491,55 @@
             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
 
-        // Новый onresult: поддержка промежуточных результатов и отправка в чат + orb, финальный с командами
+        // Новый onresult: реалтайм печать без дублирования
         recognition.onresult = async (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-            // Собираем все сегменты
+            let combinedTranscript = '';
             for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                    finalTranscript += res[0].transcript;
-                } else {
-                    interimTranscript += res[0].transcript;
-                }
-            }
-            // --- Промежуточные результаты: показываем и в orb, и в чат (typeChatMessage) ---
-            if (interimTranscript && interimTranscript.trim()) {
-                appendTranscript(interimTranscript);
-                // В чат как промежуточное сообщение пользователя (user typing)
-                // Найти последний user chat-message без .finalized
-                let lastMsg = null;
-                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
-                    const el = chatMessages.children[i];
-                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                        lastMsg = el;
-                        break;
-                    }
-                }
-                if (!lastMsg) {
-                    // Создаем новый
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message user';
-                    const senderDiv = document.createElement('div');
-                    senderDiv.className = 'sender';
-                    senderDiv.textContent = 'You';
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'text';
-                    msgDiv.appendChild(senderDiv);
-                    msgDiv.appendChild(textDiv);
-                    chatMessages.appendChild(msgDiv);
-                    lastMsg = msgDiv;
-                }
-                // Обновляем текст с анимацией (без финализации)
-                const textDiv = lastMsg.querySelector('.text');
-                if (textDiv) {
-                    // Просто заменяем содержимое без анимации, чтобы не дублировать буквы
-                    textDiv.textContent = interimTranscript;
-                }
-            }
-            // --- Если нет промежуточного, но есть финальный (быстрый ввод) — обновляем orb ---
-            else if (finalTranscript && finalTranscript.trim()) {
-                appendTranscript(finalTranscript);
+                combinedTranscript += event.results[i][0].transcript;
             }
 
-            // --- Финальный результат: обработка команд, отправка в чат, orb, боту и т.д. ---
-            if (finalTranscript && finalTranscript.trim()) {
-                const text = finalTranscript.trim();
-                // --- Обновляем orb ---
-                appendTranscript(text);
-                // --- В чат: финализируем сообщение пользователя (заменяем/создаем) ---
-                // Найти последний незавершенный user chat-message
-                let lastMsg = null;
-                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
-                    const el = chatMessages.children[i];
-                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                        lastMsg = el;
-                        break;
-                    }
+            // Найти или создать один chat-message для пользователя
+            let lastMsg = null;
+            for (let i = chatMessages.children.length - 1; i >= 0; --i) {
+                const el = chatMessages.children[i];
+                if (el.classList.contains('chat-message') && el.classList.contains('user')) {
+                    lastMsg = el;
+                    break;
                 }
-                if (!lastMsg) {
-                    // Создаем новый
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message user finalized';
-                    const senderDiv = document.createElement('div');
-                    senderDiv.className = 'sender';
-                    senderDiv.textContent = 'You';
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'text';
-                    msgDiv.appendChild(senderDiv);
-                    msgDiv.appendChild(textDiv);
-                    chatMessages.appendChild(msgDiv);
-                    lastMsg = msgDiv;
-                } else {
-                    lastMsg.classList.add('finalized');
-                }
-                // Анимируем текст как финальный (typeChatMessage)
-                const textDiv = lastMsg.querySelector('.text');
-                if (textDiv) {
-                    textDiv.innerHTML = '';
-                    typeChatMessage(text, textDiv);
-                }
-                // Добавляем copy-on-click для сообщения
-                lastMsg.onclick = () => {
-                    navigator.clipboard.writeText(text).then(() => {
-                        lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
-                    });
-                };
+            }
+            if (!lastMsg) {
+                lastMsg = document.createElement('div');
+                lastMsg.className = 'chat-message user';
+                const senderDiv = document.createElement('div');
+                senderDiv.className = 'sender';
+                senderDiv.textContent = 'You';
+                const textDiv = document.createElement('div');
+                textDiv.className = 'text';
+                lastMsg.appendChild(senderDiv);
+                lastMsg.appendChild(textDiv);
+                chatMessages.appendChild(lastMsg);
+            }
 
+            const textDiv = lastMsg.querySelector('.text');
+            if (!textDiv) return;
+
+            // Инициализируем поле для отслеживания уже напечатанных символов
+            if (lastMsg._printedLength === undefined) lastMsg._printedLength = 0;
+
+            // Получаем только новые символы
+            const newText = combinedTranscript.slice(lastMsg._printedLength);
+            if (newText.trim()) {
+                lastMsg._printedLength = combinedTranscript.length;
+                // Реалтайм печать с анимацией
+                typeWriterEffect(textDiv, newText, { charDelay: 20, wordPause: 0 });
+                appendTranscript(combinedTranscript); // обновляем orb
+            }
+
+            // Финализируем, если сегмент окончательный
+            if (event.results[event.results.length - 1].isFinal) {
+                lastMsg.classList.add('finalized');
+
+                const text = combinedTranscript.trim();
                 // --- Автоопределение языка по тексту ---
                 const detectedLang = detectLanguage(text);
                 if (detectedLang !== currentLang) {
