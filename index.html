@@ -5098,74 +5098,52 @@
 
         // recognition integration
         if (window.recognition) {
-          recognition.onresult = async (event) => {
-              let interimTranscript = '';
-              let finalTranscript = '';
+          const origRecognitionOnResult = recognition.onresult;
+          recognition.onresult = function(event) {
+            let interimTranscript = '';
+            let finalTranscript = '';
 
-              // Собираем все сегменты
-              for (let i = event.resultIndex; i < event.results.length; i++) {
-                  const res = event.results[i];
-                  if (res.isFinal) finalTranscript += res[0].transcript;
-                  else interimTranscript += res[0].transcript;
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const res = event.results[i];
+              if (res.isFinal) finalTranscript += res[0].transcript;
+              else interimTranscript += res[0].transcript;
+            }
+
+            const textToShow = interimTranscript || finalTranscript;
+            if (!textToShow.trim()) return;
+
+            // Найти последний незавершённый user message
+            let lastMsg = null;
+            for (let i = chatMessages.children.length - 1; i >= 0; i--) {
+              const el = chatMessages.children[i];
+              if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
+                lastMsg = el;
+                break;
               }
+            }
 
-              // Объединяем текст для отображения
-              const textToShow = (interimTranscript + finalTranscript).trim();
-              if (!textToShow) return;
+            if (!lastMsg) {
+              lastMsg = document.createElement('div');
+              lastMsg.className = 'chat-message user';
+              const senderDiv = document.createElement('div');
+              senderDiv.className = 'sender';
+              senderDiv.textContent = 'You';
+              const textDiv = document.createElement('div');
+              textDiv.className = 'text';
+              lastMsg.appendChild(senderDiv);
+              lastMsg.appendChild(textDiv);
+              chatMessages.appendChild(lastMsg);
+            }
 
-              // Находим или создаём последний user message
-              let lastMsg = null;
-              for (let i = chatMessages.children.length - 1; i >= 0; i--) {
-                  const el = chatMessages.children[i];
-                  if (el.classList.contains('chat-message') && el.classList.contains('user')) {
-                      lastMsg = el;
-                      break;
-                  }
-              }
-              if (!lastMsg) {
-                  lastMsg = document.createElement('div');
-                  lastMsg.className = 'chat-message user';
-                  const senderDiv = document.createElement('div');
-                  senderDiv.className = 'sender';
-                  senderDiv.textContent = 'You';
-                  const textDiv = document.createElement('div');
-                  textDiv.className = 'text';
-                  lastMsg.appendChild(senderDiv);
-                  lastMsg.appendChild(textDiv);
-                  chatMessages.appendChild(lastMsg);
-              }
+            const textDiv = lastMsg.querySelector('.text');
+            if (textDiv) {
+              // Реалтайм анимация: очищаем предыдущий interim текст
+              textDiv.innerHTML = '';
+              typeChatMessage(textToShow, textDiv);
+            }
 
-              const textDiv = lastMsg.querySelector('.text');
-              if (!textDiv) return;
-
-              // --- Реалтайм печать с плавной анимацией ---
-              // Если уже есть текст от предыдущего interim, продолжаем его
-              const currentText = textDiv.textContent || '';
-              if (textToShow.startsWith(currentText)) {
-                  const delta = textToShow.slice(currentText.length);
-                  if (delta.length > 0) {
-                      typeWriterEffect(textDiv, delta, { charDelay: 10, wordPause: 0 });
-                  }
-              } else {
-                  // Если текст полностью изменился (редкая ситуация), просто обновляем
-                  textDiv.textContent = '';
-                  typeWriterEffect(textDiv, textToShow, { charDelay: 10, wordPause: 0 });
-              }
-
-              // Обновляем orb
-              appendTranscript(textToShow);
-
-              // Финальная пометка после завершения речи
-              if (finalTranscript.trim()) {
-                  lastMsg.classList.add('finalized');
-                  // Можно добавить copy-on-click
-                  lastMsg.onclick = () => {
-                      navigator.clipboard.writeText(finalTranscript).then(() => {
-                          lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                          setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
-                      });
-                  };
-              }
+            // Не трогаем orb и команды
+            if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
           };
         }
 
