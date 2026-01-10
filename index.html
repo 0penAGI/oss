@@ -4057,9 +4057,9 @@
             rate *= 1.0 - resonanceBias * 0.15;
             pitch *= 1.0 - resonanceBias * 0.08;
 
-            // Гуманизация текста + разбиение на фрагменты
-            const cleanText = humanizeText(text);
-            let sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
+            // Очистка текста для речи: удаляем бэкслеши, лишние пробелы и служебные символы
+            let cleanedForSpeech = humanizeText(text).replace(/\\+/g, '').replace(/\s+/g, ' ').trim();
+            let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
             // ограничиваем длину для живости и читаемости
             sentences = sentences.flatMap(s => {
                 if (s.length <= 120) return [s];
