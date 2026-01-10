@@ -3491,73 +3491,42 @@
             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
 
-        // Новый onresult: печать в реальном времени с анимацией, без двойного появления interim/final
+        // Новый onresult: каждый сегмент речи — отдельное сообщение в чате, всегда новый блок
         recognition.onresult = async (event) => {
-            // Собираем текущий полный текст (все interim + финальные)
+            // Собираем текущий сегмент (только последнее событие)
             let transcript = '';
             let isFinal = false;
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const res = event.results[i];
-                transcript += res[0].transcript;
-                if (res.isFinal) isFinal = true;
-            }
-            transcript = transcript.trim();
+            // Берём только последний результат (новый сегмент)
+            const res = event.results[event.results.length - 1];
+            transcript = res[0].transcript.trim();
+            isFinal = res.isFinal;
 
-            // --- В orb и чат: Печатаем весь текст анимацией, обновляя последнюю user message ---
             // orb: WordsEffect (typeWriterEffect) — всегда обновляем orb с анимацией
             appendTranscript(transcript);
 
-            // В чат: обновляем последнюю user message (без finalized), анимируем разницу
-            let lastMsg = null;
-            for (let i = chatMessages.children.length - 1; i >= 0; --i) {
-                const el = chatMessages.children[i];
-                if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                    lastMsg = el;
-                    break;
-                }
-            }
-            if (!lastMsg) {
-                // Создаем новый
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user';
-                const senderDiv = document.createElement('div');
-                senderDiv.className = 'sender';
-                senderDiv.textContent = 'You';
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text';
-                msgDiv.appendChild(senderDiv);
-                msgDiv.appendChild(textDiv);
-                chatMessages.appendChild(msgDiv);
-                lastMsg = msgDiv;
-            }
-            // Анимируем только дельту текста (typeWriterEffect)
-            const textDiv = lastMsg.querySelector('.text');
-            if (textDiv) {
-                // Определяем дельту для анимации (только новые символы)
-                const oldText = textDiv.innerText || '';
-                if (transcript.startsWith(oldText)) {
-                    // Добавляем только новые символы анимацией
-                    const delta = transcript.slice(oldText.length);
-                    if (delta.length > 0) {
-                        // Добавляем к существующему содержимому анимированно
-                        textDiv.innerHTML = textDiv.innerHTML || '';
-                        await typeWriterEffect(textDiv, delta, { charDelay: 16 });
-                    }
-                } else {
-                    // Если текст не совпадает (например, исправление), переписать целиком анимацией
-                    textDiv.innerHTML = '';
-                    await typeWriterEffect(textDiv, transcript, { charDelay: 16 });
-                }
-            }
+            // В чат: создаём новый блок для каждого сегмента
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message user';
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'sender';
+            senderDiv.textContent = 'You';
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text';
+            msgDiv.appendChild(senderDiv);
+            msgDiv.appendChild(textDiv);
+            chatMessages.appendChild(msgDiv);
+
+            // Анимируем весь сегмент текста (typeWriterEffect)
+            await typeWriterEffect(textDiv, transcript, { charDelay: 16 });
 
             // Если результат финальный — финализируем сообщение и обрабатываем команды
             if (isFinal && transcript.length > 0) {
-                lastMsg.classList.add('finalized');
+                msgDiv.classList.add('finalized');
                 // Добавляем copy-on-click для сообщения
-                lastMsg.onclick = () => {
+                msgDiv.onclick = () => {
                     navigator.clipboard.writeText(transcript).then(() => {
-                        lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
+                        msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
                     });
                 };
 
