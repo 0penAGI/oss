@@ -1818,43 +1818,78 @@
 
         // ===== Dialog Engine =====
 
-        // ===== Markov + Embeddings Context Layer =====
+        // ===== Markov + Embeddings Context Layer (Enhanced) =====
         const markovContext = {
           order: 2,
-          transitions: new Map(), // key -> Map(next -> count)
+          transitions: new Map(), // key -> Map(next -> {count, emotion})
+          
           embed(text) {
-            // простое embedding: нормализованный bag-of-words хэш
             const v = new Map();
             text.toLowerCase().split(/\W+/).filter(Boolean).forEach(w => {
               v.set(w, (v.get(w) || 0) + 1);
             });
-            const norm = Math.sqrt([...v.values()].reduce((s, x) => s + x*x, 0)) || 1;
-            v.forEach((x, k) => v.set(k, x / norm));
+            const norm = Math.sqrt([...v.values()].reduce((s,x)=>s+x*x,0))||1;
+            v.forEach((x,k)=>v.set(k,x/norm));
             return v;
           },
-          similarity(a, b) {
-            let s = 0;
-            a.forEach((v, k) => { if (b.has(k)) s += v * b.get(k); });
+
+          similarity(a, b){
+            let s=0;
+            a.forEach((v,k)=>{ if(b.has(k)) s+=v*b.get(k); });
             return s;
           },
-          update(sequence) {
-            if (sequence.length < this.order + 1) return;
-            const key = sequence.slice(-this.order - 1, -1).join('|');
-            const next = sequence[sequence.length - 1];
-            if (!this.transitions.has(key)) this.transitions.set(key, new Map());
+
+          update(sequence, emotion=0.5){
+            if(sequence.length<this.order+1) return;
+            const key = sequence.slice(-this.order-1,-1).join('|');
+            const next = sequence[sequence.length-1];
+            if(!this.transitions.has(key)) this.transitions.set(key,new Map());
             const m = this.transitions.get(key);
-            m.set(next, (m.get(next) || 0) + 1);
+            const old = m.get(next) || {count:0, emotion:0};
+            m.set(next,{
+              count: old.count+1,
+              emotion: (old.emotion*old.count + emotion)/(old.count+1)
+            });
           },
-          predict(context) {
+
+          predict(context, moodBias=0){
             const key = context.slice(-this.order).join('|');
             const m = this.transitions.get(key);
-            if (!m) return null;
-            let best = null, bestW = -Infinity;
-            m.forEach((w, k) => { if (w > bestW) { bestW = w; best = k; } });
+            if(!m) return null;
+            let best=null, bestScore=-Infinity;
+            m.forEach((val,k)=>{
+              const noise = (Math.random()-0.5)*0.2; // живость
+              const score = val.count*(1+Math.abs(val.emotion-moodBias)) + noise;
+              if(score>bestScore){ bestScore=score; best=k; }
+            });
             return best;
           },
-          memory: [] // { text, emb }
+
+          predictWithEmbedding(context){
+            const markovPred = this.predict(context);
+            const ctxEmb = this.embed(context.join(' '));
+            let bestSim=0, embPred=null;
+            this.memory.slice(-50).forEach(m=>{
+              const sim = this.similarity(ctxEmb, m.emb);
+              if(sim>bestSim){ bestSim=sim; embPred=m.text; }
+            });
+            return bestSim>0.25 ? embPred : markovPred;
+          },
+
+          memory: []
         };
+
+        // Автономная инициатива Markov+Embedding
+        setInterval(()=>{
+          if(selfAwareness.curiosity>0.5 && Math.random()<0.3){
+            const ctx = markovContext.memory.slice(-markovContext.order).map(m=>m.text);
+            const idea = markovContext.predictWithEmbedding(ctx);
+            if(idea){
+              noteObservation("Autothought: "+idea);
+              speak(idea);
+            }
+          }
+        },4000 + Math.random()*2000);
         const dialogEngine = {
             lastResponseTime: 0,
 
