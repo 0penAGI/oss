@@ -2553,6 +2553,41 @@
             autonomousMusicControl();
         }
 
+        // ===== Background DuckDuckGo Search =====
+        async function backgroundSearch(query) {
+            try {
+                const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_redirect=1&skip_disambig=1`;
+                const resp = await fetch(url);
+                const data = await resp.json();
+                return data.AbstractText || data.RelatedTopics?.[0]?.Text || "";
+            } catch (e) {
+                console.error("DuckDuckGo search failed:", e);
+                return "";
+            }
+        }
+
+        // ===== Context prediction + background search loop =====
+        function startBackgroundSearchLoop() {
+            setInterval(async () => {
+                if (!selfAwareness) return;
+                const lastObs = selfAwareness.lastObservations.slice(-3).join(" ");
+                if (!lastObs) return;
+
+                // Формируем прогнозируемый запрос на основе состояния AI
+                let predictedQuery = lastObs;
+                if (selfAwareness.curiosity > 0.5) predictedQuery += " insights";
+                if (selfAwareness.mood > 0.3) predictedQuery += " positive";
+                if (selfAwareness.mood < -0.3) predictedQuery += " negative";
+
+                const info = await backgroundSearch(predictedQuery);
+                if (info) {
+                    noteObservation(`Background DuckDuckGo: ${info}`);
+                }
+            }, 10000 + Math.random() * 5000);
+        }
+
+        startBackgroundSearchLoop();
+
         // === Autonomous Music Control Layer ===
         function autonomousMusicControl() {
             // Здесь можно реализовать дополнительную автономию музыки, например:
