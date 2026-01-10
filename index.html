@@ -4054,7 +4054,7 @@
 
         //
         // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
-        // Теперь поддерживает выделение *…* (или *текст*) как orb-large (увеличенный текст)
+        // Теперь поддерживает выделение *…* (italic) и **…** (bold) как orb-large (увеличенный текст)
         function typeWriterEffect(element, text, options = {}) {
             let delay = typeof options === "number"
                 ? options
@@ -4063,22 +4063,25 @@
                 ? options.wordPause
                 : 0;
 
-            // Разбиваем текст на фрагменты: обычные и *выделенные*
-            // Поддержка вложенных *
+            // Разбиваем текст на фрагменты: plain, orb (italic), orb-bold
             function parseOrbSegments(str) {
-                // Корректно выделяет только *текст* (парные звездочки), не вставляет лишние звездочки.
-                // Возвращает массив {type: 'plain'|'orb', text: ...}
+                // Обрабатывает **bold** и *italic* для orb
+                // Удаляет лишние звездочки, сохраняет нумерацию и спецсимволы
+                // Возвращает массив {type: 'plain'|'orb'|'orb-bold', text: ...}
                 let segments = [];
                 let lastIndex = 0;
-                // Ищем только одиночные парные звездочки вокруг текста, не поддерживаем вложенность
-                // Не выделяет, если звездочка не парная
-                let re = /\*([^\*\n]+?)\*/g;
+                // Регулярка: сначала **bold**, затем *italic*
+                let re = /(\*\*([^\*\n]+?)\*\*|\*([^\*\n]+?)\*)/g;
                 let m;
                 while ((m = re.exec(str)) !== null) {
                     if (m.index > lastIndex) {
                         segments.push({ type: 'plain', text: str.slice(lastIndex, m.index) });
                     }
-                    segments.push({ type: 'orb', text: m[1] });
+                    if (m[2]) {
+                        segments.push({ type: 'orb-bold', text: m[2] });
+                    } else if (m[3]) {
+                        segments.push({ type: 'orb', text: m[3] });
+                    }
                     lastIndex = re.lastIndex;
                 }
                 if (lastIndex < str.length) {
@@ -4122,12 +4125,12 @@
                             setTimeout(nextChar, d);
                         }
                         nextChar();
-                    } else if (seg.type === 'orb') {
-                        // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
+                    } else if (seg.type === 'orb' || seg.type === 'orb-bold') {
+                        // orb: italic, orb-bold: bold
                         const chars = Array.from(seg.text);
                         let i = 0;
                         let orbSpan = document.createElement('span');
-                        orbSpan.className = 'chat-char orb-large';
+                        orbSpan.className = 'chat-char orb-large' + (seg.type === 'orb-bold' ? ' orb-bold' : '');
                         element.appendChild(orbSpan);
                         function nextOrbChar() {
                             if (i >= chars.length) {
@@ -4135,7 +4138,7 @@
                                 return;
                             }
                             let cspan = document.createElement('span');
-                            cspan.className = 'chat-char orb-large';
+                            cspan.className = 'chat-char orb-large' + (seg.type === 'orb-bold' ? ' orb-bold' : '');
                             cspan.textContent = chars[i++];
                             orbSpan.appendChild(cspan);
                             if (element.parentElement) {
@@ -4175,12 +4178,16 @@
                     }
                 }
                 .orb-large {
-                    font-size: 1.01em;
+                    font-size: 1.03em;
                     font-weight: bold;
                     color: #fffbe7;
                     text-shadow: 0 0 12px #ffebb2, 0 0 32px #fcd37d66;
                     vertical-align: left;
                     line-height: 1;
+                }
+                .orb-bold {
+                    font-weight: 900 !important;
+                    letter-spacing: 0.01em;
                 }
             `;
             document.head.appendChild(style);
@@ -4903,7 +4910,8 @@
         function parseMarkdownSegments(text) {
             // Returns array of {type:..., text:...}
             // Supported: **bold**, *italic*, ~glitch~
-            let regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|~([^~]+)~)/g;
+            // Корректно обрабатывает вложенность, удаляет лишние звездочки, сохраняет нумерацию и спецсимволы
+            let regex = /(\*\*([^\*\n]+?)\*\*|\*([^\*\n]+?)\*|~([^~]+)~)/g;
             let segments = [];
             let lastIndex = 0;
             let m;
