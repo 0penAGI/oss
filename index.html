@@ -4767,117 +4767,252 @@
         }
 
         // ===== Chat Panel Management =====
-        // === Chat typing animation with word-by-word effect ===
-        // Fixed: Prevent empty AI messages, preserve cursor and autoscroll
+        // === Chat typing animation with word-by-word effect, supporting glitch and markdown styling ===
+        // Glitch helpers
+        function randomGlitchChar(base) {
+            // Unicode combining diacritics for glitch
+            const glitchUp = "\u030d\u030e\u0304\u0305\u033f\u0311\u0306\u0310\u0352\u0357\u0351\u0307\u0308\u030a\u0342\u0343\u0344\u034a\u034b\u034c\u0303\u0302\u030c\u0350\u0300\u0301\u030b\u030f\u0312\u0313\u0314\u033d\u0309\u0363\u0364\u0365\u0366\u0367\u0368\u0369\u036a\u036b\u036c\u036d\u036e\u036f\u033e\u035b\u0346\u031a";
+            const glitchDown = "\u0316\u0317\u0318\u0319\u031c\u031d\u031e\u031f\u0320\u0324\u0325\u0326\u0329\u032a\u032b\u032c\u032d\u032e\u032f\u0330\u0331\u0332\u0333\u0339\u033a\u033b\u033c\u0345\u0347\u0348\u0349\u034d\u034e\u0353\u0354\u0355\u0356\u0359\u035a\u0323";
+            const glitchMid = "\u0315\u031b\u0340\u0341\u0358\u0321\u0322\u0327\u0328\u0334\u0335\u0336\u034f\u035c\u035d\u035e\u035f\u0360\u0362\u0338\u0337\u0361\u0489";
+            let out = base;
+            let up = Math.floor(Math.random() * 2) + 1;
+            let down = Math.floor(Math.random() * 2);
+            let mid = Math.floor(Math.random() * 2);
+            for (let i = 0; i < up; ++i) out += glitchUp[Math.floor(Math.random() * glitchUp.length)];
+            for (let i = 0; i < down; ++i) out += glitchDown[Math.floor(Math.random() * glitchDown.length)];
+            for (let i = 0; i < mid; ++i) out += glitchMid[Math.floor(Math.random() * glitchMid.length)];
+            return out;
+        }
+
+        // Glitch animation: for spans with .glitch-animate, update their textContent every 60ms
+        function startGlitchAnimation(span, baseText) {
+            if (span._glitchAnim) clearInterval(span._glitchAnim);
+            span._glitchAnim = setInterval(() => {
+                span.textContent = randomGlitchChar(baseText);
+            }, 60 + Math.random() * 50);
+        }
+        function stopGlitchAnimation(span, baseText) {
+            if (span._glitchAnim) {
+                clearInterval(span._glitchAnim);
+                span._glitchAnim = null;
+            }
+            span.textContent = baseText;
+        }
+
+        function parseMarkdownSegments(text) {
+            // Returns array of {type:..., text:...}
+            // Supported: **bold**, *italic*, ~glitch~
+            let regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|~([^~]+)~)/g;
+            let segments = [];
+            let lastIndex = 0;
+            let m;
+            while ((m = regex.exec(text)) !== null) {
+                if (m.index > lastIndex) {
+                    segments.push({ type: "plain", text: text.slice(lastIndex, m.index) });
+                }
+                if (m[2]) {
+                    segments.push({ type: "bold", text: m[2] });
+                } else if (m[3]) {
+                    segments.push({ type: "italic", text: m[3] });
+                } else if (m[4]) {
+                    segments.push({ type: "glitch", text: m[4] });
+                }
+                lastIndex = regex.lastIndex;
+            }
+            if (lastIndex < text.length) {
+                segments.push({ type: "plain", text: text.slice(lastIndex) });
+            }
+            return segments;
+        }
+
         function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
-            // New version: adds glitch effects and formatting *текст* as big italic, preserving AI cursor
             return new Promise((resolve) => {
-                if (!text || !text.trim()) { resolve(); return; }
+                if (!text || !text.trim()) {
+                    resolve();
+                    return;
+                }
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
                 const chatContainer = document.getElementById('chatMessages');
-                function scrollChatToBottomLocal() { scrollChatToBottom(); }
-
-                // Разбиваем на слова/символы
-                const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-                let parts = [], lastIndex = 0, m;
-                while ((m = wordRegex.exec(text)) !== null) {
-                    if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-                    parts.push(m[0]);
-                    lastIndex = wordRegex.lastIndex;
+                function scrollChatToBottomLocal() {
+                    scrollChatToBottom();
                 }
-                if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-
-                let i = 0;
-                // Для выделения *текст* — запоминаем, находим открывающую-закрывающую *
-                let inSpecial = false;
-                let specialStartIdx = -1;
-                // Собираем индексы символов, которые находятся между *...*
-                let specialCharMap = {};
-                // Определяем все пары *...*
-                (function markSpecialStars() {
-                    let starIdxs = [];
-                    let charPos = 0;
-                    for (let p of parts) {
-                        for (let j = 0; j < p.length; ++j) {
-                            if (p[j] === '*') starIdxs.push(charPos + j);
+                let cursor = null;
+                if (isAI) {
+                    cursor = element.querySelector('.ai-cursor');
+                    if (!cursor) {
+                        cursor = document.createElement('span');
+                        cursor.className = 'ai-cursor';
+                        element.appendChild(cursor);
+                    }
+                }
+                // Split text into markdown segments
+                const segments = parseMarkdownSegments(text);
+                let segIdx = 0;
+                function typeSegment() {
+                    if (segIdx >= segments.length) {
+                        if (isAI) {
+                            const cursor = element.querySelector('.ai-cursor');
+                            if (cursor) cursor.remove();
                         }
-                        charPos += p.length;
+                        scrollChatToBottomLocal();
+                        resolve();
+                        return;
                     }
-                    // парные *...*
-                    for (let k = 0; k + 1 < starIdxs.length; k += 2) {
-                        for (let idx = starIdxs[k] + 1; idx < starIdxs[k + 1]; ++idx) {
-                            specialCharMap[idx] = true;
+                    const seg = segments[segIdx++];
+                    if (seg.type === "plain") {
+                        // Split into words/punctuation/spaces
+                        const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
+                        let parts = [];
+                        let lastIndex = 0;
+                        let m;
+                        while ((m = wordRegex.exec(seg.text)) !== null) {
+                            if (m.index > lastIndex) {
+                                parts.push(seg.text.slice(lastIndex, m.index));
+                            }
+                            parts.push(m[0]);
+                            lastIndex = wordRegex.lastIndex;
                         }
-                    }
-                })();
-
-                // Текущий абсолютный индекс символа
-                let absCharIdx = 0;
-                function typePart() {
-                    if (i >= parts.length) {
-                        if (isAI) { const cursor = element.querySelector('.ai-cursor'); if (cursor) cursor.remove(); }
-                        scrollChatToBottomLocal(); resolve(); return;
-                    }
-                    const part = parts[i++];
-                    
-                    if (/^\s+$/.test(part)) {
-                        const span = document.createElement('span'); span.textContent = part;
-                        element.appendChild(span); scrollChatToBottomLocal();
-                        setTimeout(typePart, wordDelay/2); absCharIdx += part.length; return;
-                    }
-
-                    if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
-                        const span = document.createElement('span'); span.textContent = part;
-                        element.appendChild(span); scrollChatToBottomLocal();
-                        setTimeout(typePart, 50 + (/[.!?]/.test(part)?50:0)); absCharIdx += part.length; return;
-                    }
-
-                    // word — letter by letter
-                    let charIdx = 0;
-                    function typeChar() {
-                        if (charIdx >= part.length) { setTimeout(typePart, wordDelay + Math.random()*15); return; }
-                        const ch = part[charIdx++];
+                        if (lastIndex < seg.text.length) {
+                            parts.push(seg.text.slice(lastIndex));
+                        }
+                        let i = 0;
+                        function typePart() {
+                            if (i >= parts.length) {
+                                typeSegment();
+                                return;
+                            }
+                            const part = parts[i++];
+                            // spaces
+                            if (/^\s+$/.test(part)) {
+                                const span = document.createElement('span');
+                                span.textContent = part;
+                                element.appendChild(span);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                setTimeout(typePart, wordDelay / 2);
+                                return;
+                            }
+                            // punctuation
+                            if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
+                                const span = document.createElement('span');
+                                span.textContent = part;
+                                element.appendChild(span);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                let puncPause = 40;
+                                if (/[.!?]/.test(part)) puncPause += 50;
+                                setTimeout(typePart, puncPause);
+                                return;
+                            }
+                            // word — letter by letter
+                            let charIdx = 0;
+                            function typeChar() {
+                                if (charIdx >= part.length) {
+                                    setTimeout(typePart, wordDelay + Math.random() * 15);
+                                    return;
+                                }
+                                const span = document.createElement('span');
+                                span.className = 'chat-char';
+                                span.textContent = part[charIdx++];
+                                element.appendChild(span);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                setTimeout(typeChar, charDelay + Math.random() * 4);
+                            }
+                            typeChar();
+                        }
+                        typePart();
+                    } else if (seg.type === "italic") {
+                        // *italic* → semi-transparent, slightly italicized
                         const span = document.createElement('span');
-                        span.textContent = ch;
-
-                        // === Глитч эффекты ===
-                        const glitchChance = 0.35;
-                        if (Math.random() < glitchChance) {
-                            span.style.position = 'relative';
-                            span.style.display = 'inline-block';
-                            span.style.transform = `translate(${(Math.random()-0.5)*6}px, ${(Math.random()-0.5)*6}px) rotate(${(Math.random()-0.5)*15}deg) scale(${1 + (Math.random()-0.5)*0.3})`;
-                            span.style.opacity = 0.5 + Math.random()*0.5;
+                        span.className = 'chat-char chat-italic';
+                        let chars = Array.from(seg.text);
+                        let i = 0;
+                        function typeChar() {
+                            if (i >= chars.length) {
+                                element.appendChild(span);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
+                                return;
+                            }
+                            const cspan = document.createElement('span');
+                            cspan.className = 'chat-char chat-italic';
+                            cspan.textContent = chars[i++];
+                            span.appendChild(cspan);
+                            if (cursor) element.appendChild(cursor);
+                            scrollChatToBottomLocal();
+                            setTimeout(typeChar, charDelay + Math.random() * 4);
                         }
-
-                        // выделение *такое* крупным и полупрозрачным
-                        if (specialCharMap[absCharIdx]) {
-                            span.style.fontSize = '1.6em';
-                            span.style.fontStyle = 'italic';
-                            span.style.opacity = '0.85';
+                        typeChar();
+                    } else if (seg.type === "bold") {
+                        // **bold** → larger, bold
+                        const span = document.createElement('span');
+                        span.className = 'chat-char chat-bold';
+                        let chars = Array.from(seg.text);
+                        let i = 0;
+                        function typeChar() {
+                            if (i >= chars.length) {
+                                element.appendChild(span);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
+                                return;
+                            }
+                            const cspan = document.createElement('span');
+                            cspan.className = 'chat-char chat-bold';
+                            cspan.textContent = chars[i++];
+                            span.appendChild(cspan);
+                            if (cursor) element.appendChild(cursor);
+                            scrollChatToBottomLocal();
+                            setTimeout(typeChar, charDelay + Math.random() * 4);
                         }
-
-                        element.appendChild(span); scrollChatToBottomLocal();
-                        absCharIdx++;
-                        setTimeout(typeChar, charDelay + Math.random()*6);
+                        typeChar();
+                    } else if (seg.type === "glitch") {
+                        const parentSpan = document.createElement('span');
+                        parentSpan.className = 'chat-glitch';
+                        const chars = Array.from(seg.text);
+                        let i = 0;
+                        function typeChar() {
+                            if (i >= chars.length) {
+                                element.appendChild(parentSpan);
+                                if (cursor) element.appendChild(cursor);
+                                scrollChatToBottomLocal();
+                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
+                                return;
+                            }
+                            const span = document.createElement('span');
+                            span.className = 'chat-char chat-glitch';
+                            span._baseText = chars[i];
+                            span.textContent = chars[i++];
+                            parentSpan.appendChild(span);
+                            startGlitchAnimation(span, span._baseText);
+                            if (cursor) element.appendChild(cursor);
+                            scrollChatToBottomLocal();
+                            setTimeout(typeChar, charDelay + Math.random() * 2);
+                        }
+                        typeChar();
+                    } else {
+                        // fallback: just append
+                        const span = document.createElement('span');
+                        span.className = 'chat-char';
+                        span.textContent = seg.text;
+                        element.appendChild(span);
+                        if (cursor) element.appendChild(cursor);
+                        scrollChatToBottomLocal();
+                        setTimeout(typeSegment, wordDelay + Math.random() * 10);
                     }
-                    typeChar();
                 }
-                typePart();
+                typeSegment();
             });
         }
 
-        // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics* и увеличением <b>/<strong>
+        // typeChatMessage: uses typeWriterWordsEffect, applies real-time markdown styling and glitch
         function typeChatMessage(text, container) {
             if (!text || !text.trim()) return;
             container.innerHTML = '';
-
-            // Убираем звездочки сразу, чтобы они не печатались во время тайпинга
-            const cleanText = text.replace(/\*/g, '');
-
-            // курсор (только если AI)
             const isAI = container.closest('.chat-message')?.classList.contains('ai');
             let cursor = null;
-
             if (isAI) {
                 cursor = document.createElement('span');
                 cursor.className = 'ai-cursor';
@@ -4885,23 +5020,68 @@
             } else {
                 container.classList.add('chat-cursor');
             }
-
-            typeWriterWordsEffect(container, cleanText).then(() => {
-                // post-process formatting
-                container.innerHTML = container.innerHTML
-                    // markdown-style italics
-                    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
-                    // emphasize <b> and <strong> with size
-                    .replace(/<b>(.*?)<\/b>/gi, '<b style="font-size:1.3em;">$1</b>')
-                    .replace(/<strong>(.*?)<\/strong>/gi, '<strong style="font-size:1.3em;">$1</strong>');
-
-                if (cursor && cursor.parentNode) {
-                    cursor.remove();
-                }
+            typeWriterWordsEffect(container, text).then(() => {
+                // Remove cursor if present
+                if (cursor && cursor.parentNode) cursor.remove();
                 container.classList.remove('chat-cursor');
-                // scroll to bottom after message is fully typed
+                // After full type, stop glitch animation and set final text for glitch spans
+                container.querySelectorAll('.chat-glitch').forEach(span => {
+                    stopGlitchAnimation(span, span._baseText || span.textContent);
+                });
                 scrollChatToBottom();
             });
+        }
+
+        // Add CSS for chat-char, chat-italic, chat-bold, chat-glitch, glitch-animate
+        if (!document.getElementById('chat-char-style-glitch')) {
+            const style = document.createElement('style');
+            style.id = 'chat-char-style-glitch';
+            style.textContent = `
+                .chat-char {
+                    display: inline;
+                    opacity: 0;
+                    filter: blur(3px);
+                    transform: translateY(2px);
+                    animation: char-appear 0.618s forwards;
+                    white-space: pre-wrap;
+                }
+                .chat-italic {
+                    opacity: 0.7 !important;
+                    font-style: italic;
+                    filter: blur(0.5px);
+                    transition: opacity 0.2s, filter 0.2s;
+                }
+                .chat-bold {
+                    font-weight: bold;
+                    font-size: 1.22em;
+                    letter-spacing: 0.01em;
+                    filter: none;
+                }
+                .chat-glitch {
+                    color: #e0e0ff;
+                    text-shadow: 0 0 2px #fff, 0 0 3px #ff00c8, 0 0 8px #00ffe1;
+                    font-style: oblique;
+                    font-weight: 600;
+                    position: relative;
+                    filter: blur(0.5px) brightness(1.2);
+                    transition: filter 0.2s;
+                }
+                .glitch-animate {
+                    animation: glitch-flicker 0.22s infinite alternate;
+                }
+                @keyframes char-appear {
+                    to {
+                        opacity: 1;
+                        filter: blur(0);
+                        transform: translateY(0);
+                    }
+                }
+                @keyframes glitch-flicker {
+                    from { filter: blur(0.5px) brightness(1.2); }
+                    to   { filter: blur(2px) brightness(1.5); }
+                }
+            `;
+            document.head.appendChild(style);
         }
 
         const mainWrapper = document.getElementById('mainWrapper');
