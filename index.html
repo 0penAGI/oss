@@ -3538,7 +3538,7 @@
             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
 
-        // Новый onresult: финальный результат всегда новым элементом в чате, промежуточные анимируются отдельно
+        // onresult: 
         recognition.onresult = async (event) => {
             let interimTranscript = '';
             let finalTranscript = '';
@@ -3551,12 +3551,10 @@
                     interimTranscript += res[0].transcript;
                 }
             }
-            // --- Промежуточные результаты: orb и отдельная анимация в чат (не затирает прошлые сообщения) ---
+            // ---
             if (interimTranscript && interimTranscript.trim()) {
                 appendTranscript(interimTranscript);
-                // В чат: отдельный анимированный промежуточный результат (без затирания)
-                // Создаем отдельный временный элемент, который исчезает при финальном результате
-                // Сначала удалим все старые interim сообщения
+              
                 Array.from(chatMessages.querySelectorAll('.chat-message.user.interim')).forEach(el => el.remove());
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-message user interim';
@@ -3568,24 +3566,24 @@
                 msgDiv.appendChild(senderDiv);
                 msgDiv.appendChild(textDiv);
                 chatMessages.appendChild(msgDiv);
-                // Анимация промежуточного текста (typeChatMessage)
+
                 textDiv.innerHTML = '';
                 typeChatMessage(interimTranscript, textDiv);
-                // Не финализируем, не добавляем клик-копирование
+          
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-            // --- Если нет промежуточного, но есть финальный (быстрый ввод) — обновляем orb ---
+          
             else if (finalTranscript && finalTranscript.trim()) {
                 appendTranscript(finalTranscript);
             }
 
-            // --- Финальный результат: обработка команд, отправка в чат, orb, боту и т.д. ---
+          
             if (finalTranscript && finalTranscript.trim()) {
                 const text = finalTranscript.trim();
-                // --- Обновляем orb ---
+            
                 appendTranscript(text);
-                // --- В чат: всегда создаём новый элемент пользователя ---
-                // Удаляем все interim сообщения пользователя
+           
+             
                 Array.from(chatMessages.querySelectorAll('.chat-message.user.interim')).forEach(el => el.remove());
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-message user finalized';
@@ -3597,10 +3595,10 @@
                 msgDiv.appendChild(senderDiv);
                 msgDiv.appendChild(textDiv);
                 chatMessages.appendChild(msgDiv);
-                // Анимируем текст как финальный (typeChatMessage)
+
                 textDiv.innerHTML = '';
                 typeChatMessage(text, textDiv);
-                // Добавляем copy-on-click для сообщения
+          
                 msgDiv.onclick = () => {
                     navigator.clipboard.writeText(text).then(() => {
                         msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
@@ -3608,51 +3606,51 @@
                     });
                 };
 
-                // --- Автоопределение языка по тексту ---
+            
                 const detectedLang = detectLanguage(text);
                 if (detectedLang !== currentLang) {
                     setLanguage(detectedLang);
                 }
 
-                // --- Голосовые команды для смены языка ---
-                // Русский
+     
+              
                 if (/\b(говори по-русски|русский язык|переключи на русский)\b/i.test(text)) {
                     setLanguage('ru-RU');
                     speak("Я переключилась на русский язык.");
                     return;
                 }
-                // Английский
+              
                 if (/\b(speak english|english language|switch to english)\b/i.test(text)) {
                     setLanguage('en-US');
                     speak("I switched to English.");
                     return;
                 }
-                // Немецкий
+               
                 if (/\b(sprich deutsch|deutsche sprache|auf deutsch)\b/i.test(text)) {
                     setLanguage('de-DE');
                     speak("Ich spreche jetzt Deutsch.");
                     return;
                 }
-                // Французский
+               
                 if (/\b(parle français|langue française|en français)\b/i.test(text)) {
                     setLanguage('fr-FR');
                     speak("Je parle maintenant français.");
                     return;
                 }
-                // Испанский
+          
                 if (/\b(habla español|idioma español|en español)\b/i.test(text)) {
                     setLanguage('es-ES');
                     speak("Ahora hablo español.");
                     return;
                 }
-                // Китайский
+           
                 if (/\b(说中文|中文|讲中文)\b/i.test(text)) {
                     setLanguage('zh-CN');
                     speak("我现在说中文。");
                     return;
                 }
 
-                // --- Голосовая команда для включения музыки напрямую ---
+              
                 if (/\b(включи музыку|музыка включена|старт музыки|play music|start music)\b/i.test(text)) {
                     if (!musicPlaying) {
                         if (musicCtx.state === 'suspended') await musicCtx.resume();
@@ -3660,7 +3658,7 @@
                     }
                     return;
                 }
-                // Голосовые команды камеры
+       
                 if (/\b(включи камеру|покажи камеру|открой камеру|камера|show camera|open camera|start camera)\b/i.test(text)) {
                     if (cameraVideo.style.display !== 'block') {
                         startCamera(currentCamera);
@@ -4769,94 +4767,101 @@
         }
 
         // ===== Chat Panel Management =====
-        // === Chat typing animation with word-by-word effect ===
-        // Fixed: Prevent empty AI messages, preserve cursor and autoscroll
-        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
+        // === Chat typing animation with word-by-word effect and glitch effects ===
+        function typeWriterWordsEffect(element, text, charDelay = 6, wordDelay = 18) {
+            if (!text || !text.trim()) return Promise.resolve();
+
+            const isAI = element.closest('.chat-message')?.classList.contains('ai');
+            const chatContainer = document.getElementById('chatMessages');
+
+            function scrollChatToBottomLocal() {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
+            let parts = [];
+            let lastIndex = 0;
+            let m;
+            while ((m = wordRegex.exec(text)) !== null) {
+                if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
+                parts.push(m[0]);
+                lastIndex = wordRegex.lastIndex;
+            }
+            if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+
+            let i = 0;
+
             return new Promise((resolve) => {
-                // If text is empty or whitespace, resolve immediately
-                if (!text || !text.trim()) {
-                    resolve();
-                    return;
-                }
-                const isAI = element.closest('.chat-message')?.classList.contains('ai');
-                const chatContainer = document.getElementById('chatMessages');
-                function scrollChatToBottomLocal() {
-                    scrollChatToBottom();
-                }
-                let cursor = null;
-                if (isAI) {
-                    cursor = element.querySelector('.ai-cursor');
-                    if (!cursor) {
-                        cursor = document.createElement('span');
-                        cursor.className = 'ai-cursor';
-                        element.appendChild(cursor);
-                    }
-                }
-                const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-                let parts = [];
-                let lastIndex = 0;
-                let m;
-                while ((m = wordRegex.exec(text)) !== null) {
-                    if (m.index > lastIndex) {
-                        parts.push(text.slice(lastIndex, m.index));
-                    }
-                    parts.push(m[0]);
-                    lastIndex = wordRegex.lastIndex;
-                }
-                if (lastIndex < text.length) {
-                    parts.push(text.slice(lastIndex));
-                }
-                let i = 0;
                 function typePart() {
                     if (i >= parts.length) {
-                        if (isAI) {
-                            const cursor = element.querySelector('.ai-cursor');
-                            if (cursor) cursor.remove();
-                        }
-                        scrollChatToBottomLocal();
                         resolve();
                         return;
                     }
+
                     const part = parts[i++];
                     // spaces
                     if (/^\s+$/.test(part)) {
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
                         setTimeout(typePart, wordDelay / 2);
                         return;
                     }
+
                     // punctuation
                     if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-                        let puncPause = 40;
-                        if (/[.!?]/.test(part)) puncPause += 50;
-                        setTimeout(typePart, puncPause);
+                        setTimeout(typePart, 40 + (/[.!?]/.test(part) ? 50 : 0));
                         return;
                     }
-                    // word — letter by letter
+
+                    // word — letter by letter с глич-эффектом
                     let charIdx = 0;
                     function typeChar() {
                         if (charIdx >= part.length) {
                             setTimeout(typePart, wordDelay + Math.random() * 15);
                             return;
                         }
+
                         const span = document.createElement('span');
                         span.className = 'chat-char';
                         span.textContent = part[charIdx++];
+
+                        // глич-эффекты: случайное смещение, поворот, масштаб, мерцание
+                        const glitchX = (Math.random() - 0.5) * 8;
+                        const glitchY = (Math.random() - 0.5) * 8;
+                        const glitchRot = (Math.random() - 0.5) * 30;
+                        const glitchScale = 0.85 + Math.random() * 0.3;
+                        span.style.display = 'inline-block';
+                        span.style.transform = `translate(${glitchX}px, ${glitchY}px) rotate(${glitchRot}deg) scale(${glitchScale})`;
+                        span.style.opacity = 0.8 + Math.random() * 0.2;
+                        span.style.color = `hsl(${Math.random()*360}, 80%, 70%)`;
+
                         element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-                        setTimeout(typeChar, charDelay + Math.random() * 4);
+
+                        // случайное дублирование буквы для глича
+                        if (Math.random() < 0.15) {
+                            const dup = span.cloneNode(true);
+                            dup.style.transform += ` translate(${(Math.random()-0.5)*6}px, ${(Math.random()-0.5)*6}px) rotate(${(Math.random()-0.5)*20}deg) scale(${0.85 + Math.random()*0.3})`;
+                            dup.style.opacity = 0.6 + Math.random()*0.3;
+                            setTimeout(() => {
+                                element.appendChild(dup);
+                                scrollChatToBottomLocal();
+                                setTimeout(() => dup.remove(), 200 + Math.random()*150);
+                            }, Math.random() * 80);
+                        }
+
+                        const delay = charDelay + Math.random() * 20;
+                        setTimeout(typeChar, delay);
                     }
                     typeChar();
                 }
+
                 typePart();
             });
         }
