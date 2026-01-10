@@ -3390,6 +3390,7 @@
                 return str.replace(/[&<>"']/g, ch =>
                     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
             }
+
             // Markdown renderer for inline code, bold, italic, links, tables
             function renderMarkdown(str) {
                 let html = escapeHTML(str);
@@ -3434,6 +3435,7 @@
                 );
                 return html;
             }
+
             // Parse text into segments: plain and code blocks (```)
             let html = '';
             const blockRegex = /```(\w+)?\n([\s\S]*?)```/g;
@@ -3461,7 +3463,23 @@
             }
             // Prepend "You:" label, insert into transcriptDiv, and scroll to bottom
             html = `<span style="color: rgba(255,255,255,0.7)">You:</span> ${html}`;
-            transcriptDiv.innerHTML = html;
+            // Only update the last "You:" transcript, not the whole transcriptDiv (if multiple user messages)
+            // Find the last "You:" span and replace its parent innerHTML, else append
+            let found = false;
+            if (transcriptDiv && transcriptDiv.children && transcriptDiv.children.length > 0) {
+                // Try to find last "You:" span
+                for (let i = transcriptDiv.children.length - 1; i >= 0; --i) {
+                    const el = transcriptDiv.children[i];
+                    if (el.tagName === 'SPAN' && el.textContent && el.textContent.trim().startsWith('You:')) {
+                        el.parentNode.innerHTML = html;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found && transcriptDiv) {
+                transcriptDiv.innerHTML = html;
+            }
             // Prism.js highlighting
             if (window.Prism && Prism.highlightAll) {
                 Prism.highlightAll();
