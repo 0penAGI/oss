@@ -3268,7 +3268,7 @@
             { code: 'zh-CN', name: '中文' }
         ];
         recognition.lang = currentLang;
-        recognition.interimResults = false;
+        recognition.interimResults = true; // Включаем промежуточные результаты для реалтайм обработки
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
@@ -3491,94 +3491,114 @@
             transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
         }
 
+        // Новый onresult: реалтайм поддержка interimResults, UI обновление и обработка финального текста
         recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-            addChatMessage(text, 'user');
-            // --- Автоопределение языка по тексту ---
-            const detectedLang = detectLanguage(text);
-            if (detectedLang !== currentLang) {
-                setLanguage(detectedLang);
-            }
-            // Always format transcript for code blocks/inline code
-            appendTranscript(text);
-
-            // --- Голосовые команды для смены языка ---
-            // Русский
-            if (/\b(говори по-русски|русский язык|переключи на русский)\b/i.test(text)) {
-                setLanguage('ru-RU');
-                speak("Я переключилась на русский язык.");
-                return;
-            }
-            // Английский
-            if (/\b(speak english|english language|switch to english)\b/i.test(text)) {
-                setLanguage('en-US');
-                speak("I switched to English.");
-                return;
-            }
-            // Немецкий
-            if (/\b(sprich deutsch|deutsche sprache|auf deutsch)\b/i.test(text)) {
-                setLanguage('de-DE');
-                speak("Ich spreche jetzt Deutsch.");
-                return;
-            }
-            // Французский
-            if (/\b(parle français|langue française|en français)\b/i.test(text)) {
-                setLanguage('fr-FR');
-                speak("Je parle maintenant français.");
-                return;
-            }
-            // Испанский
-            if (/\b(habla español|idioma español|en español)\b/i.test(text)) {
-                setLanguage('es-ES');
-                speak("Ahora hablo español.");
-                return;
-            }
-            // Китайский
-            if (/\b(说中文|中文|讲中文)\b/i.test(text)) {
-                setLanguage('zh-CN');
-                speak("我现在说中文。");
-                return;
-            }
-
-            // --- Голосовая команда для включения музыки напрямую ---
-            if (/\b(включи музыку|музыка включена|старт музыки|play music|start music)\b/i.test(text)) {
-                if (!musicPlaying) {
-                    if (musicCtx.state === 'suspended') await musicCtx.resume();
-                    startMusic();
-                }
-                return;
-            }
-            // Голосовые команды камеры
-            if (/\b(включи камеру|покажи камеру|открой камеру|камера|show camera|open camera|start camera)\b/i.test(text)) {
-                if (cameraVideo.style.display !== 'block') {
-                    startCamera(currentCamera);
-                    cameraEnabled = true;
+            let interimTranscript = '';
+            let finalTranscript = '';
+            // Собираем все сегменты
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const res = event.results[i];
+                if (res.isFinal) {
+                    finalTranscript += res[0].transcript;
+                } else {
+                    interimTranscript += res[0].transcript;
                 }
             }
-            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру|hide camera|close camera|stop camera)\b/i.test(text)) {
-                if (cameraVideo.style.display === 'block') {
-                    stopCamera();
-                    cameraEnabled = false;
+            // Показываем в UI: interim если есть, иначе финальный
+            if (interimTranscript) {
+                appendTranscript(interimTranscript);
+            } else if (finalTranscript) {
+                appendTranscript(finalTranscript);
+            }
+
+            // Если есть финальный результат (закончен ввод) — обрабатываем его
+            if (finalTranscript && finalTranscript.trim()) {
+                const text = finalTranscript.trim();
+                addChatMessage(text, 'user');
+                // --- Автоопределение языка по тексту ---
+                const detectedLang = detectLanguage(text);
+                if (detectedLang !== currentLang) {
+                    setLanguage(detectedLang);
                 }
-            }
-            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру|switch camera|change camera)\b/i.test(text)) {
-                switchCamera();
-            }
 
-            // Голосовые команды для ambient
-            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки', 'soundscape', 'nature sounds'];
-            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
-                triggerAmbient();
+                // --- Голосовые команды для смены языка ---
+                // Русский
+                if (/\b(говори по-русски|русский язык|переключи на русский)\b/i.test(text)) {
+                    setLanguage('ru-RU');
+                    speak("Я переключилась на русский язык.");
+                    return;
+                }
+                // Английский
+                if (/\b(speak english|english language|switch to english)\b/i.test(text)) {
+                    setLanguage('en-US');
+                    speak("I switched to English.");
+                    return;
+                }
+                // Немецкий
+                if (/\b(sprich deutsch|deutsche sprache|auf deutsch)\b/i.test(text)) {
+                    setLanguage('de-DE');
+                    speak("Ich spreche jetzt Deutsch.");
+                    return;
+                }
+                // Французский
+                if (/\b(parle français|langue française|en français)\b/i.test(text)) {
+                    setLanguage('fr-FR');
+                    speak("Je parle maintenant français.");
+                    return;
+                }
+                // Испанский
+                if (/\b(habla español|idioma español|en español)\b/i.test(text)) {
+                    setLanguage('es-ES');
+                    speak("Ahora hablo español.");
+                    return;
+                }
+                // Китайский
+                if (/\b(说中文|中文|讲中文)\b/i.test(text)) {
+                    setLanguage('zh-CN');
+                    speak("我现在说中文。");
+                    return;
+                }
+
+                // --- Голосовая команда для включения музыки напрямую ---
+                if (/\b(включи музыку|музыка включена|старт музыки|play music|start music)\b/i.test(text)) {
+                    if (!musicPlaying) {
+                        if (musicCtx.state === 'suspended') await musicCtx.resume();
+                        startMusic();
+                    }
+                    return;
+                }
+                // Голосовые команды камеры
+                if (/\b(включи камеру|покажи камеру|открой камеру|камера|show camera|open camera|start camera)\b/i.test(text)) {
+                    if (cameraVideo.style.display !== 'block') {
+                        startCamera(currentCamera);
+                        cameraEnabled = true;
+                    }
+                }
+                if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру|hide camera|close camera|stop camera)\b/i.test(text)) {
+                    if (cameraVideo.style.display === 'block') {
+                        stopCamera();
+                        cameraEnabled = false;
+                    }
+                }
+                if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру|switch camera|change camera)\b/i.test(text)) {
+                    switchCamera();
+                }
+
+                // Голосовые команды для ambient
+                const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки', 'soundscape', 'nature sounds'];
+                if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
+                    triggerAmbient();
+                }
+
+                vibrate('medium');
+                // simple voice gender commands
+                if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
+                if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
+                if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
+
+                await sendToBot(text);
+                await generateImageFromText(text);
             }
-
-            vibrate('medium');
-            // simple voice gender commands
-            if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
-            if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
-            if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
-
-            await sendToBot(text);         // уже есть у тебя
-            await generateImageFromText(text); // генерация изображения по распознанному тексту
         };
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
