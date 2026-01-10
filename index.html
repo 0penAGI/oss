@@ -3787,7 +3787,6 @@
                     if (done) break;
 
                     const chunk = decoder.decode(value, { stream: true });
-
                     window._chatStreamBuffer += chunk;
 
                     const printed = window._chatStreamPrinted || 0;
@@ -3818,9 +3817,7 @@
                         chatShouldStick = stickChatToBottom(chatMessages);
                         chatTypingQueue = chatTypingQueue.then(() => {
                             return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
-                                if (chatShouldStick) {
-                                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                                }
+                                if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
                             });
                         });
                     }
@@ -3866,12 +3863,9 @@
                     }
                 }
 
-                // === END CHAT STREAM ===
-                if (
-                    window._chatStreamMsg &&
-                    !window._chatStreamHasText
-                ) {
-                    window._chatStreamMsg.closest('.chat-message')?.remove();
+                // После выхода из цикла проверяем, был ли текст
+                if (window._chatStreamMsg && !window._chatStreamHasText) {
+                    window._chatStreamMsg.closest('.chat-message')?.remove(); // удаляем пустой блок
                 }
                 window._chatStreamHasText = false;
                 window._chatStreamBuffer = '';
@@ -4614,7 +4608,7 @@
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
 
-        function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
+        function typeWriterWordsEffect(element, text, charDelay = 8, wordDelay = 30) {
             return new Promise((resolve) => {
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
                 const chatContainer = document.getElementById('chatMessages');
@@ -4682,8 +4676,8 @@
                         element.appendChild(span);
                         if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-                        let puncPause = 90;
-                        if (/[.!?]/.test(part)) puncPause += 120;
+                        let puncPause = 40;
+                        if (/[.!?]/.test(part)) puncPause += 50;
                         setTimeout(typePart, puncPause);
                         return;
                     }
@@ -4692,7 +4686,7 @@
                     let charIdx = 0;
                     function typeChar() {
                         if (charIdx >= part.length) {
-                            setTimeout(typePart, wordDelay + Math.random() * 40);
+                            setTimeout(typePart, wordDelay + Math.random() * 15);
                             return;
                         }
                         const span = document.createElement('span');
@@ -4701,7 +4695,7 @@
                         element.appendChild(span);
                         if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-                        setTimeout(typeChar, charDelay + Math.random() * 10);
+                        setTimeout(typeChar, charDelay + Math.random() * 4);
                     }
                     typeChar();
                 }
@@ -4712,6 +4706,7 @@
 
         // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics* и увеличением <b>/<strong>
         function typeChatMessage(text, container) {
+            if (!text || !text.trim()) return;
             container.innerHTML = '';
 
             // Убираем звездочки сразу, чтобы они не печатались во время тайпинга
@@ -4925,6 +4920,7 @@
         // Chat messages
         function addChatMessage(text, sender = 'user') {
           if (!chatMessages) return;
+          if (!text || !text.trim()) return;
           // === SYNC TYPED USER TEXT TO ORB "You" ===
           if (sender === 'user' && typeof appendTranscript === 'function') {
               appendTranscript(text); // всегда обновляет последний You в орбе
@@ -4956,6 +4952,7 @@
         // Добавить функцию для AI-сообщений с анимацией букв
         function addAIMessage(text) {
           if (!chatMessages) return;
+          if (!text || !text.trim()) return;
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ai`;
           const senderDiv = document.createElement('div');
