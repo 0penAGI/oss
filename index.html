@@ -4607,17 +4607,19 @@
 
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
-
+        // Fixed: Prevent empty AI messages, preserve cursor and autoscroll
         function typeWriterWordsEffect(element, text, charDelay = 8, wordDelay = 30) {
             return new Promise((resolve) => {
+                // If text is empty or whitespace, resolve immediately
+                if (!text || !text.trim()) {
+                    resolve();
+                    return;
+                }
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
                 const chatContainer = document.getElementById('chatMessages');
-
-                // Use scrollChatToBottom instead of scrollIfStick
                 function scrollChatToBottomLocal() {
                     scrollChatToBottom();
                 }
-
                 let cursor = null;
                 if (isAI) {
                     cursor = element.querySelector('.ai-cursor');
@@ -4627,12 +4629,10 @@
                         element.appendChild(cursor);
                     }
                 }
-
                 const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
                 let parts = [];
                 let lastIndex = 0;
                 let m;
-
                 while ((m = wordRegex.exec(text)) !== null) {
                     if (m.index > lastIndex) {
                         parts.push(text.slice(lastIndex, m.index));
@@ -4643,7 +4643,6 @@
                 if (lastIndex < text.length) {
                     parts.push(text.slice(lastIndex));
                 }
-
                 let i = 0;
                 function typePart() {
                     if (i >= parts.length) {
@@ -4655,9 +4654,7 @@
                         resolve();
                         return;
                     }
-
                     const part = parts[i++];
-
                     // spaces
                     if (/^\s+$/.test(part)) {
                         const span = document.createElement('span');
@@ -4668,7 +4665,6 @@
                         setTimeout(typePart, wordDelay / 2);
                         return;
                     }
-
                     // punctuation
                     if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
                         const span = document.createElement('span');
@@ -4681,7 +4677,6 @@
                         setTimeout(typePart, puncPause);
                         return;
                     }
-
                     // word — letter by letter
                     let charIdx = 0;
                     function typeChar() {
@@ -4699,7 +4694,6 @@
                     }
                     typeChar();
                 }
-
                 typePart();
             });
         }
@@ -4949,10 +4943,10 @@
           typeChatMessage(text, textDiv);
         }
 
-        // Добавить функцию для AI-сообщений с анимацией букв
+        // Добавить функцию для AI-сообщений с анимацией букв (fixed: prevent appending empty/blank messages)
         function addAIMessage(text) {
           if (!chatMessages) return;
-          if (!text || !text.trim()) return;
+          if (!text || !text.trim()) return; // Prevent empty AI messages
           const msgDiv = document.createElement('div');
           msgDiv.className = `chat-message ai`;
           const senderDiv = document.createElement('div');
@@ -4963,7 +4957,6 @@
           msgDiv.appendChild(senderDiv);
           msgDiv.appendChild(textDiv);
           chatMessages.appendChild(msgDiv);
-          // removed direct scroll here for autoscroll patch
           msgDiv.addEventListener('click', () => {
               navigator.clipboard.writeText(textDiv.textContent).then(() => {
                   msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
