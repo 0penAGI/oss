@@ -4057,7 +4057,8 @@
             rate *= 1.0 - resonanceBias * 0.15;
             pitch *= 1.0 - resonanceBias * 0.08;
 
-            // Очистка текста для речи: удаляем бэкслеши, лишние пробелы и служебные символы
+            // Гуманизация текста + разбиение на фрагменты
+                        // Очистка текста для речи: удаляем бэкслеши, лишние пробелы и служебные символы
             let cleanedForSpeech = humanizeText(text).replace(/\\+/g, '').replace(/\s+/g, ' ').trim();
             let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
             // ограничиваем длину для живости и читаемости
@@ -4557,9 +4558,12 @@
             return new Promise((resolve) => {
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
                 const chatContainer = document.getElementById('chatMessages');
+                const stick = stickChatToBottom(chatContainer);
+
                 function scrollIfStick() {
-                    if (!chatContainer) return;
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                    if (stick && chatContainer) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
                 }
 
                 let cursor = null;
