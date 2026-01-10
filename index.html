@@ -4767,101 +4767,94 @@
         }
 
         // ===== Chat Panel Management =====
-        // === Chat typing animation with word-by-word effect and glitch effects ===
-        function typeWriterWordsEffect(element, text, charDelay = 6, wordDelay = 18) {
-            if (!text || !text.trim()) return Promise.resolve();
-
-            const isAI = element.closest('.chat-message')?.classList.contains('ai');
-            const chatContainer = document.getElementById('chatMessages');
-
-            function scrollChatToBottomLocal() {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-
-            const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-            let parts = [];
-            let lastIndex = 0;
-            let m;
-            while ((m = wordRegex.exec(text)) !== null) {
-                if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index));
-                parts.push(m[0]);
-                lastIndex = wordRegex.lastIndex;
-            }
-            if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-
-            let i = 0;
-
+        // === Chat typing animation with word-by-word effect ===
+        // Fixed: Prevent empty AI messages, preserve cursor and autoscroll
+        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
             return new Promise((resolve) => {
+                // If text is empty or whitespace, resolve immediately
+                if (!text || !text.trim()) {
+                    resolve();
+                    return;
+                }
+                const isAI = element.closest('.chat-message')?.classList.contains('ai');
+                const chatContainer = document.getElementById('chatMessages');
+                function scrollChatToBottomLocal() {
+                    scrollChatToBottom();
+                }
+                let cursor = null;
+                if (isAI) {
+                    cursor = element.querySelector('.ai-cursor');
+                    if (!cursor) {
+                        cursor = document.createElement('span');
+                        cursor.className = 'ai-cursor';
+                        element.appendChild(cursor);
+                    }
+                }
+                const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
+                let parts = [];
+                let lastIndex = 0;
+                let m;
+                while ((m = wordRegex.exec(text)) !== null) {
+                    if (m.index > lastIndex) {
+                        parts.push(text.slice(lastIndex, m.index));
+                    }
+                    parts.push(m[0]);
+                    lastIndex = wordRegex.lastIndex;
+                }
+                if (lastIndex < text.length) {
+                    parts.push(text.slice(lastIndex));
+                }
+                let i = 0;
                 function typePart() {
                     if (i >= parts.length) {
+                        if (isAI) {
+                            const cursor = element.querySelector('.ai-cursor');
+                            if (cursor) cursor.remove();
+                        }
+                        scrollChatToBottomLocal();
                         resolve();
                         return;
                     }
-
                     const part = parts[i++];
                     // spaces
                     if (/^\s+$/.test(part)) {
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
+                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
                         setTimeout(typePart, wordDelay / 2);
                         return;
                     }
-
                     // punctuation
                     if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
                         const span = document.createElement('span');
                         span.textContent = part;
                         element.appendChild(span);
+                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-                        setTimeout(typePart, 40 + (/[.!?]/.test(part) ? 50 : 0));
+                        let puncPause = 40;
+                        if (/[.!?]/.test(part)) puncPause += 50;
+                        setTimeout(typePart, puncPause);
                         return;
                     }
-
-                    // word — letter by letter с глич-эффектом
+                    // word — letter by letter
                     let charIdx = 0;
                     function typeChar() {
                         if (charIdx >= part.length) {
                             setTimeout(typePart, wordDelay + Math.random() * 15);
                             return;
                         }
-
                         const span = document.createElement('span');
                         span.className = 'chat-char';
                         span.textContent = part[charIdx++];
-
-                        // глич-эффекты: случайное смещение, поворот, масштаб, мерцание
-                        const glitchX = (Math.random() - 0.5) * 8;
-                        const glitchY = (Math.random() - 0.5) * 8;
-                        const glitchRot = (Math.random() - 0.5) * 30;
-                        const glitchScale = 0.85 + Math.random() * 0.3;
-                        span.style.display = 'inline-block';
-                        span.style.transform = `translate(${glitchX}px, ${glitchY}px) rotate(${glitchRot}deg) scale(${glitchScale})`;
-                        span.style.opacity = 0.8 + Math.random() * 0.2;
-                        span.style.color = `hsl(${Math.random()*360}, 80%, 70%)`;
-
                         element.appendChild(span);
+                        if (cursor) element.appendChild(cursor);
                         scrollChatToBottomLocal();
-
-                        // случайное дублирование буквы для глича
-                        if (Math.random() < 0.15) {
-                            const dup = span.cloneNode(true);
-                            dup.style.transform += ` translate(${(Math.random()-0.5)*6}px, ${(Math.random()-0.5)*6}px) rotate(${(Math.random()-0.5)*20}deg) scale(${0.85 + Math.random()*0.3})`;
-                            dup.style.opacity = 0.6 + Math.random()*0.3;
-                            setTimeout(() => {
-                                element.appendChild(dup);
-                                scrollChatToBottomLocal();
-                                setTimeout(() => dup.remove(), 200 + Math.random()*150);
-                            }, Math.random() * 80);
-                        }
-
-                        const delay = charDelay + Math.random() * 20;
-                        setTimeout(typeChar, delay);
+                        setTimeout(typeChar, charDelay + Math.random() * 4);
                     }
                     typeChar();
                 }
-
                 typePart();
             });
         }
