@@ -743,25 +743,29 @@
             const float PI = 3.141592653589793;
             varying vec3 vColor;
 
-            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
-                vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008)); 
+            vec3 XDust(vec3 p) {
+                vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008));
                 float d = length(dir);
-                float anim = time * 0.168;
-                if (d > 0.98 && d < 1.02) {
-                    float t = fract(sin(d * PI) * anim + c1.x);
-                    return mix(c1, c2, t);
-                } else {
-                    float t = fract(cos(d * PI) * anim + c2.y);
-                    return mix(c2, c3, t);
-                }
+                float anim = time * 0.18;
+
+                float wave =
+                    sin(d * PI * 2.0 + anim) * 0.5 +
+                    cos(d * PI * 3.0 - anim * 0.7) * 0.5;
+
+                float bw = smoothstep(-0.4, 0.6, wave);
+                return vec3(bw); // чистый grayscale
             }
 
             void main() {
-                vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0, 0.68), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
+                vec3 p = gl_PointCoord.xyx * 0.5;
+                vec3 color = XDust(p);
+
                 float dist = length(gl_PointCoord - vec2(0.5));
-                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(color * vColor, alpha * 0.7);
+                float alpha = 1.0 - smoothstep(0.1, 0.5, dist);
+
+                // vColor оставляем как модулятор яркости, но без цвета
+                float intensity = dot(vColor, vec3(0.333));
+                gl_FragColor = vec4(color * intensity, alpha * 0.75);
             }
         `;
 
@@ -876,16 +880,11 @@
 
             sizes[i] = Math.random() * 3 + 1;
 
-            // Живые, гармоничные цвета с плавным смещением
-            const hue = Math.random();
-            const sat = 0.6 + Math.random() * 0.4;
-            const light = 0.5 + Math.random() * 0.5;
-            const col = new THREE.Color();
-            col.setHSL(hue, sat, light);
-
-            colors[i * 3] = col.r;
-            colors[i * 3 + 1] = col.g;
-            colors[i * 3 + 2] = col.b;
+            // Чёрно-белая палитра
+            const gray = 0.25 + Math.random() * 0.75;
+            colors[i * 3]     = gray;
+            colors[i * 3 + 1] = gray;
+            colors[i * 3 + 2] = gray;
         }
 
         const geometry = new THREE.BufferGeometry();
@@ -1376,11 +1375,10 @@
             chatPositions[i * 3 + 2] = (Math.random() - 0.5) * 10;
             chatSizes[i] = Math.random() * 3 + 1;
 
-            const col = new THREE.Color();
-            col.setHSL(Math.random(), 0.6 + Math.random() * 0.4, 0.5 + Math.random() * 0.5);
-            chatColors[i * 3] = col.r;
-            chatColors[i * 3 + 1] = col.g;
-            chatColors[i * 3 + 2] = col.b;
+            const g = 0.15 + Math.random() * 0.6;
+            chatColors[i * 3]     = g;
+            chatColors[i * 3 + 1] = g;
+            chatColors[i * 3 + 2] = g;
         }
 
         const chatGeometry = new THREE.BufferGeometry();
