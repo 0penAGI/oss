@@ -4935,6 +4935,8 @@
         }
 
         function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 18) {
+            // Очистка текста от точек и пробелов в начале
+            text = text.replace(/^[.\s]+/, '');
             return new Promise((resolve) => {
                 if (!text || !text.trim()) {
                     resolve();
