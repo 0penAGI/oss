@@ -4141,75 +4141,57 @@
             return Math.max(-1, Math.min(1, t));
         }
 
-        // Говорит текст с плавными переходами
+        // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
             if (!text || !text.trim()) return;
 
             updateSessionResonance();
 
-            // 1. Остановить все текущие вибрации и процессы
+            // Остановить все текущие вибрации и процессы
             stopListeningVibration();
             stopThinkingVibration();
             stopSpeakingVibration();
             recognition.abort();
 
-            // 2. Плавное визуальное переключение с анимацией
+            // Плавное визуальное переключение с анимацией
             orb.classList.remove('listening', 'thinking');
-
-            // Используем requestAnimationFrame для плавности
             requestAnimationFrame(() => {
                 orb.classList.add('speaking');
                 status.innerText = "speaking";
-
-                // 3. Запуск вибрации с небольшой задержкой для плавности
                 setTimeout(() => {
                     vibrateSpeaking();
                 }, 50);
             });
-
             isSpeaking = true;
 
             // === Vocal temperature tuning ===
             const vocalTemperature = computeVocalTemperature();
-
-            // резонанс слегка тянет температуру к теплу и стабильности
             const resonanceBias = sessionResonance * 0.25;
-
-            // базовые значения
             let rate = 1.0;
             let pitch = 0.95;
-
-            // gender remains as baseline offset
             if (userGender === 'female') pitch += 0.15;
             if (userGender === 'male') pitch -= 0.05;
-
-            // температура влияет на физику речи
-            // холод → быстрее, стабильнее
             if (vocalTemperature < -0.3) {
                 rate += Math.abs(vocalTemperature) * 0.18;
                 pitch -= Math.abs(vocalTemperature) * 0.04;
             }
-
-            // тепло → медленнее, мягче
             if (vocalTemperature > 0.3) {
                 rate -= vocalTemperature * 0.22;
                 pitch += vocalTemperature * 0.06;
             }
-
-            // резонанс замедляет и стабилизирует речь
             rate *= 1.0 - resonanceBias * 0.15;
             pitch *= 1.0 - resonanceBias * 0.08;
 
             // Гуманизация текста + разбиение на фрагменты
-            // Очистка текста для речи: удаляем все бэкслеши и спецсимволы, нормализуем запятые и пробелы
             let cleanedForSpeech = humanizeText(text)
-                .replace(/\\+/g, '')             // удаляем все бэкслеши
-                .replace(/\s*,\s*/g, ', ')       // нормализуем запятые
-                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.,!? ]+/g, '') // удаляем все спецсимволы кроме букв, цифр, пробелов и пунктуации
-                .replace(/\s+/g, ' ')            // лишние пробелы → один пробел
+                .replace(/\\+/g, '')
+                .replace(/\s*,\s*/g, ', ')
+                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.,!? ]+/g, '')
+                .replace(/\s+/g, ' ')
                 .trim();
+
+            // Разбиваем на предложения
             let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
-            // ограничиваем длину для живости и читаемости
             sentences = sentences.flatMap(s => {
                 if (s.length <= 120) return [s];
                 let out = [];
@@ -4218,67 +4200,104 @@
                 }
                 return out;
             });
-            let fragments = [];
 
-            for (let s of sentences) {
-                if (s.length > 80) {
-                    let parts = s.split(/([,;:—-])/g).filter(Boolean);
-                    let buf = '';
-                    for (let p of parts) {
-                        buf += p;
-                        if (/[,;:—-]$/.test(p) || buf.length > 45) {
-                            fragments.push(buf.trim());
-                            buf = '';
-                        }
+            // Массив междометий и "дыхательных" вставок
+            const interjectionsByLang = {
+                'ru-RU': ['мм...', 'ээ...', 'ну...', 'эм...', 'гм...', 'хм...', 'угу...', 'а...', 'так...', 'да...', 'кстати...'],
+                'en-US': ['um...', 'uh...', 'hmm...', 'well...', 'so...', 'ah...', 'okay...', 'right...', 'huh...', 'hmm...'],
+                'de-DE': ['äh...', 'hm...', 'nun...', 'also...', 'tja...', 'hmm...', 'ja...', 'gut...', 'ach...'],
+                'fr-FR': ['euh...', 'ben...', 'alors...', 'hum...', 'ah...', 'ok...', 'bon...', 'hein...'],
+                'es-ES': ['eh...', 'bueno...', 'mmm...', 'ajá...', 'vale...', 'pues...', 'ah...', 'ok...'],
+                'zh-CN': ['嗯...', '啊...', '这个...', '呃...', '哦...', '唔...']
+            };
+            const breathingUtterances = [
+                '', // обычная пауза
+                '(вдох)', '(выдох)', // ru
+                '(inhale)', '(exhale)', // en
+                '(pause)', // универсально
+                '', '', // больше пустых для редкости
+            ];
+            function getInterjection() {
+                let arr = interjectionsByLang[currentLang] || interjectionsByLang['en-US'];
+                return arr[Math.floor(Math.random() * arr.length)];
+            }
+            function getBreath() {
+                return breathingUtterances[Math.floor(Math.random() * breathingUtterances.length)];
+            }
+
+            // Разбиваем предложения на фрагменты с микропаузами и вставками
+            let fragments = [];
+            for (let i = 0; i < sentences.length; ++i) {
+                let s = sentences[i].trim();
+                if (!s) continue;
+                // Дополнительное дробление по запятым, двоеточиям и т.п.
+                let parts = s.split(/([,;:—-])/g).filter(Boolean);
+                let buf = '';
+                for (let p of parts) {
+                    buf += p;
+                    if (/[,;:—-]$/.test(p) || buf.length > 45) {
+                        fragments.push(buf.trim());
+                        buf = '';
                     }
-                    if (buf.trim()) fragments.push(buf.trim());
-                } else {
-                    fragments.push(s.trim());
+                }
+                if (buf.trim()) fragments.push(buf.trim());
+                // Иногда после предложения вставить дыхание или междометие
+                if (Math.random() < 0.14) {
+                    if (Math.random() < 0.65) {
+                        fragments.push(getBreath());
+                    } else {
+                        fragments.push(getInterjection());
+                    }
                 }
             }
 
+            // Дополнительные микропаузи для живости
             let enhancedFragments = [];
             for (let i = 0; i < fragments.length; ++i) {
                 let frag = fragments[i];
-                enhancedFragments.push(frag);
-                // редкие микропаузи для "неровного" человеческого ритма
-                if (Math.random() < 0.07) {
-                    enhancedFragments.push('');
-                }
-
-                // разреженность усиливается усталостью и холодом, а также резонансом
-                const pauseChance =
-                    0.08
-                    + Math.max(0, selfAwareness?.fatigue || 0) * 0.25
-                    + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.15 : 0)
-                    + sessionResonance * 0.18;
-
-                if (i < fragments.length - 1 && Math.random() < pauseChance) {
+                // Вставляем случайно междометие или дыхание между фрагментами, иногда пропускаем
+                if (frag && frag.length > 0) {
+                    enhancedFragments.push(frag);
+                    // Вероятность паузы или вставки зависит от усталости, температуры, резонанса
+                    let pauseChance = 0.09
+                        + Math.max(0, selfAwareness?.fatigue || 0) * 0.2
+                        + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.12 : 0)
+                        + sessionResonance * 0.14;
+                    if (Math.random() < pauseChance) {
+                        if (Math.random() < 0.5) {
+                            enhancedFragments.push(getBreath());
+                        } else {
+                            enhancedFragments.push(getInterjection());
+                        }
+                    }
+                } else if (frag && frag.length === 0) {
+                    // пустая пауза
                     enhancedFragments.push('');
                 }
             }
+
+            // Удаляем лишние пустые элементы
+            enhancedFragments = enhancedFragments.filter((f, idx, arr) =>
+                f && f.trim() || idx === 0 || (arr[idx - 1] && arr[idx - 1].trim())
+            );
 
             let idx = 0;
             let utterQueue = [];
 
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    // Ждём реального окончания TTS, а не печати
+                    // Ждём реального окончания TTS
                     const waitForSpeechEnd = setInterval(() => {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
-
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
                                 isSpeaking = false;
                                 stopSpeakingVibration();
-
                                 status.innerText = "listening";
-
                                 if (tg?.HapticFeedback) {
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
-
                                 setTimeout(() => {
                                     startListening();
                                 }, 400);
@@ -4287,36 +4306,78 @@
                     }, 120);
                     return;
                 }
-
                 let s = enhancedFragments[idx];
                 idx++;
-
+                // Пауза: если междометие или дыхание в скобках, то пауза, иначе говорим
                 if (!s || !s.trim()) {
-                    // Короткие паузы между фразами
                     setTimeout(speakNext, 80 + Math.random() * 120);
                     return;
                 }
-
-                // микро-флуктуации зависят от температуры
-                let jitter = Math.abs(vocalTemperature) * 0.06;
-
-                // при резонансе флуктуации гасятся
+                // Если это "дыхание" или междометие, озвучиваем с особым тембром или тишиной
+                let isBreath = /\((вдох|выдох|inhale|exhale|pause)\)/i.test(s);
+                let isInterjection = false;
+                for (const arr of Object.values(interjectionsByLang)) {
+                    if (arr.includes(s)) { isInterjection = true; break; }
+                }
+                if (isBreath) {
+                    // "Тихая" пауза — короткий utterance с rate/pitch
+                    const utter = new SpeechSynthesisUtterance('');
+                    utter.lang = currentLang;
+                    utter.rate = rate * 0.92 + (Math.random() - 0.5) * 0.08;
+                    utter.pitch = pitch * 0.98 + (Math.random() - 0.5) * 0.05;
+                    utter.volume = 0.0;
+                    utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
+                    utter.onerror = () => setTimeout(speakNext, 100);
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 16);
+                    utterQueue.push(utter);
+                    return;
+                }
+                if (isInterjection) {
+                    // Для междометия — чуть быстрее, чуть выше pitch, чуть тише
+                    let interjRate = rate * (1.06 + (Math.random() - 0.5) * 0.09);
+                    let interjPitch = pitch * (1.07 + (Math.random() - 0.5) * 0.12);
+                    let interjVol = 0.82 + (Math.random() - 0.5) * 0.13;
+                    const utter = new SpeechSynthesisUtterance(s);
+                    utter.lang = currentLang;
+                    utter.rate = interjRate;
+                    utter.pitch = interjPitch;
+                    utter.volume = Math.max(0.01, Math.min(1.0, interjVol));
+                    if (currentVoice) utter.voice = currentVoice;
+                    utter.onstart = () => {
+                        if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
+                        speakingVibrationInterval = setInterval(() => {
+                            if (tg?.HapticFeedback) {
+                                tg.HapticFeedback.impactOccurred('light');
+                            }
+                        }, 320);
+                    };
+                    utter.onend = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 80 + Math.random() * 120);
+                    };
+                    utter.onerror = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 100);
+                    };
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 18);
+                    utterQueue.push(utter);
+                    return;
+                }
+                // Обычный фрагмент: микроварьирование pitch/rate
+                let jitter = Math.abs(vocalTemperature) * 0.07;
                 jitter *= (1.0 - sessionResonance * 0.6);
-
-                let localRate =
-                    rate * (1.0 + (Math.random() - 0.5) * jitter);
-
-                let localPitch =
-                    pitch * (1.0 + (Math.random() - 0.5) * jitter);
-
+                let localRate = rate * (1.0 + (Math.random() - 0.5) * jitter);
+                let localPitch = pitch * (1.0 + (Math.random() - 0.5) * jitter);
+                // Иногда чуть тише или громче
+                let localVol = 0.93 + (Math.random() - 0.5) * 0.08;
+                localVol = Math.max(0.01, Math.min(1.0, localVol));
                 const utter = new SpeechSynthesisUtterance(s);
                 utter.lang = currentLang;
                 utter.rate = localRate;
                 utter.pitch = localPitch;
+                utter.volume = localVol;
                 if (currentVoice) utter.voice = currentVoice;
-
                 utter.onstart = () => {
-                    // Легкая пульсация вместо интенсивной вибрации
                     if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
                     speakingVibrationInterval = setInterval(() => {
                         if (tg?.HapticFeedback) {
@@ -4324,28 +4385,17 @@
                         }
                     }, 300);
                 };
-
                 utter.onend = () => {
-                    // Останавливаем вибрацию в конце каждой фразы
                     stopSpeakingVibration();
-                    // Плавный переход к следующей фразе
-                    setTimeout(speakNext, 60 + Math.random() * 90);
+                    setTimeout(speakNext, 60 + Math.random() * 110);
                 };
-
-                utter.onerror = (e) => {
-                    console.error('Speech error:', e);
+                utter.onerror = () => {
                     stopSpeakingVibration();
                     setTimeout(speakNext, 100);
                 };
-
-                // Добавляем в очередь с небольшой задержкой для избежания наложения
-                setTimeout(() => {
-                    synth.speak(utter);
-                }, utterQueue.length * 20);
+                setTimeout(() => synth.speak(utter), utterQueue.length * 20);
                 utterQueue.push(utter);
             }
-
-            // Начинаем озвучку с небольшой задержкой
             setTimeout(speakNext, 100);
         }
         
