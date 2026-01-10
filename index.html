@@ -5100,70 +5100,49 @@
         if (window.recognition) {
           const origRecognitionOnResult = recognition.onresult;
           recognition.onresult = function(event) {
-            // --- Поддержка промежуточных результатов и финального текста в одном user message блоке ---
             let interimTranscript = '';
             let finalTranscript = '';
-            // Собираем все сегменты
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
               const res = event.results[i];
-              if (res.isFinal) {
-                finalTranscript += res[0].transcript;
-              } else {
-                interimTranscript += res[0].transcript;
-              }
+              if (res.isFinal) finalTranscript += res[0].transcript;
+              else interimTranscript += res[0].transcript;
             }
-            // --- Найти или создать user chat-message без .finalized ---
+
+            const textToShow = interimTranscript || finalTranscript;
+            if (!textToShow.trim()) return;
+
+            // Найти последний незавершённый user message
             let lastMsg = null;
-            for (let i = chatMessages.children.length - 1; i >= 0; --i) {
+            for (let i = chatMessages.children.length - 1; i >= 0; i--) {
               const el = chatMessages.children[i];
               if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
                 lastMsg = el;
                 break;
               }
             }
+
             if (!lastMsg) {
-              // Создаем новый user chat-message
-              const msgDiv = document.createElement('div');
-              msgDiv.className = 'chat-message user';
+              lastMsg = document.createElement('div');
+              lastMsg.className = 'chat-message user';
               const senderDiv = document.createElement('div');
               senderDiv.className = 'sender';
               senderDiv.textContent = 'You';
               const textDiv = document.createElement('div');
               textDiv.className = 'text';
-              msgDiv.appendChild(senderDiv);
-              msgDiv.appendChild(textDiv);
-              chatMessages.appendChild(msgDiv);
-              lastMsg = msgDiv;
-              // copy-on-click
-              msgDiv.addEventListener('click', () => {
-                navigator.clipboard.writeText(textDiv.textContent).then(() => {
-                  msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                  setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
-                });
-              });
+              lastMsg.appendChild(senderDiv);
+              lastMsg.appendChild(textDiv);
+              chatMessages.appendChild(lastMsg);
             }
+
             const textDiv = lastMsg.querySelector('.text');
-            // --- Промежуточный результат: обновляем содержимое блока, без дублирования ---
-            if (interimTranscript && interimTranscript.trim()) {
-              // Можно использовать typeChatMessage, но чтобы не было анимации на каждый onresult — просто обновляем текст
-              textDiv.textContent = interimTranscript;
+            if (textDiv) {
+              // Реалтайм анимация: очищаем предыдущий interim текст
+              textDiv.innerHTML = '';
+              typeChatMessage(textToShow, textDiv);
             }
-            // --- Финальный результат: обновляем тот же блок, делаем finalized и анимируем печать ---
-            if (finalTranscript && finalTranscript.trim()) {
-              lastMsg.classList.add('finalized');
-              if (textDiv) {
-                textDiv.innerHTML = '';
-                typeChatMessage(finalTranscript, textDiv);
-              }
-              // copy-on-click для финального текста
-              lastMsg.onclick = () => {
-                navigator.clipboard.writeText(finalTranscript).then(() => {
-                  lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                  setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
-                });
-              };
-            }
-            // Передать дальше в старый обработчик, если он есть
+
+            // Не трогаем orb и команды
             if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
           };
         }
