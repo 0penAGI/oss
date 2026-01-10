@@ -4608,6 +4608,37 @@
             stopCameraAnalysisLoop();
         }
 
+        // ====== Включать/выключать анализ вместе с чатом (единый цикл) ======
+        let chatEnabled = false;
+        let chatAnalysisInterval = null;
+        let origOpenChat = window.openChat;
+        let origCloseChat = window.closeChatPanel;
+
+        function startChatAnalysisLoop() {
+            if (chatAnalysisInterval) clearInterval(chatAnalysisInterval);
+            // Периодический вызов анализа чата (пока пустой callback)
+            chatAnalysisInterval = setInterval(() => {
+                if (!chatEnabled) return;
+                // TODO: здесь будет анализ чата (пока пусто)
+                // console.log("Chat analysis tick");
+            }, 2000);
+        }
+        function stopChatAnalysisLoop() {
+            if (chatAnalysisInterval) clearInterval(chatAnalysisInterval);
+            chatAnalysisInterval = null;
+        }
+
+        window.openChat = function(...args) {
+            chatEnabled = true;
+            startChatAnalysisLoop();
+            if (typeof origOpenChat === "function") origOpenChat.apply(this, args);
+        }
+        window.closeChatPanel = function(...args) {
+            chatEnabled = false;
+            stopChatAnalysisLoop();
+            if (typeof origCloseChat === "function") origCloseChat.apply(this, args);
+        }
+
 
         // Utility: stick chat to bottom if near bottom
         function stickChatToBottom(container, threshold = 24) {
