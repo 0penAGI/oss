@@ -758,7 +758,7 @@
 
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(p, vec3(1.0, 0, 0.38), vec3(0.34, 0.4, 1.0), vec3(0.23, 0.35, 1.0));
+                vec3 color = XDust(p, vec3(0.8, 0, 0.48), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
                 gl_FragColor = vec4(color * vColor, alpha * 0.7);
