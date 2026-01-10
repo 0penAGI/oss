@@ -4969,28 +4969,24 @@
                         }
                         typeChar();
                     } else if (seg.type === "glitch") {
-                        // ~text~ → glitch effect, animated
-                        const span = document.createElement('span');
-                        span.className = 'chat-char chat-glitch glitch-animate';
-                        let chars = Array.from(seg.text);
+                        const parentSpan = document.createElement('span');
+                        parentSpan.className = 'chat-glitch';
+                        const chars = Array.from(seg.text);
                         let i = 0;
                         function typeChar() {
                             if (i >= chars.length) {
-                                element.appendChild(span);
+                                element.appendChild(parentSpan);
                                 if (cursor) element.appendChild(cursor);
-                                // Start glitch animation for children
-                                Array.from(span.childNodes).forEach(child => {
-                                    if (child.nodeType === 1) startGlitchAnimation(child, child._baseText || child.textContent);
-                                });
                                 scrollChatToBottomLocal();
                                 setTimeout(typeSegment, wordDelay + Math.random() * 10);
                                 return;
                             }
-                            const cspan = document.createElement('span');
-                            cspan.className = 'chat-char chat-glitch';
-                            cspan._baseText = chars[i];
-                            cspan.textContent = chars[i++];
-                            span.appendChild(cspan);
+                            const span = document.createElement('span');
+                            span.className = 'chat-char chat-glitch';
+                            span._baseText = chars[i];
+                            span.textContent = chars[i++];
+                            parentSpan.appendChild(span);
+                            startGlitchAnimation(span, span._baseText);
                             if (cursor) element.appendChild(cursor);
                             scrollChatToBottomLocal();
                             setTimeout(typeChar, charDelay + Math.random() * 2);
