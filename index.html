@@ -4556,6 +4556,13 @@
             ) <= threshold;
         }
 
+        // Utility: scroll chat to bottom
+        function scrollChatToBottom() {
+            const chatContainer = document.getElementById('chatMessages');
+            if (!chatContainer) return;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
 
@@ -4564,11 +4571,9 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
         const isAI = element.closest('.chat-message')?.classList.contains('ai');
         const chatContainer = document.getElementById('chatMessages');
 
-        // Dynamically recalculate "stick" so autoscroll works while typing
-        function scrollIfStick() {
-            if (!chatContainer) return;
-            const nearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight <= 24;
-            if (nearBottom) chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Use scrollChatToBottom instead of scrollIfStick
+        function scrollChatToBottomLocal() {
+            scrollChatToBottom();
         }
 
         let cursor = null;
@@ -4604,7 +4609,7 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
                     const cursor = element.querySelector('.ai-cursor');
                     if (cursor) cursor.remove();
                 }
-                scrollIfStick();
+                scrollChatToBottomLocal();
                 resolve();
                 return;
             }
@@ -4617,7 +4622,7 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
                 span.textContent = part;
                 element.appendChild(span);
                 if (cursor) element.appendChild(cursor);
-                scrollIfStick();
+                scrollChatToBottomLocal();
                 setTimeout(typePart, wordDelay / 2);
                 return;
             }
@@ -4628,7 +4633,7 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
                 span.textContent = part;
                 element.appendChild(span);
                 if (cursor) element.appendChild(cursor);
-                scrollIfStick();
+                scrollChatToBottomLocal();
                 let puncPause = 90;
                 if (/[.!?]/.test(part)) puncPause += 120;
                 setTimeout(typePart, puncPause);
@@ -4647,7 +4652,7 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
                 span.textContent = part[charIdx++];
                 element.appendChild(span);
                 if (cursor) element.appendChild(cursor);
-                scrollIfStick();
+                scrollChatToBottomLocal();
                 setTimeout(typeChar, charDelay + Math.random() * 10);
             }
             typeChar();
@@ -4689,6 +4694,8 @@ function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
                     cursor.remove();
                 }
                 container.classList.remove('chat-cursor');
+                // scroll to bottom after message is fully typed
+                scrollChatToBottom();
             });
         }
 
