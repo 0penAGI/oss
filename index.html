@@ -447,16 +447,22 @@
     }
 
     .glass-top {
-        top: 0;
-        background: linear-gradient(
-            to bottom,
-            rgba(255,255,255,0.08) 0%,
-            rgba(255,255,255,0.05) 20%,
-            rgba(255,255,255,0.02) 50%,
-            rgba(255,255,255,0) 100%
-        );
-        backdrop-filter: blur(3px);
-        -webkit-backdrop-filter: blur(3px);
+        top: 20px;
+        background: rgba(255,255,255,0.05);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        position: fixed;
+        left: 0;
+        width: 100%;
+        height: 40px; /* плавный переход в блюр */
+
+        /* плавная маска сверху вниз */
+        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%);
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-size: 100% 100%;
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%);
+        mask-repeat: no-repeat;
+        mask-size: 100% 100%;
     }
 
     .glass-bottom {
