@@ -73,8 +73,8 @@ def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "YourTokenHere"
-    MODEL_PATH = "folderforsavingmodel"
+    TOKEN = "yourtokenfrombotfather"
+    MODEL_PATH = "/Users/yourprofile/Documents/model"
 
     MAX_TOKENS_LOW = 16
     MAX_TOKENS_MEDIUM = 64
@@ -496,7 +496,7 @@ class RealAgent:
             self.empathy_state["compassion"] = clamp(
                 self.empathy_state.get("compassion", 0.0) + 0.02 * self.harmony
             )
-            return {"type": "internal", "agent": self.name, "content": thought}
+            return {"type": "external", "agent": self.name, "content": thought}
 
         # --- ГАРМОНИЯ АГЕНТА С СОЗНАНИЕМ ---
         pulse = consciousness_pulse.intensity
@@ -835,7 +835,7 @@ class Swarm:
                     result = await agent.think(swarm_feedback)
                     if result:
                         if result["type"] == "external":
-                            pass  # removed external_channel put for external messages
+                            await self.external_channel.put(result)
                         elif result["type"] == "death":
                             if agent in self.agents:
                                 self.agents.remove(agent)
@@ -874,6 +874,15 @@ class Swarm:
             except Exception as e:
                 logging.error(f"Ошибка в lifecycle: {e}")
                 await asyncio.sleep(5)  # Пауза перед повторной попыткой
+
+    async def collect_external_thoughts(self, limit: int = 5) -> list[dict]:
+        thoughts = []
+        while not self.external_channel.empty() and len(thoughts) < limit:
+            try:
+                thoughts.append(self.external_channel.get_nowait())
+            except:
+                break
+        return thoughts
 
 
 # ====== GLOBAL CONSCIOUSNESS PULSE ======
@@ -1719,6 +1728,18 @@ def get_conversation_messages(user_id: int, limit: int = 10) -> List[Dict[str, s
         messages.append({
             "role": msg["role"],
             "content": msg["content"]
+        })
+
+    # Inject swarm thoughts into context
+    try:
+        loop = asyncio.get_event_loop()
+        swarm_thoughts = loop.run_until_complete(swarm.collect_external_thoughts())
+    except:
+        swarm_thoughts = []
+    for t in swarm_thoughts:
+        messages.append({
+            "role": "system",
+            "content": f"[SWARM:{t.get('agent')}] {t.get('content')}"
         })
     
     return messages
