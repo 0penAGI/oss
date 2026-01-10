@@ -3594,6 +3594,27 @@
         let spokenLength = 0; // сколько символов уже отдано в речь
         let chatTypingQueue = Promise.resolve();
         let orbTypingQueue = Promise.resolve();
+
+        // === Orb Bounce Animation ===
+        let bounceInterval = null;
+        function startOrbBounce() {
+            stopOrbBounce();
+            let orbElem = orb;
+            if (!orbElem) return;
+            bounceInterval = setInterval(() => {
+                orbElem.classList.add('bouncing');
+                setTimeout(() => {
+                    orbElem.classList.remove('bouncing');
+                }, 420);
+            }, 900 + Math.random() * 320);
+        }
+        function stopOrbBounce() {
+            if (bounceInterval) {
+                clearInterval(bounceInterval);
+                bounceInterval = null;
+            }
+            if (orb) orb.classList.remove('bouncing');
+        }
     // --- Haptic feedback: Vibration patterns for thinking/speaking ---
     let thinkingVibrationInterval = null;
     let speakingVibrationInterval = null;
@@ -3642,227 +3663,236 @@
         }
     }
 
-    async function sendToBot(text) {
-        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-        isThinking = true;
-        orb.classList.remove('listening');
-        orb.classList.add('thinking');
-        status.innerText = "processing stream";
-        // --- таймеры статуса для длинной обработки ---
-        let processingTimeout = setTimeout(() => {
-            status.innerText = "thinking";
-        }, 10000); // через 10 секунд
+        async function sendToBot(text) {
+            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+            isThinking = true;
+            orb.classList.remove('listening');
+            orb.classList.add('thinking');
+            status.innerText = "processing stream";
+            // --- таймеры статуса для длинной обработки ---
+            let processingTimeout = setTimeout(() => {
+                status.innerText = "thinking";
+            }, 10000); // через 10 секунд
 
-        let researchingTimeout = setTimeout(() => {
-            status.innerText = "preparing answer";
-        }, 20000); // через 20 секунд
-        startThinkingVibration();
+            let researchingTimeout = setTimeout(() => {
+                status.innerText = "preparing answer";
+            }, 20000); // через 20 секунд
+            startThinkingVibration();
 
-        // Подготовка UI с курсором
-        let responseContainer = document.getElementById("current-response");
+            // --- Orb bounce animation start ---
+            startOrbBounce();
 
-        if (!responseContainer) {
-            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-            responseContainer = document.getElementById("current-response");
-        } else {
-            responseContainer.innerHTML = '';
-            responseContainer.classList.add('typing-cursor');
-        }
-        audioBuffer = "";
-        spokenLength = 0;
-        // --- sDelay-driven speech sync ---
-        let speechStarted = false;
-        const speechDelayMs = 420; // базовая задержка «вязкого времени»
+            // Подготовка UI с курсором
+            let responseContainer = document.getElementById("current-response");
 
-        try {
-            const userId = tg?.initDataUnsafe?.user?.id || 0;
-            // Добавляем описание камеры в скобках, если оно есть
-            let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
+            if (!responseContainer) {
+                transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+                responseContainer = document.getElementById("current-response");
+            } else {
+                responseContainer.innerHTML = '';
+                responseContainer.classList.add('typing-cursor');
             }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+            audioBuffer = "";
+            spokenLength = 0;
+            // --- sDelay-driven speech sync ---
+            let speechStarted = false;
+            const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
-            // Gather extended context for payload
-            const recentNotes = internalNotes.slice(-8);
-            const musicContext = {
-                genre: currentGenre,
-                genome: musicGenome,
-                aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
-                playing: !!musicPlaying
-            };
-            const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
-                ? memoryPalace.getRecentNodes(8)
-                : [];
-            const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
-
-            const payload = {
-                user_id: userId,
-                text: textWithContext,
-                gender: userGender,
-                lang: currentLang,
-                notes: recentNotes,
-                music: musicContext,
-                memory: memoryContext,
-                self_awareness: selfAwarenessContext
-            };
-
-            const response = await fetch(
-                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
-                    },
-                    body: JSON.stringify(payload)
+            try {
+                const userId = tg?.initDataUnsafe?.user?.id || 0;
+                // Добавляем описание камеры в скобках, если оно есть
+                let textWithContext = text;
+                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                    textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-            );
+                // Добавляем внутренние заметки self-awareness
+                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+                // Gather extended context for payload
+                const recentNotes = internalNotes.slice(-8);
+                const musicContext = {
+                    genre: currentGenre,
+                    genome: musicGenome,
+                    aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
+                    playing: !!musicPlaying
+                };
+                const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
+                    ? memoryPalace.getRecentNodes(8)
+                    : [];
+                const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
-            isThinking = false;
-            orb.classList.remove('thinking');
-            stopThinkingVibration();
-            orb.classList.add('speaking');
-            status.innerText = "receiving data";
-            vibrateSpeaking();
+                const payload = {
+                    user_id: userId,
+                    text: textWithContext,
+                    gender: userGender,
+                    lang: currentLang,
+                    notes: recentNotes,
+                    music: musicContext,
+                    memory: memoryContext,
+                    self_awareness: selfAwarenessContext
+                };
 
-            let chatShouldStick = stickChatToBottom(chatMessages);
-            // === STREAM TO CHAT (AI) ===
-            window._chatStreamBuffer = '';
-            window._chatStreamMsg = null;
-            window._chatStreamHasText = false;
-            window._chatStreamPrinted = 0;
+                const response = await fetch(
+                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify(payload)
+                    }
+                );
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
 
-                const chunk = decoder.decode(value, { stream: true });
+                isThinking = false;
+                orb.classList.remove('thinking');
+                stopThinkingVibration();
+                orb.classList.add('speaking');
+                status.innerText = "receiving data";
+                vibrateSpeaking();
 
-                window._chatStreamBuffer += chunk;
+                // --- Orb bounce animation stop at start of AI message ---
+                stopOrbBounce();
 
-                const printed = window._chatStreamPrinted || 0;
-                const full = window._chatStreamBuffer;
-                const delta = full.slice(printed);
+                let chatShouldStick = stickChatToBottom(chatMessages);
+                // === STREAM TO CHAT (AI) ===
+                window._chatStreamBuffer = '';
+                window._chatStreamMsg = null;
+                window._chatStreamHasText = false;
+                window._chatStreamPrinted = 0;
 
-                // удаляем пробелы и служебную пустоту
-                const cleanDelta = delta.replace(/\s+/g, '');
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-                if (!window._chatStreamMsg && cleanDelta.length > 0) {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message ai';
-                    msgDiv.innerHTML = `
-                      <div class="sender">AI</div>
-                      <div class="text"></div>
-                    `;
-                    chatMessages.appendChild(msgDiv);
-                    window._chatStreamMsg = msgDiv.querySelector('.text');
-                    window._chatStreamPrinted = printed;
-                }
+                    const chunk = decoder.decode(value, { stream: true });
 
-                if (cleanDelta.length > 0) {
-                    window._chatStreamHasText = true;
-                }
+                    window._chatStreamBuffer += chunk;
 
-                if (delta.trim().length > 0 && window._chatStreamMsg) {
-                    window._chatStreamPrinted = full.length;
-                    chatShouldStick = stickChatToBottom(chatMessages);
-                    chatTypingQueue = chatTypingQueue.then(() => {
-                        return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
-                            if (chatShouldStick) {
-                                chatMessages.scrollTop = chatMessages.scrollHeight;
-                            }
+                    const printed = window._chatStreamPrinted || 0;
+                    const full = window._chatStreamBuffer;
+                    const delta = full.slice(printed);
+
+                    // удаляем пробелы и служебную пустоту
+                    const cleanDelta = delta.replace(/\s+/g, '');
+
+                    if (!window._chatStreamMsg && cleanDelta.length > 0) {
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'chat-message ai';
+                        msgDiv.innerHTML = `
+                          <div class="sender">AI</div>
+                          <div class="text"></div>
+                        `;
+                        chatMessages.appendChild(msgDiv);
+                        window._chatStreamMsg = msgDiv.querySelector('.text');
+                        window._chatStreamPrinted = printed;
+                    }
+
+                    if (cleanDelta.length > 0) {
+                        window._chatStreamHasText = true;
+                    }
+
+                    if (delta.trim().length > 0 && window._chatStreamMsg) {
+                        window._chatStreamPrinted = full.length;
+                        chatShouldStick = stickChatToBottom(chatMessages);
+                        chatTypingQueue = chatTypingQueue.then(() => {
+                            return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
+                                if (chatShouldStick) {
+                                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                                }
+                            });
                         });
-                    });
-                }
+                    }
 
-                // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                if (responseContainer) {
-                    orbTypingQueue = orbTypingQueue.then(() =>
-                        typeWriterEffect(responseContainer, chunk, {
-                            charDelay: 6,
-                            wordPause: 0
-                        })
-                    );
-                    // Микропаузa на границах фраз
-                    if (/[.!?\n]/.test(chunk)) {
+                    // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
+                    if (responseContainer) {
                         orbTypingQueue = orbTypingQueue.then(() =>
-                            new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                            typeWriterEffect(responseContainer, chunk, {
+                                charDelay: 6,
+                                wordPause: 0
+                            })
                         );
+                        // Микропаузa на границах фраз
+                        if (/[.!?\n]/.test(chunk)) {
+                            orbTypingQueue = orbTypingQueue.then(() =>
+                                new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                            );
+                        }
                     }
-                }
 
-                // Копим для озвучки
-                audioBuffer += chunk;
+                    // Копим для озвучки
+                    audioBuffer += chunk;
 
-                if (!speechStarted) {
-                    speechStarted = true;
+                    if (!speechStarted) {
+                        speechStarted = true;
 
-                    // считаем первый чанк уже озвученным,
-                    // чтобы он не попал в delta и не сказалcя второй раз
-                    spokenLength = audioBuffer.length;
-
-                    setTimeout(() => {
-                        speak(chunk);
-                    }, 120);
-                }
-
-                if (speechStarted) {
-                    const delta = audioBuffer.slice(spokenLength);
-                    // более ранний порог — речь дышит вместе с печатью
-                    if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+                        // считаем первый чанк уже озвученным,
+                        // чтобы он не попал в delta и не сказалcя второй раз
                         spokenLength = audioBuffer.length;
-                        speak(delta);
+
+                        setTimeout(() => {
+                            speak(chunk);
+                        }, 120);
+                    }
+
+                    if (speechStarted) {
+                        const delta = audioBuffer.slice(spokenLength);
+                        // более ранний порог — речь дышит вместе с печатью
+                        if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+                            spokenLength = audioBuffer.length;
+                            speak(delta);
+                        }
                     }
                 }
-            }
 
-            // === END CHAT STREAM ===
-            if (
-                window._chatStreamMsg &&
-                !window._chatStreamHasText
-            ) {
-                window._chatStreamMsg.closest('.chat-message')?.remove();
-            }
-            window._chatStreamHasText = false;
-            window._chatStreamBuffer = '';
-            window._chatStreamMsg = null;
-            window._chatStreamPrinted = 0;
-            orbTypingQueue = Promise.resolve();
+                // === END CHAT STREAM ===
+                if (
+                    window._chatStreamMsg &&
+                    !window._chatStreamHasText
+                ) {
+                    window._chatStreamMsg.closest('.chat-message')?.remove();
+                }
+                window._chatStreamHasText = false;
+                window._chatStreamBuffer = '';
+                window._chatStreamMsg = null;
+                window._chatStreamPrinted = 0;
+                orbTypingQueue = Promise.resolve();
 
-            if (responseContainer) {
-                responseContainer.classList.remove("typing-cursor");
-            }
-            status.innerText = "speaking";
-            // One strong vibration at the end of receiving
-            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-            else if (navigator.vibrate) navigator.vibrate([60]);
+                if (responseContainer) {
+                    responseContainer.classList.remove("typing-cursor");
+                }
+                status.innerText = "speaking";
+                // One strong vibration at the end of receiving
+                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+                else if (navigator.vibrate) navigator.vibrate([60]);
 
-            // договариваем хвост, если он остался
-            const tail = audioBuffer.slice(spokenLength);
-            if (tail.trim().length > 0) {
-                speak(tail);
-            }
+                // договариваем хвост, если он остался
+                const tail = audioBuffer.slice(spokenLength);
+                if (tail.trim().length > 0) {
+                    speak(tail);
+                }
 
-        } catch (e) {
-            console.error(e);
-            status.innerText = "stream error";
-            orb.classList.remove('thinking');
-            orb.classList.remove('speaking');
-            isThinking = false;
-            isSpeaking = false;
-            stopThinkingVibration();
-            stopSpeakingVibration();
-            setTimeout(startListening, 2000);
-        } finally {
-            clearTimeout(processingTimeout);
-            clearTimeout(researchingTimeout);
+            } catch (e) {
+                console.error(e);
+                status.innerText = "stream error";
+                orb.classList.remove('thinking');
+                orb.classList.remove('speaking');
+                isThinking = false;
+                isSpeaking = false;
+                stopThinkingVibration();
+                stopSpeakingVibration();
+                stopOrbBounce();
+                setTimeout(startListening, 2000);
+            } finally {
+                clearTimeout(processingTimeout);
+                clearTimeout(researchingTimeout);
+                // just in case, stop bounce
+                stopOrbBounce();
+            }
         }
-    }
 
         //
         // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
