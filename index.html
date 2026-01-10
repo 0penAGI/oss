@@ -3507,19 +3507,36 @@
             // --- Промежуточные результаты: показываем и в orb, и в чат (typeChatMessage) ---
             if (interimTranscript && interimTranscript.trim()) {
                 appendTranscript(interimTranscript);
-                // Всегда создаём новый элемент для каждого нового потока речи
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user';
-                const senderDiv = document.createElement('div');
-                senderDiv.className = 'sender';
-                senderDiv.textContent = 'You';
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text';
-                msgDiv.appendChild(senderDiv);
-                msgDiv.appendChild(textDiv);
-                chatMessages.appendChild(msgDiv);
+                // В чат как промежуточное сообщение пользователя (user typing)
+                // Найти последний user chat-message без .finalized
+                let lastMsg = null;
+                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
+                    const el = chatMessages.children[i];
+                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
+                        lastMsg = el;
+                        break;
+                    }
+                }
+                if (!lastMsg) {
+                    // Создаем новый
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-message user';
+                    const senderDiv = document.createElement('div');
+                    senderDiv.className = 'sender';
+                    senderDiv.textContent = 'You';
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'text';
+                    msgDiv.appendChild(senderDiv);
+                    msgDiv.appendChild(textDiv);
+                    chatMessages.appendChild(msgDiv);
+                    lastMsg = msgDiv;
+                }
                 // Обновляем текст с анимацией (без финализации)
-                textDiv.textContent = interimTranscript;
+                const textDiv = lastMsg.querySelector('.text');
+                if (textDiv) {
+                    // Просто заменяем содержимое без анимации, чтобы не дублировать буквы
+                    textDiv.textContent = interimTranscript;
+                }
             }
             // --- Если нет промежуточного, но есть финальный (быстрый ввод) — обновляем orb ---
             else if (finalTranscript && finalTranscript.trim()) {
@@ -3531,25 +3548,43 @@
                 const text = finalTranscript.trim();
                 // --- Обновляем orb ---
                 appendTranscript(text);
-                // --- В чат: финализируем сообщение пользователя (создаём новый элемент и анимируем) ---
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user finalized';
-                const senderDiv = document.createElement('div');
-                senderDiv.className = 'sender';
-                senderDiv.textContent = 'You';
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text';
-                msgDiv.appendChild(senderDiv);
-                msgDiv.appendChild(textDiv);
-                chatMessages.appendChild(msgDiv);
+                // --- В чат: финализируем сообщение пользователя (заменяем/создаем) ---
+                // Найти последний незавершенный user chat-message
+                let lastMsg = null;
+                for (let i = chatMessages.children.length - 1; i >= 0; --i) {
+                    const el = chatMessages.children[i];
+                    if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
+                        lastMsg = el;
+                        break;
+                    }
+                }
+                if (!lastMsg) {
+                    // Создаем новый
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'chat-message user finalized';
+                    const senderDiv = document.createElement('div');
+                    senderDiv.className = 'sender';
+                    senderDiv.textContent = 'You';
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'text';
+                    msgDiv.appendChild(senderDiv);
+                    msgDiv.appendChild(textDiv);
+                    chatMessages.appendChild(msgDiv);
+                    lastMsg = msgDiv;
+                } else {
+                    lastMsg.classList.add('finalized');
+                }
                 // Анимируем текст как финальный (typeChatMessage)
-                textDiv.innerHTML = '';
-                typeChatMessage(text, textDiv);
+                const textDiv = lastMsg.querySelector('.text');
+                if (textDiv) {
+                    textDiv.innerHTML = '';
+                    typeChatMessage(text, textDiv);
+                }
                 // Добавляем copy-on-click для сообщения
-                msgDiv.onclick = () => {
+                lastMsg.onclick = () => {
                     navigator.clipboard.writeText(text).then(() => {
-                        msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+                        lastMsg.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        setTimeout(() => { lastMsg.style.backgroundColor = ''; }, 200);
                     });
                 };
 
@@ -5065,49 +5100,26 @@
         if (window.recognition) {
           const origRecognitionOnResult = recognition.onresult;
           recognition.onresult = function(event) {
-            let interimTranscript = '';
-            let finalTranscript = '';
-
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-              const res = event.results[i];
-              if (res.isFinal) finalTranscript += res[0].transcript;
-              else interimTranscript += res[0].transcript;
-            }
-
-            const textToShow = interimTranscript || finalTranscript;
-            if (!textToShow.trim()) return;
-
-            // Найти последний незавершённый user message
-            let lastMsg = null;
-            for (let i = chatMessages.children.length - 1; i >= 0; i--) {
-              const el = chatMessages.children[i];
-              if (el.classList.contains('chat-message') && el.classList.contains('user') && !el.classList.contains('finalized')) {
-                lastMsg = el;
-                break;
-              }
-            }
-
-            if (!lastMsg) {
-              lastMsg = document.createElement('div');
-              lastMsg.className = 'chat-message user';
-              const senderDiv = document.createElement('div');
-              senderDiv.className = 'sender';
-              senderDiv.textContent = 'You';
-              const textDiv = document.createElement('div');
-              textDiv.className = 'text';
-              lastMsg.appendChild(senderDiv);
-              lastMsg.appendChild(textDiv);
-              chatMessages.appendChild(lastMsg);
-            }
-
-            const textDiv = lastMsg.querySelector('.text');
-            if (textDiv) {
-              // Реалтайм анимация: очищаем предыдущий interim текст
-              textDiv.innerHTML = '';
-              typeChatMessage(textToShow, textDiv);
-            }
-
-            // Не трогаем orb и команды
+            const text = event.results[0][0].transcript;
+            // Новый вариант: typeChatMessage для пользователя
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-message user`;
+            const senderDiv = document.createElement('div');
+            senderDiv.className = 'sender';
+            senderDiv.textContent = 'You';
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text';
+            msgDiv.appendChild(senderDiv);
+            msgDiv.appendChild(textDiv);
+            chatMessages.appendChild(msgDiv);
+            // removed direct scroll here for autoscroll patch
+            msgDiv.addEventListener('click', () => {
+                navigator.clipboard.writeText(text).then(() => {
+                    msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                    setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
+                });
+            });
+            typeChatMessage(text, textDiv);
             if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
           };
         }
