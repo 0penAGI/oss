@@ -4559,103 +4559,103 @@
         // ===== Chat Panel Management =====
         // === Chat typing animation with word-by-word effect ===
 
-        function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
-            return new Promise((resolve) => {
-                const isAI = element.closest('.chat-message')?.classList.contains('ai');
-                const chatContainer = document.getElementById('chatMessages');
-                const stick = stickChatToBottom(chatContainer);
+function typeWriterWordsEffect(element, text, charDelay = 23, wordDelay = 110) {
+    return new Promise((resolve) => {
+        const isAI = element.closest('.chat-message')?.classList.contains('ai');
+        const chatContainer = document.getElementById('chatMessages');
 
-                function scrollIfStick() {
-                    if (stick && chatContainer) {
-                        chatContainer.scrollTop = chatContainer.scrollHeight;
-                    }
-                }
-
-                let cursor = null;
-                if (isAI) {
-                    cursor = element.querySelector('.ai-cursor');
-                    if (!cursor) {
-                        cursor = document.createElement('span');
-                        cursor.className = 'ai-cursor';
-                        element.appendChild(cursor);
-                    }
-                }
-
-                const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-                let parts = [];
-                let lastIndex = 0;
-                let m;
-
-                while ((m = wordRegex.exec(text)) !== null) {
-                    if (m.index > lastIndex) {
-                        parts.push(text.slice(lastIndex, m.index));
-                    }
-                    parts.push(m[0]);
-                    lastIndex = wordRegex.lastIndex;
-                }
-                if (lastIndex < text.length) {
-                    parts.push(text.slice(lastIndex));
-                }
-
-                let i = 0;
-                function typePart() {
-                    if (i >= parts.length) {
-                        if (isAI) {
-                            const cursor = element.querySelector('.ai-cursor');
-                            if (cursor) cursor.remove();
-                        }
-                        scrollIfStick();
-                        resolve();
-                        return;
-                    }
-
-                    const part = parts[i++];
-
-                    // spaces
-                    if (/^\s+$/.test(part)) {
-                        const span = document.createElement('span');
-                        span.textContent = part;
-                        element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
-                        scrollIfStick();
-                        setTimeout(typePart, wordDelay / 2);
-                        return;
-                    }
-
-                    // punctuation
-                    if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
-                        const span = document.createElement('span');
-                        span.textContent = part;
-                        element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
-                        scrollIfStick();
-                        let puncPause = 90;
-                        if (/[.!?]/.test(part)) puncPause += 120;
-                        setTimeout(typePart, puncPause);
-                        return;
-                    }
-
-                    // word — letter by letter
-                    let charIdx = 0;
-                    function typeChar() {
-                        if (charIdx >= part.length) {
-                            setTimeout(typePart, wordDelay + Math.random() * 40);
-                            return;
-                        }
-                        const span = document.createElement('span');
-                        span.className = 'chat-char';
-                        span.textContent = part[charIdx++];
-                        element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
-                        scrollIfStick();
-                        setTimeout(typeChar, charDelay + Math.random() * 10);
-                    }
-                    typeChar();
-                }
-
-                typePart();
-            });
+        // Dynamically recalculate "stick" so autoscroll works while typing
+        function scrollIfStick() {
+            if (!chatContainer) return;
+            const nearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight <= 24;
+            if (nearBottom) chatContainer.scrollTop = chatContainer.scrollHeight;
         }
+
+        let cursor = null;
+        if (isAI) {
+            cursor = element.querySelector('.ai-cursor');
+            if (!cursor) {
+                cursor = document.createElement('span');
+                cursor.className = 'ai-cursor';
+                element.appendChild(cursor);
+            }
+        }
+
+        const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
+        let parts = [];
+        let lastIndex = 0;
+        let m;
+
+        while ((m = wordRegex.exec(text)) !== null) {
+            if (m.index > lastIndex) {
+                parts.push(text.slice(lastIndex, m.index));
+            }
+            parts.push(m[0]);
+            lastIndex = wordRegex.lastIndex;
+        }
+        if (lastIndex < text.length) {
+            parts.push(text.slice(lastIndex));
+        }
+
+        let i = 0;
+        function typePart() {
+            if (i >= parts.length) {
+                if (isAI) {
+                    const cursor = element.querySelector('.ai-cursor');
+                    if (cursor) cursor.remove();
+                }
+                scrollIfStick();
+                resolve();
+                return;
+            }
+
+            const part = parts[i++];
+
+            // spaces
+            if (/^\s+$/.test(part)) {
+                const span = document.createElement('span');
+                span.textContent = part;
+                element.appendChild(span);
+                if (cursor) element.appendChild(cursor);
+                scrollIfStick();
+                setTimeout(typePart, wordDelay / 2);
+                return;
+            }
+
+            // punctuation
+            if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
+                const span = document.createElement('span');
+                span.textContent = part;
+                element.appendChild(span);
+                if (cursor) element.appendChild(cursor);
+                scrollIfStick();
+                let puncPause = 90;
+                if (/[.!?]/.test(part)) puncPause += 120;
+                setTimeout(typePart, puncPause);
+                return;
+            }
+
+            // word — letter by letter
+            let charIdx = 0;
+            function typeChar() {
+                if (charIdx >= part.length) {
+                    setTimeout(typePart, wordDelay + Math.random() * 40);
+                    return;
+                }
+                const span = document.createElement('span');
+                span.className = 'chat-char';
+                span.textContent = part[charIdx++];
+                element.appendChild(span);
+                if (cursor) element.appendChild(cursor);
+                scrollIfStick();
+                setTimeout(typeChar, charDelay + Math.random() * 10);
+            }
+            typeChar();
+        }
+
+        typePart();
+    });
+}
 
         // typeChatMessage теперь использует typeWriterWordsEffect с пост-обработкой markdown-style *italics* и увеличением <b>/<strong>
         function typeChatMessage(text, container) {
