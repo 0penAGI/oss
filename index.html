@@ -4579,12 +4579,12 @@
                     utterQueue.push(utter);
                     return;
                 }
-                // Обычный фрагмент: микроварьирование pitch/rate
+             
                 let jitter = Math.min(0.025, Math.abs(vocalTemperature) * 0.04);
                 jitter *= (1.0 - sessionResonance * 0.6);
                 let localRate = rate * (1.0 + (Math.random() - 0.5) * jitter);
                 let localPitch = pitch * (1.0 + (Math.random() - 0.5) * jitter);
-                // Иногда чуть тише или громче
+              
                 let localVol = 0.88 + (Math.random() - 0.5) * 0.05;
                 localVol = Math.max(0.01, Math.min(1.0, localVol));
                 const utter = new SpeechSynthesisUtterance(s);
@@ -4615,7 +4615,7 @@
             setTimeout(speakNext, 100);
         }
         
-        // ambient обработчик теперь реализован выше
+        
         
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -4624,7 +4624,7 @@
             }, 1200);
         });
 
-        // ====== Минималистичная камера с голосовым управлением ======
+        // ====== camera ======
         const cameraVideo = document.getElementById('camera-video');
         let currentCamera = 'user'; // 'user' (front) or 'environment' (back)
         let stream = null;
@@ -4641,7 +4641,7 @@
                 cameraVideo.srcObject = stream;
                 cameraVideo.style.display = 'block';
             } catch (e) {
-                // Не показывать alert, чтобы не мешать UI
+                // alert,  UI
                 cameraVideo.style.display = 'none';
             }
         }
@@ -4660,21 +4660,20 @@
             startCamera(currentCamera);
         }
 
-        // ======== Фоновая обработка видео с описанием сцены ========
-        // Фоновый canvas для анализа кадров (невидимый)
+  
         const visionCanvas = document.createElement('canvas');
         visionCanvas.style.display = 'none';
         document.body.appendChild(visionCanvas);
         const visionCtx = visionCanvas.getContext('2d');
 
         // ===== OpenCV.js Vision Detection =====
-        // Функция для детекции лиц с помощью OpenCV.js
+        // OpenCV.js
         let opencvReady = false;
         let faceCascade = null;
         let cascadeLoaded = false;
         let pendingVisionFrames = [];
 
-        // Загружаем cascade файл для лиц
+
         function loadCascade() {
             if (faceCascade || !opencvReady) return;
             faceCascade = new cv.CascadeClassifier();
@@ -4684,7 +4683,7 @@
             cv.FS_createPreloadedFile('/', cascadeFile, cascadeUrl, true, false, () => {
                 faceCascade.load(cascadeFile);
                 cascadeLoaded = true;
-                // Обрабатываем отложенные кадры
+      
                 while (pendingVisionFrames.length > 0) {
                     const args = pendingVisionFrames.shift();
                     detectFacesAndSend(...args);
@@ -4702,15 +4701,15 @@
             loadCascade();
         };
 
-        // Детекция лиц и отправка описания
+     
         async function detectFacesAndSend(frameCanvas, width, height) {
             if (!opencvReady || !cascadeLoaded) {
-                // Откладываем вызов, если OpenCV не готов
+               
                 pendingVisionFrames.push([frameCanvas, width, height]);
                 return;
             }
             try {
-                // Получаем изображение из canvas
+               
                 let src = cv.imread(frameCanvas);
                 let gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
@@ -4726,28 +4725,28 @@
                 } else {
                     desc = `Обнаружено лиц: ${count}.`;
                 }
-                // Освобождаем память
+         
                 src.delete();
                 gray.delete();
                 faces.delete();
                 msize.delete();
-                // Сохраняем описание в глобальную переменную
+             
                 latestCameraDescription = desc;
-                // Не вызываем sendToBot автоматически!
+              
             } catch (e) {
-                // В случае ошибки не отправляем, просто игнорируем
+             
             }
         }
 
-        // ====== Единый цикл для анализа камеры и отправки описания ======
+  
         // --- TensorFlow.js integration for object detection ---
-        // Загружаем TensorFlow.js и модель COCO-SSD (или кастомную)
+  
         let tfReady = false;
         let tfModel = null;
         let tfLoadingPromise = null;
         let tfScriptLoaded = false;
         let tfLoadStarted = false;
-        // Список интересующих объектов
+      
         const OBJECTS_OF_INTEREST = [
             { ru: "стол", en: ["dining table", "table", "desk"] },
             { ru: "ноутбук", en: ["laptop"] },
@@ -4760,8 +4759,7 @@
             if (tfReady || tfLoadStarted) return tfLoadingPromise;
             tfLoadStarted = true;
             tfLoadingPromise = new Promise((resolve, reject) => {
-                // Подключаем TensorFlow.js и модель COCO-SSD
-                // Добавляем скрипты динамически
+     
                 function loadScript(src, onload) {
                     const s = document.createElement('script');
                     s.src = src;
@@ -4772,7 +4770,7 @@
                 loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js', () => {
                     tfScriptLoaded = true;
                     loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js', async () => {
-                        // Ждем tf и cocoSsd в window
+                     
                         let tries = 0;
                         function waitForTF() {
                             if (window.tf && window.cocoSsd) {
@@ -4796,12 +4794,12 @@
         }
 
         let cameraAnalysisInterval = null;
-        // Новая версия analyzeAndSendCameraFrame с улучшенной стабильностью
+        // analyzeAndSendCameraFrame
         async function analyzeAndSendCameraFrame() {
             if (!cameraEnabled) return;
 
             try {
-                // Проверяем видимость и готовность видео/канваса
+                
                 if (
                     cameraVideo.style.display !== 'block' ||
                     cameraVideo.readyState < 2 ||
@@ -4873,7 +4871,6 @@
                     console.error("Ошибка selfAwareness:", e);
                 }
 
-                // Отправка на сервер
                 try {
                     const userId = tg?.initDataUnsafe?.user?.id || 0;
                     await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
@@ -4885,7 +4882,6 @@
                     console.error("Ошибка отправки описания камеры:", e);
                 }
             } catch(e) {
-                // Ловим любые неожиданные ошибки, не даём циклу упасть
                 console.error("Ошибка в analyzeAndSendCameraFrame:", e);
             }
         }
@@ -4898,13 +4894,13 @@
             cameraAnalysisInterval = null;
         }
 
-        // ===== Голосовые команды для камеры + переменная cameraEnabled =====
+        // ===== cameraEnabled =====
         let cameraEnabled = false;
-        // Встроить команды в обработчик onresult
+  
         const prevOnResult = recognition.onresult;
         recognition.onresult = async (event) => {
             const text = event.results[0][0].transcript;
-            // --- Голосовая команда для включения музыки напрямую (приоритетная обработка) ---
+           
             if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
                 if (!musicPlaying) {
                     if (musicCtx.state === 'suspended') await musicCtx.resume();
@@ -4912,7 +4908,7 @@
                 }
                 return;
             }
-            // Голосовые команды камеры
+          
             if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
                 if (cameraVideo.style.display !== 'block') {
                     startCamera(currentCamera);
@@ -4929,19 +4925,18 @@
                 switchCamera();
             }
 
-            // Голосовые команды для ambient
+         
             const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
             if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
                 triggerAmbient();
             }
 
-            // Передать дальше в старый обработчик
+           
             if (typeof prevOnResult === 'function') {
                 await prevOnResult(event);
             }
         };
 
-        // ====== Включать/выключать анализ вместе с камерой (единый цикл) ======
         const origStartCamera = startCamera;
         startCamera = async function(...args) {
             await origStartCamera.apply(this, args);
@@ -5032,7 +5027,7 @@
         }
 
         function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
-            // Очистка текста от точек и пробелов в начале
+        
             text = text.replace(/^[.\s]+/, '');
             return new Promise((resolve) => {
                 if (!text || !text.trim()) {
