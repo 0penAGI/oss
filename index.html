@@ -3899,6 +3899,9 @@
 
     async function sendToBot(text) {
             stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+            if (window.recognition && recognition.abort) {
+                try { recognition.abort(); } catch(e){}
+            }
             isThinking = true;
             orb.classList.remove('listening');
             orb.classList.add('thinking');
@@ -4355,6 +4358,9 @@
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
             // === 2) Защита от overlap TTS ===
+            if (window.recognition && recognition.abort) {
+                try { recognition.abort(); } catch(e){}
+            }
             if (speechSynthesis.speaking || speechSynthesis.pending) {
                 speechSynthesis.cancel();
                 setTimeout(() => {}, 30);
@@ -4525,7 +4531,11 @@
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
                                 setTimeout(() => {
-                                    startListening();
+                                    if (window.recognition && recognition.start) {
+                                        try { recognition.start(); } catch(e){}
+                                    } else {
+                                        startListening();
+                                    }
                                 }, 400);
                             });
                         }
@@ -5052,12 +5062,7 @@
         function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
             // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
-                // detect code only once, on message start
-                if (element._codeChecked !== true) {
-                    element._codeChecked = true;
-                    element._isCodeMessage = detectCodeBlock(text);
-                }
-                if (element._isCodeMessage) {
+                if (detectCodeBlock(text)) {
                     const pre = document.createElement('pre');
                     pre.className = 'code-artifact';
                     const code = document.createElement('code');
