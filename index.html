@@ -3882,7 +3882,22 @@
         }
     }
 
-        async function sendToBot(text) {
+    // === External Search Context Buffer (from frontend search) ===
+    window.externalSearchContext = [];
+
+    function pushExternalSearchContext(entry) {
+        if (!entry) return;
+        window.externalSearchContext.push({
+            ts: Date.now(),
+            data: entry
+        });
+        // keep buffer small
+        if (window.externalSearchContext.length > 12) {
+            window.externalSearchContext.shift();
+        }
+    }
+
+    async function sendToBot(text) {
             stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
             isThinking = true;
             orb.classList.remove('listening');
@@ -3948,7 +3963,8 @@
                     notes: recentNotes,
                     music: musicContext,
                     memory: memoryContext,
-                    self_awareness: selfAwarenessContext
+                    self_awareness: selfAwarenessContext,
+                    external_context: window.externalSearchContext.slice(-6)
                 };
 
                 const response = await fetch(
@@ -3962,6 +3978,9 @@
                         body: JSON.stringify(payload)
                     }
                 );
+
+                // clear external context after successful handoff to backend
+                window.externalSearchContext = [];
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
