@@ -4357,6 +4357,7 @@
             // === 2) Защита от overlap TTS ===
             if (speechSynthesis.speaking || speechSynthesis.pending) {
                 speechSynthesis.cancel();
+                setTimeout(() => {}, 30);
             }
             if (!text || !text.trim()) return;
 
@@ -4584,7 +4585,7 @@
                 let localRate = rate * (1.0 + (Math.random() - 0.5) * jitter);
                 let localPitch = pitch * (1.0 + (Math.random() - 0.5) * jitter);
                 // Иногда чуть тише или громче
-                let localVol = 0.93 + (Math.random() - 0.5) * 0.08;
+                let localVol = 0.88 + (Math.random() - 0.5) * 0.05;
                 localVol = Math.max(0.01, Math.min(1.0, localVol));
                 const utter = new SpeechSynthesisUtterance(s);
                 utter.lang = currentLang;
