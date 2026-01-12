@@ -5013,9 +5013,13 @@
         // === Code block detection for chat messages ===
         function detectCodeBlock(text) {
             if (!text) return false;
-            if (text.includes('```')) return true;
-            if (/^\s*(const|let|var|function|class|import|export|def|if|for|while|return)\b/m.test(text)) return true;
-            if (/^\s*<[^>]+>/m.test(text)) return true;
+            const t = text.trimStart();
+            // fenced code block only if at start
+            if (t.startsWith('```')) return true;
+            // code-like syntax only if at start of message
+            if (/^(const|let|var|function|class|import|export|def|if|for|while|return)\b/.test(t)) return true;
+            // HTML only if starts at beginning
+            if (/^<[^>]+>/.test(t)) return true;
             return false;
         }
 
@@ -5052,7 +5056,14 @@
                     const pre = document.createElement('pre');
                     pre.className = 'code-artifact';
                     const code = document.createElement('code');
-                    code.textContent = text;
+
+                    // strip leading ``` if present
+                    let codeText = text.trimStart();
+                    if (codeText.startsWith('```')) {
+                        codeText = codeText.replace(/^```[\w-]*\n?/, '').replace(/```$/, '');
+                    }
+
+                    code.textContent = codeText;
                     pre.appendChild(code);
                     element.appendChild(pre);
                     resolve();
@@ -5312,14 +5323,16 @@
                     animation: glitch-flicker 0.22s infinite alternate;
                 }
                 .code-artifact {
-                    background: rgba(0,0,0,0.1);
+                    background: rgba(0,0,0,0.6);
+                    border: 1px solid rgba(255,255,255,0.15);
+                    border-radius: 1px;
                     padding: 14px 16px;
                     margin: 8px 0;
                     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
                     font-size: 0.88em;
                     line-height: 1.45;
                     color: #e6e6e6;
-                    box-shadow: 0 0 24px rgba(0,255,255,0.03);
+                    box-shadow: 0 0 24px rgba(0,255,255,0.08);
                     overflow-x: auto;
                 }
                 .code-artifact code {
