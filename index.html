@@ -5052,7 +5052,12 @@
         function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
             // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
-                if (detectCodeBlock(text)) {
+                // detect code only once, on message start
+                if (element._codeChecked !== true) {
+                    element._codeChecked = true;
+                    element._isCodeMessage = detectCodeBlock(text);
+                }
+                if (element._isCodeMessage) {
                     const pre = document.createElement('pre');
                     pre.className = 'code-artifact';
                     const code = document.createElement('code');
