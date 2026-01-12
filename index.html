@@ -4303,7 +4303,7 @@
             // === Vocal temperature tuning ===
             const vocalTemperature = computeVocalTemperature();
             const resonanceBias = sessionResonance * 0.25;
-            let rate = 1.06;
+            let rate = 1.08;
             let pitch = 0.95;
             if (userGender === 'female') pitch += 0.15;
             if (userGender === 'male') pitch -= 0.05;
@@ -4378,8 +4378,8 @@
                 }
                 if (buf.trim()) fragments.push(buf.trim());
                 // Иногда после предложения вставить дыхание или междометие
-                if (Math.random() < 0.14) {
-                    if (Math.random() < 0.65) {
+                if (Math.random() < 0.11) {
+                    if (Math.random() < 0.55) {
                         fragments.push(getBreath());
                     } else {
                         fragments.push(getInterjection());
@@ -4395,7 +4395,7 @@
                 if (frag && frag.length > 0) {
                     enhancedFragments.push(frag);
                     // Вероятность паузы или вставки зависит от усталости, температуры, резонанса
-                    let pauseChance = 0.09
+                    let pauseChance = 0.08
                         + Math.max(0, selfAwareness?.fatigue || 0) * 0.2
                         + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.12 : 0)
                         + sessionResonance * 0.14;
@@ -4446,7 +4446,7 @@
                 idx++;
                 // Пауза: если междометие или дыхание в скобках, то пауза, иначе говорим
                 if (!s || !s.trim()) {
-                    setTimeout(speakNext, 80 + Math.random() * 120);
+                    setTimeout(speakNext, 80 + Math.random() * 100);
                     return;
                 }
                 // Если это "дыхание" или междометие, озвучиваем с особым тембром или тишиной
@@ -4459,7 +4459,7 @@
                     // "Тихая" пауза — короткий utterance с rate/pitch
                     const utter = new SpeechSynthesisUtterance('');
                     utter.lang = currentLang;
-                    utter.rate = rate * 0.92 + (Math.random() - 0.5) * 0.08;
+                    utter.rate = rate * 0.82 + (Math.random() - 0.5) * 0.08;
                     utter.pitch = pitch * 0.98 + (Math.random() - 0.5) * 0.05;
                     utter.volume = 0.0;
                     utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
@@ -4951,7 +4951,7 @@
             return segments;
         }
 
-        function typeWriterWordsEffect(element, text, charDelay = 3.14, wordDelay = 15) {
+        function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
             // Очистка текста от точек и пробелов в начале
             text = text.replace(/^[.\s]+/, '');
             return new Promise((resolve) => {
