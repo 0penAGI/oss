@@ -5021,15 +5021,21 @@
         }
 
         // === Code block detection for chat messages ===
-        function detectCodeBlock(text) {
-            if (!text) return false;
-            const t = text.trimStart();
-            // fenced code block only if at start
+        function detectCodeBlock(text, isFirstChunk = false) {
+            if (!isFirstChunk || !text) return false;
+
+            // проверяем ТОЛЬКО начало всего сообщения
+            const t = text.replace(/^\uFEFF?/, '').trimStart();
+
+            // fenced code block
             if (t.startsWith('```')) return true;
-            // code-like syntax only if at start of message
-            if (/^(const|let|var|function|class|import|export|def|if|for|while|return)\b/.test(t)) return true;
-            // HTML only if starts at beginning
+
+            // явный код — только если СТРОГО с начала строки
+            if (/^(const|let|var|function|class|import|export|def)\s+/m.test(t)) return true;
+
+            // html — только если первый символ
             if (/^<[^>]+>/.test(t)) return true;
+
             return false;
         }
 
@@ -5062,22 +5068,26 @@
         function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
             // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
-                if (detectCodeBlock(text)) {
-                    const pre = document.createElement('pre');
-                    pre.className = 'code-artifact';
-                    const code = document.createElement('code');
+                if (!element._codeChecked) {
+                    element._codeChecked = true;
 
-                    // strip leading ``` if present
-                    let codeText = text.trimStart();
-                    if (codeText.startsWith('```')) {
-                        codeText = codeText.replace(/^```[\w-]*\n?/, '').replace(/```$/, '');
+                    if (detectCodeBlock(text, true)) {
+                        const pre = document.createElement('pre');
+                        pre.className = 'code-artifact';
+                        const code = document.createElement('code');
+
+                        // strip leading ``` if present
+                        let codeText = text.trimStart();
+                        if (codeText.startsWith('```')) {
+                            codeText = codeText.replace(/^```[\w-]*\n?/, '').replace(/```$/, '');
+                        }
+
+                        code.textContent = codeText;
+                        pre.appendChild(code);
+                        element.appendChild(pre);
+                        resolve();
+                        return;
                     }
-
-                    code.textContent = codeText;
-                    pre.appendChild(code);
-                    element.appendChild(pre);
-                    resolve();
-                    return;
                 }
                 text = text.replace(/^[.\s]+/, '');
                 if (!text || !text.trim()) {
