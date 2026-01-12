@@ -5020,35 +5020,16 @@
             span.textContent = baseText;
         }
 
-        // === Streaming code mode detector ===
-        window._codeMode = false;
-
+        // === Code block detection for chat messages ===
         function detectCodeBlock(text) {
             if (!text) return false;
-
             const t = text.trimStart();
-
-            // Явное начало fenced-блока
-            if (t.startsWith('```')) {
-                window._codeMode = true;
-                return true;
-            }
-
-            // Пока мы в codeMode — считаем всё кодом
-            if (window._codeMode) {
-                // Закрытие fenced-блока
-                if (t.includes('```')) {
-                    window._codeMode = false;
-                }
-                return true;
-            }
-
-            // Эвристика: код ТОЛЬКО если начинается с кодовой сигнатуры
-            if (/^(const|let|var|function|class|import|export|def|if|for|while|return|\{|\/\/)/.test(t)) {
-                window._codeMode = true;
-                return true;
-            }
-
+            // fenced code block only if at start
+            if (t.startsWith('```')) return true;
+            // code-like syntax only if at start of message
+            if (/^(const|let|var|function|class|import|export|def|if|for|while|return)\b/.test(t)) return true;
+            // HTML only if starts at beginning
+            if (/^<[^>]+>/.test(t)) return true;
             return false;
         }
 
@@ -5095,10 +5076,6 @@
                     code.textContent = codeText;
                     pre.appendChild(code);
                     element.appendChild(pre);
-                    // если это одиночный чанк без продолжения — выходим из codeMode
-                    if (!text.trimEnd().endsWith('\\')) {
-                        window._codeMode = false;
-                    }
                     resolve();
                     return;
                 }
