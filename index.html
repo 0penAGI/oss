@@ -5011,9 +5011,13 @@
         }
 
         function parseMarkdownSegments(text) {
-            // Returns array of {type:..., text:...}
-            // Supported: **bold**, *italic*, ~glitch~
-            let regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|~([^~]+)~)/g;
+            // Supported:
+            // ```code```      -> code-block
+            // `code`          -> inline-code
+            // **bold**
+            // *italic*
+            // ~glitch~
+            let regex = /(```[\s\S]*?```|`[^`\n]+`|\*\*([^*]+)\*\*|\*([^*]+)\*|~([^~]+)~)/g;
             let segments = [];
             let lastIndex = 0;
             let m;
@@ -5021,7 +5025,17 @@
                 if (m.index > lastIndex) {
                     segments.push({ type: "plain", text: text.slice(lastIndex, m.index) });
                 }
-                if (m[2]) {
+                if (m[0].startsWith("```")) {
+                    segments.push({
+                        type: "code-block",
+                        text: m[0].replace(/^```/, '').replace(/```$/, '').trim()
+                    });
+                } else if (m[0].startsWith("`")) {
+                    segments.push({
+                        type: "inline-code",
+                        text: m[0].slice(1, -1)
+                    });
+                } else if (m[2]) {
                     segments.push({ type: "bold", text: m[2] });
                 } else if (m[3]) {
                     segments.push({ type: "italic", text: m[3] });
@@ -5135,7 +5149,31 @@
                             typeChar();
                         }
                         typePart();
-                    } else if (seg.type === "italic") {
+                    }
+                    else if (seg.type === "code-block") {
+                        const pre = document.createElement('pre');
+                        pre.className = 'chat-code-block';
+
+                        const code = document.createElement('code');
+                        code.textContent = seg.text;
+
+                        pre.appendChild(code);
+                        element.appendChild(pre);
+                        if (cursor) element.appendChild(cursor);
+
+                        scrollChatToBottomLocal();
+                        setTimeout(typeSegment, wordDelay + 40);
+                    }
+                    else if (seg.type === "inline-code") {
+                        const span = document.createElement('span');
+                        span.className = 'chat-inline-code';
+                        span.textContent = seg.text;
+                        element.appendChild(span);
+                        if (cursor) element.appendChild(cursor);
+                        scrollChatToBottomLocal();
+                        setTimeout(typeSegment, wordDelay);
+                    }
+                    else if (seg.type === "italic") {
                         // *italic* → semi-transparent, slightly italicized
                         const span = document.createElement('span');
                         span.className = 'chat-char chat-italic';
@@ -5158,7 +5196,8 @@
                             setTimeout(typeChar, charDelay + Math.random() * 4);
                         }
                         typeChar();
-                    } else if (seg.type === "bold") {
+                    }
+                    else if (seg.type === "bold") {
                         // **bold** → larger, bold
                         const span = document.createElement('span');
                         span.className = 'chat-char chat-bold';
@@ -5181,7 +5220,8 @@
                             setTimeout(typeChar, charDelay + Math.random() * 4);
                         }
                         typeChar();
-                    } else if (seg.type === "glitch") {
+                    }
+                    else if (seg.type === "glitch") {
                         const parentSpan = document.createElement('span');
                         parentSpan.className = 'chat-glitch';
                         const chars = Array.from(seg.text);
@@ -5205,7 +5245,8 @@
                             setTimeout(typeChar, charDelay + Math.random() * 2);
                         }
                         typeChar();
-                    } else {
+                    }
+                    else {
                         // fallback: just append
                         const span = document.createElement('span');
                         span.className = 'chat-char';
@@ -5281,6 +5322,34 @@
                 }
                 .glitch-animate {
                     animation: glitch-flicker 0.22s infinite alternate;
+                }
+                .chat-code-block {
+                    margin: 10px 0;
+                    padding: 12px 14px;
+                    background: rgba(10, 10, 14, 0.92);
+                    border-radius: 10px;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                    font-size: 0.92em;
+                    line-height: 1.45;
+                    color: #e6e6f0;
+                    box-shadow:
+                        inset 0 0 0 1px rgba(255,255,255,0.06),
+                        0 0 18px rgba(120,140,255,0.18);
+                    overflow-x: auto;
+                    white-space: pre;
+                }
+
+                .chat-code-block code {
+                    display: block;
+                }
+
+                .chat-inline-code {
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                    background: rgba(120,140,255,0.12);
+                    padding: 2px 6px;
+                    border-radius: 6px;
+                    font-size: 0.92em;
+                    color: #f0f0ff;
                 }
                 @keyframes char-appear {
                     to {
