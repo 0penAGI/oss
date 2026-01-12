@@ -3814,6 +3814,11 @@
         let chatTypingQueue = Promise.resolve();
         let orbTypingQueue = Promise.resolve();
 
+        // === TTS batching/buffering ===
+        let ttsBuffer = '';
+        let ttsFlushTimer = null;
+        let lastTTSSend = 0;
+
         // === Orb Bounce Animation ===
         let bounceInterval = null;
         function startOrbBounce() {
@@ -4069,7 +4074,7 @@
                         spokenLength = audioBuffer.length;
 
                         setTimeout(() => {
-                            speak(chunk);
+                            enqueueTTS(chunk);
                         }, 120);
                     }
 
@@ -4078,7 +4083,7 @@
                         // более ранний порог — речь дышит вместе с печатью
                         if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
                             spokenLength = audioBuffer.length;
-                            speak(delta);
+                            enqueueTTS(delta);
                         }
                     }
                 }
@@ -4352,8 +4357,32 @@
             return Math.max(-1, Math.min(1, t));
         }
 
+        // Буферизация речи для TTS (batching)
+        function enqueueTTS(text) {
+            if (!text || !text.trim()) return;
+
+            ttsBuffer += text;
+            const now = performance.now();
+
+            if (ttsFlushTimer) return;
+
+            const delay = Math.max(120, 280 - (now - lastTTSSend));
+            ttsFlushTimer = setTimeout(() => {
+                if (speechSynthesis.pending || speechSynthesis.speaking) {
+                    ttsFlushTimer = null;
+                    return;
+                }
+                const out = ttsBuffer.trim();
+                ttsBuffer = '';
+                ttsFlushTimer = null;
+                lastTTSSend = performance.now();
+                if (out) speak(out);
+            }, delay);
+        }
+
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            if (performance.now() - lastTTSSend < 120) return;
             if (!text || !text.trim()) return;
 
             updateSessionResonance();
@@ -4362,7 +4391,6 @@
             stopListeningVibration();
             stopThinkingVibration();
             stopSpeakingVibration();
-            recognition.abort();
 
             // Плавное визуальное переключение с анимацией
             orb.classList.remove('listening', 'thinking');
@@ -4577,8 +4605,8 @@
                 // Обычный фрагмент: микроварьирование pitch/rate
                 let jitter = Math.abs(vocalTemperature) * 0.07;
                 jitter *= (1.0 - sessionResonance * 0.6);
-                let localRate = rate * (1.0 + (Math.random() - 0.5) * jitter);
-                let localPitch = pitch * (1.0 + (Math.random() - 0.5) * jitter);
+                let localRate = rate;
+                let localPitch = pitch;
                 // Иногда чуть тише или громче
                 let localVol = 0.93 + (Math.random() - 0.5) * 0.08;
                 localVol = Math.max(0.01, Math.min(1.0, localVol));
@@ -4608,7 +4636,13 @@
                 utterQueue.push(utter);
             }
             setTimeout(speakNext, 100);
+            // При запуске speakNext, если фрагментов больше нет, обновить lastTTSSend
+            // (на случай если очередь закончилась)
+            if (enhancedFragments.length === 0) {
+                lastTTSSend = performance.now();
+            }
         }
+        
         
         // ambient обработчик теперь реализован выше
         
