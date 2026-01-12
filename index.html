@@ -5242,16 +5242,26 @@
         // typeChatMessage: uses typeWriterWordsEffect, applies real-time markdown styling and glitch
         function typeChatMessage(text, container) {
             if (!text || !text.trim()) return;
-            container.innerHTML = '';
             const isAI = container.closest('.chat-message')?.classList.contains('ai');
+
             let cursor = null;
-            if (isAI) {
-                cursor = document.createElement('span');
-                cursor.className = 'ai-cursor';
-                container.appendChild(cursor);
-            } else {
-                container.classList.add('chat-cursor');
+
+            // === USER MESSAGE: instant appear with soft animation ===
+            if (!isAI) {
+                container.innerHTML = text;
+                container.classList.add('user-appear');
+                requestAnimationFrame(() => {
+                    container.classList.add('user-appear-active');
+                });
+                scrollChatToBottom();
+                return;
             }
+
+            // === AI MESSAGE: keep existing typing ===
+            cursor = document.createElement('span');
+            cursor.className = 'ai-cursor';
+            container.appendChild(cursor);
+
             typeWriterWordsEffect(container, text).then(() => {
                 // Remove cursor if present
                 if (cursor && cursor.parentNode) cursor.remove();
@@ -5327,6 +5337,20 @@
                 @keyframes glitch-flicker {
                     from { filter: blur(0.5px) brightness(1.2); }
                     to   { filter: blur(2px) brightness(1.5); }
+                }
+                .user-appear {
+                    opacity: 0;
+                    transform: translateY(4px) scale(0.98);
+                    filter: blur(2px);
+                    transition:
+                        opacity 0.22s ease-out,
+                        transform 0.22s cubic-bezier(.2,.8,.2,1),
+                        filter 0.22s ease-out;
+                }
+                .user-appear-active {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                    filter: blur(0);
                 }
             `;
             document.head.appendChild(style);
