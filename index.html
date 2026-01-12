@@ -4398,6 +4398,16 @@
             rate *= 1.0 - resonanceBias * 0.15;
             pitch *= 1.0 - resonanceBias * 0.08;
 
+            // === TTS warmup to avoid crackle after pause ===
+            if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                const warmup = new SpeechSynthesisUtterance(' ');
+                warmup.volume = 0.01;
+                warmup.rate = rate;
+                warmup.pitch = pitch;
+                if (currentVoice) warmup.voice = currentVoice;
+                speechSynthesis.speak(warmup);
+            }
+
             // Гуманизация текста + разбиение на фрагменты
             let cleanedForSpeech = humanizeText(text)
                 .replace(/\\+/g, '')
