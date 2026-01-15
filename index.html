@@ -761,7 +761,7 @@
                 vec3 color = XDust(p, vec3(1.0, 0, 0.48), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(color * vColor, alpha * 0.4);
+                gl_FragColor = vec4(color * vColor, alpha * 0.7);
             }
         `;
 
@@ -813,35 +813,17 @@
                     vec2 dir = noiseDir(uv);
 
                     vec4 col = vec4(0.0);
-                    col += texture2D(tex, uv) * 0.36;
-
-                    col += texture2D(tex, uv + dir * px * 1.0) * 0.18;
-                    col += texture2D(tex, uv - dir * px * 1.0) * 0.18;
-
-                    col += texture2D(tex, uv + dir * px * 2.0) * 0.11;
-                    col += texture2D(tex, uv - dir * px * 2.0) * 0.11;
-
-                    col += texture2D(tex, uv + dir * px * 3.5) * 0.03;
-                    col += texture2D(tex, uv - dir * px * 3.5) * 0.03;
+                    col += texture2D(tex, uv) * 0.314;
+                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
+                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
                     return col;
                 }
 
                 void main() {
                     vec4 oldCol = noiseBlur(tOld, vUv);
-
-                    // isotropic blur to remove black spots
-                    vec2 px = 0.3 / resolution;
-                    oldCol.rgb = (
-                        oldCol.rgb +
-                        texture2D(tOld, vUv + vec2(px.x, 0.0)).rgb +
-                        texture2D(tOld, vUv - vec2(px.x, 0.0)).rgb +
-                        texture2D(tOld, vUv + vec2(0.0, px.y)).rgb +
-                        texture2D(tOld, vUv - vec2(0.0, px.y)).rgb
-                    ) / 5.0;
-
-                    // anti-black floor
-                    oldCol.rgb = max(oldCol.rgb, vec3(0.004));
 
                     // накопленная усталость из предыдущих кадров (alpha-канал)
                     float fatigueMemory = oldCol.a;
@@ -863,31 +845,17 @@
                     float effectivePlasticity = plasticity * (1.0 - fatigue * 0.6);
 
                     // обучаемое локальное затухание (Hebbian‑like plasticity)
-                    float localDecay = max(
-                        mix(decay, 1.0, activity * learning * effectivePlasticity),
-                        0.88
+                    float localDecay = mix(
+                        decay,
+                        1.0,
+                        activity * learning * effectivePlasticity
                     );
 
                     oldCol *= localDecay;
-
-                    // soft blur for incoming signal (anti-speckles)
-                    vec4 newCol =
-                        texture2D(tNew, vUv) * 0.6 +
-                        texture2D(tNew, vUv + vec2(px.x, 0.0)) * 0.1 +
-                        texture2D(tNew, vUv - vec2(px.x, 0.0)) * 0.1 +
-                        texture2D(tNew, vUv + vec2(0.0, px.y)) * 0.1 +
-                        texture2D(tNew, vUv - vec2(0.0, px.y)) * 0.1;
-
+                    vec4 newCol = texture2D(tNew, vUv);
                     // сохраняем усталость обратно в память
-                    oldCol.a = clamp(fatigue, 0.02, 1.0);
-
-                    // физически стабильный микс вместо runaway max
-                    vec4 mixed = mix(oldCol, newCol, 0.55);
-
-                    // мягкий тон‑шейпинг и лимитер
-                    mixed.rgb = pow(clamp(mixed.rgb, 0.0, 1.1), vec3(0.95));
-
-                    gl_FragColor = mixed;
+                    oldCol.a = clamp(fatigue, 0.0, 1.0);
+                    gl_FragColor = max(oldCol * 0.96, newCol);
                 }
             `,
             transparent: true
@@ -1317,7 +1285,6 @@
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
-            renderer.setClearColor(0x000000, 0);
             renderer.clear();
             renderer.render(scene, camera);
 
@@ -1425,7 +1392,6 @@
         const chatFragmentShader = `
             uniform float time;
             uniform vec2 flow;
-            uniform float depth;
             varying vec2 vUv;
 
             // 2D плавный шум
@@ -1453,22 +1419,10 @@
 
             void main() {
                 vec2 uv = vUv;
-
-                float z = depth;
-
-                // координаты без масштаба — экран остаётся стабильным
-                vec2 p = uv;
-
-                float zPhase = z * 0.4 + time * 0.15;
-
-                // ощущение движения из глубины к камере
-                vec2 shifted = p
-                    + flow * 0.015
-                    + fbm(p * 2.0 + zPhase) * 0.05;
-
-                float n = fbm(shifted * 3.5 + zPhase);
-
-                vec3 col = vec3(0.0) + n * 0.05;
+                // динамическое смещение на основе flow
+                vec2 shifted = uv + flow * 0.12 + fbm(uv*2.0 + time*0.07) * 0.04;
+                float n = fbm(shifted*3.0 + time*0.2);
+                vec3 col = vec3(0.0) + n*0.05; // черный фон с едва заметным шумом
                 gl_FragColor = vec4(col, 1.0);
             }
             `;
@@ -1476,8 +1430,7 @@
         const chatMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                flow: { value: new THREE.Vector2(0.0, 0.0) },
-                depth: { value: 0.0 }
+                flow: { value: new THREE.Vector2(0.0, 0.0) }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -1554,7 +1507,6 @@
 
             chatMaterial.uniforms.time.value = t * intensity;
             chatMaterial.uniforms.flow.value.set(flowX, flowY);
-            chatMaterial.uniforms.depth.value += 0.002 + orbEnergy * 0.003;
 
             requestAnimationFrame(autoReactiveChat);
         }
