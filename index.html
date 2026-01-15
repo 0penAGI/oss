@@ -826,6 +826,8 @@
                     col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
                     col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
+                    // === BLUR ENERGY DAMPING ===
+                    col.rgb *= 0.92;
                     return col;
                 }
 
@@ -860,16 +862,25 @@
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
+
+                    // === ENERGY CLAMP: immediately after feedback read ===
+                    float e = max(oldCol.r, max(oldCol.g, oldCol.b));
+                    oldCol.rgb *= 1.0 / (1.0 + e);
+
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
-                    vec4 color = max(oldCol * 0.96, newCol);
+                    // === NO ADDITIVE FEEDBACK ===
+                    // vec4 color = max(oldCol * 0.96, newCol);
+                    vec4 col = mix(oldCol * 0.96, newCol, 0.5);
+                    // === FINAL CLAMP BEFORE OUTPUT ===
+                    col.rgb = clamp(col.rgb, 0.0, 2.0);
                     if (
-                        any(isnan(color.rgb)) ||
-                        any(isinf(color.rgb))
+                        any(isnan(col.rgb)) ||
+                        any(isinf(col.rgb))
                     ) {
-                        color = vec4(0.0, 0.0, 0.0, 1.0);
+                        col = vec4(0.0, 0.0, 0.0, 1.0);
                     }
-                    gl_FragColor = color;
+                    gl_FragColor = col;
                 }
             `,
             transparent: true
