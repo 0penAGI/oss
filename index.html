@@ -831,7 +831,7 @@
                     vec4 oldCol = noiseBlur(tOld, vUv);
 
                     // isotropic blur to remove black spots
-                    vec2 px = 1.0 / resolution;
+                    vec2 px = 0.3 / resolution;
                     oldCol.rgb = (
                         oldCol.rgb +
                         texture2D(tOld, vUv + vec2(px.x, 0.0)).rgb +
@@ -839,6 +839,9 @@
                         texture2D(tOld, vUv + vec2(0.0, px.y)).rgb +
                         texture2D(tOld, vUv - vec2(0.0, px.y)).rgb
                     ) / 5.0;
+
+                    // anti-black floor
+                    oldCol.rgb = max(oldCol.rgb, vec3(0.004));
 
                     // накопленная усталость из предыдущих кадров (alpha-канал)
                     float fatigueMemory = oldCol.a;
@@ -860,10 +863,9 @@
                     float effectivePlasticity = plasticity * (1.0 - fatigue * 0.6);
 
                     // обучаемое локальное затухание (Hebbian‑like plasticity)
-                    float localDecay = mix(
-                        decay,
-                        1.0,
-                        activity * learning * effectivePlasticity
+                    float localDecay = max(
+                        mix(decay, 1.0, activity * learning * effectivePlasticity),
+                        0.88
                     );
 
                     oldCol *= localDecay;
@@ -877,10 +879,10 @@
                         texture2D(tNew, vUv - vec2(0.0, px.y)) * 0.1;
 
                     // сохраняем усталость обратно в память
-                    oldCol.a = clamp(fatigue, 0.0, 1.0);
+                    oldCol.a = clamp(fatigue, 0.02, 1.0);
 
                     // физически стабильный микс вместо runaway max
-                    vec4 mixed = oldCol * 0.92 + newCol * 0.85;
+                    vec4 mixed = mix(oldCol, newCol, 0.55);
 
                     // мягкий тон‑шейпинг и лимитер
                     mixed.rgb = pow(clamp(mixed.rgb, 0.0, 1.1), vec3(0.95));
