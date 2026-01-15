@@ -773,7 +773,7 @@
             uniforms: {
                 tOld: { value: null },
                 tNew: { value: null },
-                decay: { value: 0.96 },
+                decay: { value: 0.94 },
 
                 // --- synaptic memory ---
                 plasticity: { value: 0.25 }, // насколько след обучаем
@@ -802,22 +802,23 @@
                     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
                 }
 
-                vec2 noiseDir(vec2 uv) {
-                    float n = hash(uv * resolution);
-                    float a = n * 6.28318530718;
-                    return vec2(cos(a), sin(a));
-                }
-
+                // isotropic, stable Gaussian-like blur without directional noise
                 vec4 noiseBlur(sampler2D tex, vec2 uv) {
                     vec2 px = 1.0 / resolution;
-                    vec2 dir = noiseDir(uv);
 
                     vec4 col = vec4(0.0);
-                    col += texture2D(tex, uv) * 0.314;
-                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
-                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
+
+                    col += texture2D(tex, uv) * 0.28;
+
+                    col += texture2D(tex, uv + vec2( px.x, 0.0)) * 0.12;
+                    col += texture2D(tex, uv + vec2(-px.x, 0.0)) * 0.12;
+                    col += texture2D(tex, uv + vec2(0.0,  px.y)) * 0.12;
+                    col += texture2D(tex, uv + vec2(0.0, -px.y)) * 0.12;
+
+                    col += texture2D(tex, uv + vec2( px.x,  px.y)) * 0.06;
+                    col += texture2D(tex, uv + vec2(-px.x,  px.y)) * 0.06;
+                    col += texture2D(tex, uv + vec2( px.x, -px.y)) * 0.06;
+                    col += texture2D(tex, uv + vec2(-px.x, -px.y)) * 0.06;
 
                     return col;
                 }
@@ -829,7 +830,7 @@
                     float fatigueMemory = oldCol.a;
 
                     // локальная активность = яркость (псевдо‑нейронная активация)
-                    float activity = dot(oldCol.rgb, vec3(0.181));
+                    float activity = dot(smoothstep(0.0, 1.0, oldCol.rgb), vec3(0.181));
 
                     // мгновенная усталость от текущей активности
                     float instantFatigue = smoothstep(0.4, 0.9, activity);
@@ -859,6 +860,9 @@
 
                     // физически стабильный микс вместо runaway max
                     vec4 mixed = oldCol * 0.92 + newCol * 0.85;
+
+                    // мягкий tone-compression (anti-sparkle)
+                    mixed.rgb = mixed.rgb / (1.0 + mixed.rgb);
 
                     // жёсткий энергетический лимитер
                     mixed.rgb = clamp(mixed.rgb, 0.0, 1.15);
