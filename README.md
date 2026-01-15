@@ -3,7 +3,7 @@
 
 
 
-# OSS (0penAGI Zepphyr AI System) - Autonomous Multi-Agent AI with "Consciousness"
+# OSS (0penAGI Zephyr AI System) - Autonomous Multi-Agent AI with "Consciousness"
 
 ![OSS Logo](https://img.shields.io/badge/OSS-0penAGI-blue)
 ![Python](https://img.shields.io/badge/Python-3.9%2B-green)
