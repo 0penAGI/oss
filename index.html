@@ -1430,17 +1430,19 @@
             void main() {
                 vec2 uv = vUv;
 
-                // --- псевдо‑Z движение: масштаб + приближение ---
                 float z = depth;
-                vec2 centered = uv - 0.5;
-                vec2 zoomed = centered * (1.0 - z) + 0.5;
 
-                // flow остаётся, но больше не доминирует направлением
-                vec2 shifted = zoomed
-                    + flow * 0.02
-                    + fbm(zoomed * 2.0 + time * 0.07) * 0.04;
+                // координаты без масштаба — экран остаётся стабильным
+                vec2 p = uv;
 
-                float n = fbm(shifted * (3.0 + z * 6.0) + time * 0.2);
+                float zPhase = z * 0.4 + time * 0.15;
+
+                // ощущение движения из глубины к камере
+                vec2 shifted = p
+                    + flow * 0.015
+                    + fbm(p * 2.0 + zPhase) * 0.05;
+
+                float n = fbm(shifted * 3.5 + zPhase);
 
                 vec3 col = vec3(0.0) + n * 0.05;
                 gl_FragColor = vec4(col, 1.0);
@@ -1528,8 +1530,7 @@
 
             chatMaterial.uniforms.time.value = t * intensity;
             chatMaterial.uniforms.flow.value.set(flowX, flowY);
-            chatMaterial.uniforms.depth.value =
-                (chatMaterial.uniforms.depth.value + 0.002 + orbEnergy * 0.003) % 1.0;
+            chatMaterial.uniforms.depth.value += 0.002 + orbEnergy * 0.003;
 
             requestAnimationFrame(autoReactiveChat);
         }
