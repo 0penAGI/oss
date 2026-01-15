@@ -13,7 +13,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-0.1.x-orange.svg)](https://ollama.ai)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.104%2B-teal)
 ![WebGL](https://img.shields.io/badge/WebGL-3D%20visualization-orange)
-![LLM](https://img.shields.io/badge/LLM-Ollama%2B%20GPT-purple)
+
 
 
 - **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
