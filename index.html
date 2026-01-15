@@ -1392,6 +1392,7 @@
         const chatFragmentShader = `
             uniform float time;
             uniform vec2 flow;
+            uniform float depth;
             varying vec2 vUv;
 
             // 2D плавный шум
@@ -1419,10 +1420,20 @@
 
             void main() {
                 vec2 uv = vUv;
-                // динамическое смещение на основе flow
-                vec2 shifted = uv + flow * 0.12 + fbm(uv*2.0 + time*0.07) * 0.04;
-                float n = fbm(shifted*3.0 + time*0.2);
-                vec3 col = vec3(0.0) + n*0.05; // черный фон с едва заметным шумом
+
+                // --- псевдо‑Z движение: масштаб + приближение ---
+                float z = depth;
+                vec2 centered = uv - 0.5;
+                vec2 zoomed = centered * (1.0 - z) + 0.5;
+
+                // flow остаётся, но больше не доминирует направлением
+                vec2 shifted = zoomed
+                    + flow * 0.02
+                    + fbm(zoomed * 2.0 + time * 0.07) * 0.04;
+
+                float n = fbm(shifted * (3.0 + z * 6.0) + time * 0.2);
+
+                vec3 col = vec3(0.0) + n * 0.05;
                 gl_FragColor = vec4(col, 1.0);
             }
             `;
@@ -1430,7 +1441,8 @@
         const chatMaterial = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                flow: { value: new THREE.Vector2(0.0, 0.0) }
+                flow: { value: new THREE.Vector2(0.0, 0.0) },
+                depth: { value: 0.0 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -1507,6 +1519,8 @@
 
             chatMaterial.uniforms.time.value = t * intensity;
             chatMaterial.uniforms.flow.value.set(flowX, flowY);
+            chatMaterial.uniforms.depth.value =
+                (chatMaterial.uniforms.depth.value + 0.002 + orbEnergy * 0.003) % 1.0;
 
             requestAnimationFrame(autoReactiveChat);
         }
