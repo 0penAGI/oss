@@ -554,10 +554,17 @@
             renderer.setPixelRatio(window.devicePixelRatio);
         }
 
+        renderer.autoClear = true;
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear(true, true, true);
+
+        // --- защита от накопления света ---
+        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        // (оставляем настройки выше, чтобы не переопределять безопасные значения)
 
         canvas.addEventListener('webglcontextlost', (e) => {
             e.preventDefault();
@@ -1292,36 +1299,35 @@
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
-            renderer.setRenderTarget(null);
-
             // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.001;
 
-    
             const breath = Math.sin(performance.now() * 0.0003) * 0.0001; // медленнее и меньше амплитуда
-
             const jitter = (Math.random() - 0.03) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.6 + breath + jitter, 0.3 + breath + jitter);
+            let targetFlow = new THREE.Vector2(
+                0.6 + breath + jitter,
+                0.3 + breath + jitter
+            );
 
-
-            prevFlow.lerp(targetFlow, 0.01); 
+            prevFlow.lerp(targetFlow, 0.01);
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-       
             liquidMaterial.uniforms.time.value += 0.015;
 
-                renderer.render(feedbackScene, feedbackCamera);
+            renderer.setRenderTarget(null);
+            renderer.clear(true, true, true);
+            renderer.render(feedbackScene, feedbackCamera);
 
-                // swap render targets
+            // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-                // Emulate multi-agent system: graphic, content, ux pulse every frame
+            // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
