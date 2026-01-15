@@ -863,15 +863,16 @@
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
                     vec4 color = max(oldCol * 0.96, newCol);
-                    float e = max(color.r, max(color.g, color.b));
-                    color.rgb *= 1.0 / (1.0 + e);
+                    if (
+                        any(isnan(color.rgb)) ||
+                        any(isinf(color.rgb))
+                    ) {
+                        color = vec4(0.0, 0.0, 0.0, 1.0);
+                    }
                     gl_FragColor = color;
                 }
             `,
-            blending: THREE.NormalBlending,
-            transparent: false,
-            depthTest: false,
-            depthWrite: false
+            transparent: true
         });
 
         const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), feedbackMaterial);
@@ -1248,11 +1249,8 @@
         });
 
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
-        let frameCount = 0;
         function animate() {
             requestAnimationFrame(animate);
-
-            frameCount++;
 
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
@@ -1303,12 +1301,6 @@
             renderer.setRenderTarget(feedbackRT2);
             renderer.clear();
             renderer.render(scene, camera);
-
-            // --- Жёсткий reset памяти раз в несколько секунд ---
-            if (frameCount % 240 === 0) {
-                renderer.setRenderTarget(feedbackRT1);
-                renderer.clear(true, true, true);
-            }
 
             // mix previous frame + new frame
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
