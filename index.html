@@ -797,65 +797,30 @@
                 uniform float learning;
                 uniform vec2 resolution;
 
-                // hash noise
-                float hash(vec2 p) {
-                    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43176.5453123);
-                }
-
-                vec2 noiseDir(vec2 uv) {
-                    float n = hash(uv * resolution);
-                    float a = n * 6.28318530718;
-                    return vec2(cos(a), sin(a));
-                }
-
-                vec4 noiseBlur(sampler2D tex, vec2 uv) {
-                    vec2 px = 1.0 / resolution;
-                    vec2 dir = noiseDir(uv);
-
-                    vec4 col = vec4(0.0);
-                    col += texture2D(tex, uv) * 0.314;
-                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
-                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
-
-                    return col;
+                float luma(vec3 c) {
+                    return dot(c, vec3(0.2126, 0.7152, 0.0722));
                 }
 
                 void main() {
-                    vec4 oldCol = noiseBlur(tOld, vUv);
-
-                    // накопленная усталость из предыдущих кадров (alpha-канал)
-                    float fatigueMemory = oldCol.a;
-
-                    // локальная активность = яркость (псевдо‑нейронная активация)
-                    float activity = dot(oldCol.rgb, vec3(0.181));
-
-                    // мгновенная усталость от текущей активности
-                    float instantFatigue = smoothstep(0.4, 0.9, activity);
-
-                    // медленное накопление и восстановление усталости
-                    float fatigue = mix(
-                        fatigueMemory * 0.995,
-                        1.0,
-                        instantFatigue * 0.02
-                    );
-
-                    // эффективная пластичность с учетом усталости
-                    float effectivePlasticity = plasticity * (1.0 - fatigue * 0.6);
-
-                    // обучаемое локальное затухание (Hebbian‑like plasticity)
-                    float localDecay = mix(
-                        decay,
-                        1.0,
-                        activity * learning * effectivePlasticity
-                    );
-
-                    oldCol *= localDecay;
+                    vec4 oldCol = texture2D(tOld, vUv);
                     vec4 newCol = texture2D(tNew, vUv);
-                    // сохраняем усталость обратно в память
-                    oldCol.a = clamp(fatigue, 0.0, 1.0);
-                    gl_FragColor = max(oldCol * 0.96, newCol);
+
+                    // --- жёсткое затухание feedback ---
+                    oldCol.rgb *= decay;
+
+                    // --- защита от runaway brightness ---
+                    float energy = max(oldCol.r, max(oldCol.g, oldCol.b));
+                    oldCol.rgb *= 1.0 / (1.0 + energy);
+
+                    // --- fatigue memory остаётся, но не управляет RGB ---
+                    float fatigue = clamp(oldCol.a, 0.0, 1.0);
+                    oldCol.a = fatigue * 0.995;
+
+                    // --- мягкое смешивание вместо max() ---
+                    vec3 mixed = mix(oldCol.rgb, newCol.rgb, 0.35);
+
+                    // --- финальный clamp ---
+                    gl_FragColor = vec4(clamp(mixed, 0.0, 1.0), oldCol.a);
                 }
             `,
             transparent: true
