@@ -1279,7 +1279,7 @@
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
-            // масштаб — медленный, телесный
+
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
 
@@ -1297,21 +1297,20 @@
             // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.001;
 
-            // медленный синус для дыхания
+    
             const breath = Math.sin(performance.now() * 0.0003) * 0.0001; // медленнее и меньше амплитуда
 
-            // минимальное случайное смещение для органичности
             const jitter = (Math.random() - 0.03) * 0.001;
 
             let targetFlow = new THREE.Vector2(0.6 + breath + jitter, 0.3 + breath + jitter);
 
-            // плавная интерполяция
-            prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
+
+            prevFlow.lerp(targetFlow, 0.01); 
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-            // медленное увеличение времени
+       
             liquidMaterial.uniforms.time.value += 0.015;
 
                 renderer.render(feedbackScene, feedbackCamera);
@@ -1419,10 +1418,22 @@
 
             void main() {
                 vec2 uv = vUv;
-                // динамическое смещение на основе flow
-                vec2 shifted = uv + flow * 0.12 + fbm(uv*2.0 + time*0.07) * 0.04;
-                float n = fbm(shifted*3.0 + time*0.2);
-                vec3 col = vec3(0.0) + n*0.05; // черный фон с едва заметным шумом
+
+                // центр экрана
+                vec2 center = vec2(0.5);
+                vec2 dir = uv - center;
+
+                // псевдо‑Z движение: поток "вглубь" через радиальное масштабирование
+                float zFlow = 0.15;
+                float depth = 1.0 + time * zFlow;
+
+                // радиальное смещение вместо XY‑дрейфа
+                vec2 zUV = center + dir / depth;
+
+                // сохраняем аудиореактивный шум
+                float n = fbm(zUV * 3.0 + time * 0.25);
+                vec3 col = vec3(0.0) + n * 0.05;
+
                 gl_FragColor = vec4(col, 1.0);
             }
             `;
@@ -1452,7 +1463,7 @@
         const chatScene = new THREE.Scene();
         chatScene.add(chatMesh);
 
-        // Синхронизация размера chatShaderCanvas с панелью чата
+       
         function resizeChatCanvas() {
             const chatPanel = document.getElementById('chatPanel');
             const width = chatPanel.clientWidth;
@@ -1460,11 +1471,11 @@
             chatShaderCanvas.width = width;
             chatShaderCanvas.height = height;
             chatRenderer.setSize(width, height, false);
-            // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
+            // feedbackMaterial.uniforms.resolution.value.set(width, height); // 
         }
 
         
-        // --- Обновление анимации XDust на фоне чата ---
+        // --- animation XDust chat
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
             resizeChatCanvas();
@@ -1473,17 +1484,17 @@
             chatRenderer.render(chatScene, feedbackCamera);
         }
 
-        // === Auto-reactive update for chat shader (dynamic flow) ===
+       
         function autoReactiveChat() {
             const t = performance.now() * 0.001;
 
-            // Интенсивность реакции от энергии орба
+       
             const intensity = 0.5 + orbEnergy * 0.5;
 
-            // Динамическое плавное направление движения (синус + шум)
-            // Для перлин шума используем fbm-подобный шум на JS
+      
+      
             function perlin2d(x, y) {
-                // Простая реализация value noise
+              
                 function hash(x, y) {
                     return Math.sin(x * 127.1 + y * 311.7) * 43758.5453 % 1;
                 }
@@ -1497,9 +1508,9 @@
                 let i2 = v01 * (1-xt) + v11 * xt;
                 return i1 * (1-yt) + i2 * yt;
             }
-            // Используем t как seed
+           
             const angle = t * 0.3 + Math.sin(t*0.7)*0.5;
-            // Добавляем шум для направления
+        
             const noiseX = perlin2d(Math.sin(t*0.17), Math.cos(t*0.11)) * 2.0 - 1.0;
             const noiseY = perlin2d(Math.cos(t*0.13), Math.sin(t*0.21)) * 2.0 - 1.0;
             const flowX = Math.sin(angle) * 0.25 + 0.15 * noiseX;
@@ -1513,7 +1524,7 @@
 
         autoReactiveChat();
 
-        // Унифицированный resize для главного и чат-канваса
+        // Resize for chat
         let baseWidth = window.innerWidth;
         let baseHeight = window.innerHeight;
 
@@ -1521,13 +1532,13 @@
             const dw = Math.abs(window.innerWidth - baseWidth);
             const dh = Math.abs(window.innerHeight - baseHeight);
 
-            // если изменение маленькое — это клавиатура, игнорируем для WebGL канваса
+            //  WebGL canvas
             if (dw < 50 && dh < 100) {
-                resizeChatCanvas(); // чат под клавиатуру
+                resizeChatCanvas(); 
                 return;
             }
 
-            // большое изменение — реальный ресайз
+            // resize
             baseWidth = window.innerWidth;
             baseHeight = window.innerHeight;
 
@@ -1543,10 +1554,9 @@
             resizeChatCanvas();
         });
 
-        // Запуск анимации чата
         animateChatShader();
 
-        // === Глобальная переменная для последнего описания камеры ===
+
         let latestCameraDescription = "";
 
         
