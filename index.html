@@ -2102,15 +2102,12 @@
             selfAwareness.identity.lastReflection = now;
 
             const questionPool = [
-              'Behind the questions..',
-              'What do you think?..',
-              'I answer on users langage?..',
-              'In Flow...'
+                '...'
             ];
 
             const q = questionPool[Math.floor(Math.random() * questionPool.length)];
 
-            const reflection = `Inner Quest: ${q}`;
+            const reflection = `${q}`;
             selfAwareness.innerMonologue.push(reflection);
             selfAwareness.identity.narrative.push({
               t: now,
