@@ -716,6 +716,13 @@ const orbLearning = {
 
         // === Shader as Brain Interface ===
         // Шейдер напрямую отражает когнитивное состояние
+
+        // === Lite selfAwareness update (8 Hz, outside animate) ===
+        setInterval(() => {
+            if (!isActiveTab) return;
+            updateOrbVisualState();
+        }, 120);
+
         function updateOrbVisualState() {
             if (typeof selfAwareness === 'undefined') return;
 
@@ -756,13 +763,12 @@ const orbLearning = {
             // --- micro‑hesitation: сомнение вместо лага ---
             // усталость замедляет отклик, curiosity делает его нервным
             const fatigueVal = selfAwareness.fatigue ?? 0.0;
-            const curiosityJitter = (Math.random() - 0.5) * 0.02 * (selfAwareness.curiosity ?? 0.0);
 
             responseInertia =
-                0.04 +                 // минимальный живой отклик
-                (1.0 - fatigueVal) * 0.06; // уставший — медленнее
+                0.04 +
+                (1.0 - fatigueVal) * 0.06;
 
-            responseInertia = Math.max(0.02, Math.min(0.12, responseInertia + curiosityJitter));
+            responseInertia = Math.max(0.02, Math.min(0.12, responseInertia));
         }
 
         // === Feedback RenderTarget initialization ===
@@ -1482,27 +1488,6 @@ const orbLearning = {
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
 
-            // === Aesthetic Feedback Loop (pseudo-learning) ===
-            const entropy =
-                Math.abs(Math.sin(lineMat.uniforms.time.value * 0.2)) *
-                (0.5 + orbEnergy);
-
-            const error = orbLearning.targetEntropy - entropy;
-
-            // медленное самонастройка
-            orbLearning.chaos += error * 0.002;
-            orbLearning.smoothness -= error * 0.001;
-            orbLearning.contrast += error * 0.0015;
-
-            // кламп
-            orbLearning.chaos = THREE.MathUtils.clamp(orbLearning.chaos, 0.1, 1.2);
-            orbLearning.smoothness = THREE.MathUtils.clamp(orbLearning.smoothness, 0.2, 1.0);
-            orbLearning.contrast = THREE.MathUtils.clamp(orbLearning.contrast, 0.2, 1.5);
-
-            // прокидываем в шейдер
-            lineMat.uniforms.energy.value =
-                orbEnergy * orbLearning.contrast;
-            lineMat.uniforms.chaos.value = orbLearning.chaos;
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
