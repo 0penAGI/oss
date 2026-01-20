@@ -612,19 +612,19 @@ let isActiveTab = true;
 
         const scene = new THREE.Scene();
 
-let orbEnergy = 0;        // 0..1 — текущая энергия
-let targetEnergy = 0.22; // baseline listening
-let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
+        let orbEnergy = 0;        // 0..1 — текущая энергия
+        let targetEnergy = 0.22; // baseline listening
+        let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
-// === Shader Self-Optimization State ===
-const orbLearning = {
-    smoothness: 0.5,
-    chaos: 0.5,
-    contrast: 0.5,
-    gravity: 0.6,
-    targetEntropy: 0.6
-};
-
+        // === Shader Self-Optimization State ===
+        const orbLearning = {
+            smoothness: 0.5,
+            chaos: 0.5,
+            contrast: 0.5,
+            gravity: 0.6,
+            targetEntropy: 0.6
+        };
+            
         const transcriptDiv = document.getElementById('transcript');
 
         transcriptDiv.addEventListener('click', () => {
