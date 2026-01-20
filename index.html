@@ -1164,7 +1164,7 @@ let isActiveTab = true;
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.042);
+                gl_Position = vec4(position.xy, 0.0, 1.0);
             }
         `;
 
@@ -1207,26 +1207,27 @@ let isActiveTab = true;
             void main() {
                 vec2 uv = vUv;
                 // --- мягкое ядро вместо сингулярности ---
-                vec2 p = uv - 0.5;
-                float r = length(p);
-                float softR = smoothstep(0.0, 0.6, r);
-                // плавное стеклянное затухание
-                float glassMask = 1.0 - softR;
-                glassMask = pow(glassMask, 1.5);
-
+                vec2 center = uv - 0.314;
+                float r = length(center);
+                // --- soften center (no hard core) ---
+                float centerFade = smoothstep(0.0, 0.18, r);
                 float t = time * 0.001;
 
                 // --- Use provided flow uniform ---
                 // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
-
+                float glassMask = smoothstep(0.8, 0.4, r) * centerFade;
+                glassMask = pow(glassMask, 1.5);
                 vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
+                // --- extra blur density (glass thickness) ---
+                vec2 blurDir = normalize(center + 0.0001);
+                float blurStrength = 0.006 + energy * 0.01;
 
                 // === Gravity Displacement Around Orb ===
                 float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
                 float orbGravityStrength = 0.07 + energy * 0.1; // сила зависит от энергии орба
-                vec2 dirToOrb = normalize(p); // направление к центру орба
-                float distToOrb = r;
+                vec2 dirToOrb = normalize(center); // направление к центру орба
+                float distToOrb = length(center);
                 float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
 
                 // плавный шум для органики
@@ -1244,17 +1245,28 @@ let isActiveTab = true;
                 float caR = 0.011 + curiosity * 0.008;
                 float caG = 0.012;
                 float caB = 0.009 + energy * 0.011;
-                vec3 col;
-                col.r = texture2D(tBackground, refractUV + vec2(caR, 0.0)).r;
-                col.g = texture2D(tBackground, refractUV).g;
-                col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
+                vec3 colR = texture2D(tBackground, refractUV + vec2(caR, 0.0)).rgb;
+                vec3 colG = texture2D(tBackground, refractUV).rgb;
+                vec3 colB = texture2D(tBackground, refractUV - vec2(caB, 0.0)).rgb;
 
-                float highlight = pow(1.0 - softR, 3.1);
+                vec3 blurCol =
+                    texture2D(tBackground, refractUV + blurDir * blurStrength).rgb +
+                    texture2D(tBackground, refractUV - blurDir * blurStrength).rgb +
+                    texture2D(tBackground, refractUV + blurDir * blurStrength * 0.6).rgb +
+                    texture2D(tBackground, refractUV - blurDir * blurStrength * 0.6).rgb;
+
+                blurCol *= 0.25;
+
+                vec3 col = mix(colG, blurCol, mix(0.45, 0.75, 1.0 - centerFade));
+                col.r = mix(col.r, colR.r, 0.6);
+                col.b = mix(col.b, colB.b, 0.6);
+
+                float highlight = pow(1.0 - r, 3.1) * centerFade;
                 col += vec3(0.12, 0.14, 0.22) * highlight * glassMask;
-                float edge = smoothstep(0.55, 0.9, softR);
-                col += vec3(0.09, 0.1, 0.18) * edge * glassMask;
+                float edge = smoothstep(0.55, 0.9, r);
+                col += vec3(0.12, 0.14, 0.22) * edge * glassMask * 1.2;
 
-                float alpha = 0.18 + 0.18 * glassMask;
+                float alpha = (0.22 + 0.28 * glassMask) * centerFade;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
