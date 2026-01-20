@@ -5395,6 +5395,7 @@ const orbLearning = {
 
         // ===== cameraEnabled =====
         let cameraEnabled = false;
+  
 
         const origStartCamera = startCamera;
         startCamera = async function(...args) {
@@ -5421,6 +5422,7 @@ const orbLearning = {
 
         // Utility: scroll chat to bottom
         function scrollChatToBottom() {
+            if (userScrolling) return;
             const chatContainer = document.getElementById('chatMessages');
             if (!chatContainer) return;
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -5556,7 +5558,7 @@ const orbLearning = {
                     for (const n of buffer) frag.appendChild(n);
                     buffer.length = 0;
                     element.insertBefore(frag, cursor || null);
-                    scrollChatToBottom();
+                    if (!userScrolling) scrollChatToBottom();
                 }
 
                 function scheduleFlush() {
@@ -5643,7 +5645,7 @@ const orbLearning = {
                 requestAnimationFrame(() => {
                     container.classList.add('user-appear-active');
                 });
-                scrollChatToBottom();
+                if (!userScrolling) scrollChatToBottom();
                 return;
             }
 
@@ -5660,7 +5662,7 @@ const orbLearning = {
                 container.querySelectorAll('.chat-glitch').forEach(span => {
                     stopGlitchAnimation(span, span._baseText || span.textContent);
                 });
-                scrollChatToBottom();
+                if (!userScrolling) scrollChatToBottom();
             });
         }
 
@@ -5748,6 +5750,20 @@ const orbLearning = {
         const chatPanel = document.getElementById('chatPanel');
         const closeChat = document.getElementById('closeChat');
         const chatMessages = document.getElementById('chatMessages');
+        // === PATCH: userScrolling autoscroll lock ===
+        let userScrolling = false;
+        let scrollUnlockTimeout = null;
+
+        if (chatMessages) {
+          chatMessages.addEventListener('scroll', () => {
+            userScrolling = true;
+            clearTimeout(scrollUnlockTimeout);
+            scrollUnlockTimeout = setTimeout(() => {
+              userScrolling = false;
+            }, 1200);
+          }, { passive: true });
+        }
+        // === END PATCH ===
         const chatInput = document.getElementById('chatInput');
         const sendBtn = document.getElementById('sendBtn');
 
