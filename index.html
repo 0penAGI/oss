@@ -1999,6 +1999,17 @@ let isActiveTab = true;
           memory: []
         };
 
+        // Автономная инициатива Markov+Embedding
+        setInterval(()=>{
+          if(selfAwareness.curiosity>0.5 && Math.random()<0.3){
+            const ctx = markovContext.memory.slice(-markovContext.order).map(m=>m.text);
+            const idea = markovContext.predictWithEmbedding(ctx);
+            if(idea){
+              noteObservation("Autothought: "+idea);
+              speak(idea);
+            }
+          }
+        },4000 + Math.random()*2000);
         // === Вспомогательная функция для очистки текста пользователя ===
         function sanitizeUserOutput(text) {
             if (typeof text !== 'string') return text;
@@ -5174,6 +5185,11 @@ let isActiveTab = true;
         }
 
         function typeWriterWordsEffect(element, text, charDelay = 1, wordDelay = 5) {
+            // === HARD LOCK: prevent parallel typing ===
+            if (window.__chatTypingLock) {
+                return Promise.resolve();
+            }
+            window.__chatTypingLock = true;
             return new Promise((resolve) => {
                 if (detectCodeBlock(text)) {
                     const pre = document.createElement('pre');
@@ -5188,12 +5204,14 @@ let isActiveTab = true;
                     code.textContent = codeText;
                     pre.appendChild(code);
                     element.appendChild(pre);
+                    window.__chatTypingLock = false;
                     resolve();
                     return;
                 }
 
                 text = text.replace(/^[.\s]+/, '');
                 if (!text || !text.trim()) {
+                    window.__chatTypingLock = false;
                     resolve();
                     return;
                 }
@@ -5240,6 +5258,7 @@ let isActiveTab = true;
                     if (segIdx >= segments.length) {
                         flushBuffer();
                         if (cursor) cursor.remove();
+                        window.__chatTypingLock = false;
                         resolve();
                         return;
                     }
