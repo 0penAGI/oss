@@ -1972,8 +1972,16 @@
         // === Вспомогательная функция для очистки текста пользователя ===
         function sanitizeUserOutput(text) {
             if (typeof text !== 'string') return text;
-            // удаляем все хвосты вида "| Notes: ...."
-            return text.replace(/\s*\|\s*Notes:.*$/s, '').trim();
+
+            // режем любые служебные хвосты вида "| Notes: ..."
+            let out = text.replace(/\s*\|\s*Notes:.*$/s, '');
+
+            // режем любые упоминания Inner Quest / Thinking / Autothought внутри строки
+            out = out.replace(/Inner Quest:.*?(;|$)/gi, '');
+            out = out.replace(/Thinking:.*?(;|$)/gi, '');
+            out = out.replace(/Autothought:.*?(;|$)/gi, '');
+
+            return out.trim();
         }
 
         const dialogEngine = {
