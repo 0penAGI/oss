@@ -1472,6 +1472,22 @@
             chatMaterial.uniforms.time.value = t;
             chatRenderer.render(chatScene, feedbackCamera);
         }
+        // ===== PATCH: Remove "| Notes:" section from printed text =====
+        // Minimal patch: add filter at the start of the typewriter function
+        // Find the function that prints text character-by-character or adds it to UI.
+        // For this code, let's patch the typeText function if it exists, or similar.
+
+        // Try to patch typeText, printText, appendChar, renderTyping, or addMessageChunk.
+        // We'll patch typeText as a likely candidate (add this filter at its start).
+        if (typeof window.typeText === 'function') {
+            const origTypeText = window.typeText;
+            window.typeText = function(text, ...args) {
+                if (typeof text === 'string' && text.includes('| Notes:')) {
+                    text = text.replace(/\s*\|\s*Notes:.*$/s, '');
+                }
+                return origTypeText.call(this, text, ...args);
+            };
+        }
 
         // === Auto-reactive update for chat shader (dynamic flow) ===
         function autoReactiveChat() {
