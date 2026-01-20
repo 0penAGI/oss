@@ -555,6 +555,9 @@
 let renderer;
 let isActiveTab = true;
 
+// PATCH B: feedbackRT not every frame
+let frameCounter = 0;
+
         if (isApple && THREE.WebGPURenderer) {
             renderer = new THREE.WebGPURenderer({
                 canvas,
@@ -892,12 +895,9 @@ const orbLearning = {
                     vec2 px = 1.0 / resolution;
                     vec2 dir = noiseDir(uv);
 
-                    vec4 col = vec4(0.0);
-                    col += texture2D(tex, uv) * 0.314;
-                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
-                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
-                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
+                    vec4 col = texture2D(tex, uv) * 0.5;
+                    col += texture2D(tex, uv + dir * px) * 0.25;
+                    col += texture2D(tex, uv - dir * px) * 0.25;
 
                     return col;
                 }
@@ -1203,7 +1203,7 @@ const orbLearning = {
                         cos(seed * 0.7 + time * 0.9);
 
                     // хаотичное скольжение по поверхности
-                    p += normalize(p) * n * 0.06 * (0.3 + energy) * chaos;
+                    p += p * n * 0.06 * (0.3 + energy) * chaos;
 
                     // микро-дрейф вдоль касательной
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
@@ -1444,6 +1444,9 @@ const orbLearning = {
             if (!isActiveTab) return;
             requestAnimationFrame(animate);
 
+            // PATCH B: feedbackRT not every frame
+            frameCounter++;
+
             // === Orb speech: smooth energy ===
             orbSpeechEnergy += (orbSpeechTarget - orbSpeechEnergy) * 0.08;
 
@@ -1523,14 +1526,15 @@ const orbLearning = {
             }
             // Можно добавить радиальное смещение в шейдере через uniform, если реализовано
 
-            // render particles to feedback buffer
-            renderer.setRenderTarget(feedbackRT2);
-            renderer.clear();
-            renderer.render(scene, camera);
+            // PATCH B: feedbackRT not every frame
+            if (frameCounter % 2 === 0) {
+                renderer.setRenderTarget(feedbackRT2);
+                renderer.clear();
+                renderer.render(scene, camera);
 
-            // mix previous frame + new frame
-            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
-            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+                feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+                feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
+            }
 
             // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.001;
@@ -1554,10 +1558,12 @@ const orbLearning = {
             renderer.clear(true, true, true);
             renderer.render(feedbackScene, feedbackCamera);
 
-            // swap render targets
-            const tmp = feedbackRT1;
-            feedbackRT1 = feedbackRT2;
-            feedbackRT2 = tmp;
+            // PATCH B: swap only every 2nd frame
+            if (frameCounter % 2 === 0) {
+                const tmp = feedbackRT1;
+                feedbackRT1 = feedbackRT2;
+                feedbackRT2 = tmp;
+            }
 
             // --- Multi-Agent Pulses ---
             // Emulate multi-agent system: graphic, content, ux pulse every frame
@@ -1570,6 +1576,10 @@ const orbLearning = {
             agentChannels.ux.forEach(cb =>
                 cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
             );
+
+            // --- chat shaders update (single rAF) ---
+            animateChatShader();
+            autoReactiveChat();
         }
         animate();
         // ====== Orb speech: feed energy from speech ======
@@ -1708,11 +1718,10 @@ const orbLearning = {
         // --- animation XDust chat
         function animateChatShader() {
             if (!isActiveTab) {
-                requestAnimationFrame(animateChatShader);
                 return;
             }
-            requestAnimationFrame(animateChatShader);
-            resizeChatCanvas();
+            // PATCH C: remove resizeChatCanvas() call
+            // resizeChatCanvas();
             const t = performance.now() * 0.001;
             chatMaterial.uniforms.time.value = t;
             chatRenderer.render(chatScene, feedbackCamera);
@@ -1721,7 +1730,6 @@ const orbLearning = {
        
         function autoReactiveChat() {
             if (!isActiveTab) {
-                requestAnimationFrame(autoReactiveChat);
                 return;
             }
             const t = performance.now() * 0.001;
@@ -1752,11 +1760,7 @@ const orbLearning = {
 
             chatMaterial.uniforms.time.value = t * intensity;
             chatMaterial.uniforms.flow.value.set(flowX, flowY);
-
-            requestAnimationFrame(autoReactiveChat);
         }
-
-        autoReactiveChat();
 
         // Resize for chat
         let baseWidth = window.innerWidth;
@@ -1788,7 +1792,6 @@ const orbLearning = {
             resizeChatCanvas();
         });
 
-        animateChatShader();
 
         // ====== Chat swipe support for mobile & desktop drag-scroll ======
         (function enableChatSwipe() {
