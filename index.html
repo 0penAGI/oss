@@ -612,19 +612,18 @@ let isActiveTab = true;
 
         const scene = new THREE.Scene();
 
-        let orbEnergy = 0;        // 0..1 — текущая энергия
-        let targetEnergy = 0.22; // baseline listening
-        let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
+let orbEnergy = 0;        // 0..1 — текущая энергия
+let targetEnergy = 0.22; // baseline listening
+let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
-        // === Shader Self-Optimization State ===
-        const orbLearning = {
-            smoothness: 0.5,
-            chaos: 0.5,
-            contrast: 0.5,
-            gravity: 0.6,
-            targetEntropy: 0.6
-        };
-            
+// === Shader Self-Optimization State ===
+const orbLearning = {
+    smoothness: 0.5,
+    chaos: 0.5,
+    contrast: 0.5,
+    targetEntropy: 0.6
+};
+
         const transcriptDiv = document.getElementById('transcript');
 
         transcriptDiv.addEventListener('click', () => {
@@ -1181,8 +1180,7 @@ let isActiveTab = true;
             uniforms: {
                 time: { value: 0 },
                 energy: { value: 0 },
-                chaos: { value: 0.5 },
-                gravity: { value: 0.6 }
+                chaos: { value: 0.5 }
             },
             vertexShader: `
                 attribute float seed;
@@ -1190,17 +1188,9 @@ let isActiveTab = true;
                 uniform float time;
                 uniform float energy;
                 uniform float chaos;
-                uniform float gravity;
 
                 void main() {
                     vec3 p = position;
-
-                    float r = length(p);
-                    // горизонт событий — граница орба
-                    float horizon = smoothstep(0.85, 1.05, r);
-                    // притяжение к оболочке
-                    float pull = gravity * (1.0 - horizon);
-                    p -= normalize(p) * pull * 0.04;
 
                     float n =
                         sin(seed + time * 1.4) *
@@ -1504,10 +1494,6 @@ let isActiveTab = true;
             orbLearning.smoothness -= error * 0.001;
             orbLearning.contrast += error * 0.0015;
 
-            // гравитация дышит вместе с орбом
-            orbLearning.gravity += (orbEnergy - 0.4) * 0.001;
-            orbLearning.gravity = THREE.MathUtils.clamp(orbLearning.gravity, 0.2, 1.2);
-
             // кламп
             orbLearning.chaos = THREE.MathUtils.clamp(orbLearning.chaos, 0.1, 1.2);
             orbLearning.smoothness = THREE.MathUtils.clamp(orbLearning.smoothness, 0.2, 1.0);
@@ -1517,7 +1503,6 @@ let isActiveTab = true;
             lineMat.uniforms.energy.value =
                 orbEnergy * orbLearning.contrast;
             lineMat.uniforms.chaos.value = orbLearning.chaos;
-            lineMat.uniforms.gravity.value = orbLearning.gravity;
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
