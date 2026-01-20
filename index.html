@@ -4188,30 +4188,30 @@
                     }
                     const seg = segments[segIdx++];
                     if (seg.type === 'plain') {
-                        // Печатаем по буквам обычным способом
+                        // Печатаем по буквам обычным способом (batch + rAF, no setTimeout per char)
                         const chars = Array.from(seg.text);
                         let i = 0;
-                        function nextChar() {
-                            if (i >= chars.length) {
-                                typeSegment();
-                                return;
+                        const BATCH = 5;
+                        function step() {
+                            let n = 0;
+                            while (i < chars.length && n < BATCH) {
+                                const ch = chars[i++];
+                                const span = document.createElement('span');
+                                span.className = 'chat-char';
+                                span.textContent = ch;
+                                element.appendChild(span);
+                                n++;
                             }
-                            const ch = chars[i];
-                            let span = document.createElement('span');
-                            span.className = 'chat-char';
-                            span.textContent = ch;
-                            element.appendChild(span);
-                            i++;
                             if (element.parentElement) {
                                 element.parentElement.scrollTop = element.parentElement.scrollHeight;
                             }
-                            let d = delay;
-                            if (wordPause > 0 && ch === ' ') {
-                                d += wordPause;
+                            if (i < chars.length) {
+                                requestAnimationFrame(step);
+                            } else {
+                                typeSegment();
                             }
-                            setTimeout(nextChar, d);
                         }
-                        nextChar();
+                        requestAnimationFrame(step);
                     } else if (seg.type === 'orb') {
                         // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
                         const chars = Array.from(seg.text);
