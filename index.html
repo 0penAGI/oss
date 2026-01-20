@@ -746,46 +746,31 @@
         `;
 
         const fragmentShader = `
-uniform float time;
-uniform float orbRadius;
-uniform vec3 orbCenter;
-uniform float speak; // 0.0 = idle, 1.0 = отвечает
-varying vec3 vColor;
+            uniform float time;
+            const float PI = 3.141592653589793;
+            varying vec3 vColor;
 
-float hash(vec3 p){
-    p = fract(p * 0.3183099 + vec3(0.1));
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-}
+            vec3 XDust(vec3 p, vec3 c1, vec3 c2, vec3 c3) {
+                vec3 dir = normalize(p - vec3(0.03, 0.02, 0.008)); 
+                float d = length(dir);
+                float anim = time * 0.168;
+                if (d > 0.98 && d < 1.02) {
+                    float t = fract(sin(d * PI) * anim + c1.x);
+                    return mix(c1, c2, t);
+                } else {
+                    float t = fract(cos(d * PI) * anim + c2.y);
+                    return mix(c2, c3, t);
+                }
+            }
 
-void main() {
-    vec2 uv = gl_PointCoord * 2.0 - 1.0;
-    float d = length(uv);
-    if (d > 1.0) discard;
-
-    float sphereMask = smoothstep(
-        orbRadius,
-        orbRadius - 0.14,
-        length(vColor - orbCenter)
-    );
-    if (sphereMask <= 0.001) discard;
-
-    float n = hash(vec3(uv, time * 0.12));
-    float sparkle = step(0.968, n);
-
-    vec3 pink = vec3(0.65, 0.18, 0.42);
-    vec3 blue = vec3(0.22, 0.48, 0.85);
-
-    float pulse = sin(time * 6.0) * 0.5 + 0.5;
-    vec3 colorSpeak = mix(pink, blue, pulse);
-    vec3 colorIdle = pink * 0.75;
-
-    vec3 col = mix(colorIdle, colorSpeak, speak);
-
-    float alpha = sparkle * sphereMask * (1.0 - d) * 0.85;
-    gl_FragColor = vec4(col * sparkle, alpha);
-}
-`;
+            void main() {
+                vec3 p = gl_PointCoord.xyx / vec3(2.0);
+                vec3 color = XDust(p, vec3(1.0, 0, 0.48), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
+                float dist = length(gl_PointCoord - vec2(0.5));
+                float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+                gl_FragColor = vec4(color * vColor, alpha * 0.7);
+            }
+        `;
 
         // === Fullscreen quad for feedback and blur ===
         const feedbackScene = new THREE.Scene();
@@ -923,24 +908,13 @@ void main() {
         geometry.setAttribute('customColor', new THREE.BufferAttribute(colors, 3));
 
         const material = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                speak: { value: 0.0 },
-                orbRadius: { value: 0.85 },
-                orbCenter: { value: new THREE.Vector3(0.0, 0.8, 0.0) }
-            },
+            uniforms: { time: { value: 0 } },
             vertexShader,
             fragmentShader,
             transparent: true,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
-        // === Управление режимом ответа (speak uniform) ===
-        // Вставьте эти строки там, где начинается и заканчивается ответ (TTS или генерация ответа):
-        // При начале ответа:
-        // material.uniforms.speak.value = 1.0;
-        // При окончании ответа:
-        // material.uniforms.speak.value = 0.0;
 
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
