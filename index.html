@@ -2077,7 +2077,9 @@
                     if (!alreadyExists) {
                         noteObservation(noteText);
                     }
-                    speak(idea);
+                    if (typeof idea === 'string' && !/^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(idea)) {
+                        speak(idea);
+                    }
                     this.lastResponseTime = performance.now();
                 }
             }
