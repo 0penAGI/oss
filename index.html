@@ -570,10 +570,23 @@ let isActiveTab = true;
         document.addEventListener('visibilitychange', () => {
             isActiveTab = !document.hidden;
 
-            // сброс дыхания и энергии — чтобы не копилось
             if (!isActiveTab) {
+                // сброс визуальной энергии
                 orbEnergy *= 0.2;
                 speechEnvelope = 0.0;
+
+                // жёсткая остановка голоса и аудио
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+                if (window.audioContext && audioContext.state === 'running') {
+                    audioContext.suspend();
+                }
+            } else {
+                // восстановление аудио только при активном окне
+                if (window.audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
             }
         });
 
