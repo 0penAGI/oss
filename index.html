@@ -4107,7 +4107,7 @@ let isActiveTab = true;
                         window._chatStreamHasText = true;
                     }
 
-                    if (delta.trim().length > 0 && window._chatStreamMsg) {
+                    if (delta.length > 0 && window._chatStreamMsg) {
                         window._chatStreamPrinted = full.length;
                         chatShouldStick = stickChatToBottom(chatMessages);
                         chatTypingQueue = chatTypingQueue.then(() => {
