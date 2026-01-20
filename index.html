@@ -3996,39 +3996,41 @@ let isActiveTab = true;
     }
 
     async function sendToBot(text) {
-            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-            if (window.recognition && recognition.abort) {
-                try { recognition.abort(); } catch(e){}
-            }
-            isThinking = true;
-            orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            status.innerText = "processing stream";
-            // --- таймеры статуса для длинной обработки ---
-            let processingTimeout = setTimeout(() => {
-                status.innerText = "thinking";
-            }, 10000); // через 10 секунд
+        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+        if (window.recognition && recognition.abort) {
+            try { recognition.abort(); } catch(e){}
+        }
+        isThinking = true;
+        orb.classList.remove('listening');
+        orb.classList.add('thinking');
+        status.innerText = "processing stream";
+        // --- таймеры статуса для длинной обработки ---
+        let processingTimeout = setTimeout(() => {
+            status.innerText = "thinking";
+        }, 10000); // через 10 секунд
 
-            let researchingTimeout = setTimeout(() => {
-                status.innerText = "preparing answer";
-            }, 20000); // через 20 секунд
-            startThinkingVibration();
+        let researchingTimeout = setTimeout(() => {
+            status.innerText = "preparing answer";
+        }, 20000); // через 20 секунд
+        startThinkingVibration();
 
-            // --- Orb bounce animation start ---
-            startOrbBounce();
+        // --- Orb bounce animation start ---
+        startOrbBounce();
 
-            // Подготовка UI с курсором
-            let responseContainer = document.getElementById("current-response");
+        // Подготовка UI с курсором
+        let responseContainer = document.getElementById("current-response");
 
-            if (!responseContainer) {
-                transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-                responseContainer = document.getElementById("current-response");
-            } else {
-                responseContainer.innerHTML = '';
-                responseContainer.classList.add('typing-cursor');
-            }
-            audioBuffer = "";
-            spokenLength = 0;
+        if (!responseContainer) {
+            transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+            responseContainer = document.getElementById("current-response");
+        } else {
+            responseContainer.innerHTML = '';
+            responseContainer.classList.add('typing-cursor');
+        }
+        audioBuffer = "";
+        spokenLength = 0;
+        // === FULL AI TEXT accumulator ===
+        let fullAIText = '';
             // --- sDelay-driven speech sync ---
             let speechStarted = false;
             const speechDelayMs = 420; // базовая задержка «вязкого времени»
@@ -4110,141 +4112,142 @@ let isActiveTab = true;
                 window._chatStreamHasText = false;
                 window._chatStreamPrinted = 0;
 
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    window._chatStreamBuffer += chunk;
+            const chunk = decoder.decode(value, { stream: true });
+            fullAIText += chunk;
+            window._chatStreamBuffer += chunk;
 
-                    const printed = window._chatStreamPrinted || 0;
-                    const full = window._chatStreamBuffer;
-                    const delta = full.slice(printed);
+            const printed = window._chatStreamPrinted || 0;
+            const full = window._chatStreamBuffer;
+            const delta = full.slice(printed);
 
-                    // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
-                    if (!window._chatStreamMsg && delta.length > 0) {
-                        const msgDiv = document.createElement('div');
-                        msgDiv.className = 'chat-message ai';
-                        msgDiv.innerHTML = `
-                          <div class="sender">AI</div>
-                          <div class="text"></div>
-                        `;
-                        chatMessages.appendChild(msgDiv);
-                        window._chatStreamMsg = msgDiv.querySelector('.text');
-                        window._chatStreamPrinted = printed;
-                    }
+            // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
+            if (!window._chatStreamMsg && delta.length > 0) {
+                const msgDiv = document.createElement('div');
+                msgDiv.className = 'chat-message ai';
+                msgDiv.innerHTML = `
+                  <div class="sender">AI</div>
+                  <div class="text"></div>
+                `;
+                chatMessages.appendChild(msgDiv);
+                window._chatStreamMsg = msgDiv.querySelector('.text');
+                window._chatStreamPrinted = printed;
+            }
 
-                    if (delta.length > 0) {
-                        window._chatStreamHasText = true;
-                    }
+            if (delta.length > 0) {
+                window._chatStreamHasText = true;
+            }
 
-                    if (delta.length > 0 && window._chatStreamMsg) {
-                        const nextPrinted = full.length;
-                        chatShouldStick = stickChatToBottom(chatMessages);
-                        chatTypingQueue = chatTypingQueue.then(() => {
-                            return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
-                                window._chatStreamPrinted = nextPrinted;
-                                if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
-                            });
-                        });
-                    }
+            if (delta.length > 0 && window._chatStreamMsg) {
+                const nextPrinted = full.length;
+                chatShouldStick = stickChatToBottom(chatMessages);
+                chatTypingQueue = chatTypingQueue.then(() => {
+                    return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
+                        window._chatStreamPrinted = nextPrinted;
+                        if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
+                    });
+                });
+            }
 
-                    // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                    if (responseContainer) {
-                        orbTypingQueue = orbTypingQueue.then(() =>
-                            typeWriterEffect(responseContainer, chunk, {
-                                charDelay: 6,
-                                wordPause: 0
-                            })
-                        );
-                        // Микропаузa на границах фраз
-                        if (/[.!?\n]/.test(chunk)) {
-                            orbTypingQueue = orbTypingQueue.then(() =>
-                                new Promise(r => setTimeout(r, 40 + Math.random() * 40))
-                            );
-                        }
-                    }
-
-                    // Копим для озвучки
-                    audioBuffer += chunk;
-
-                    if (!speechStarted) {
-                        speechStarted = true;
-
-                        // считаем первый чанк уже озвученным,
-                        // чтобы он не попал в delta и не сказалcя второй раз
-                        spokenLength = audioBuffer.length;
-
-                        setTimeout(() => {
-                            speak(chunk);
-                        }, 120);
-                    }
-
-                    if (speechStarted) {
-                        const delta = audioBuffer.slice(spokenLength);
-                        // более ранний порог — речь дышит вместе с печатью
-                        if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
-                            spokenLength = audioBuffer.length;
-                            speak(delta);
-                        }
-                    }
+            // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
+            if (responseContainer) {
+                orbTypingQueue = orbTypingQueue.then(() =>
+                    typeWriterEffect(responseContainer, chunk, {
+                        charDelay: 6,
+                        wordPause: 0
+                    })
+                );
+                // Микропаузa на границах фраз
+                if (/[.!?\n]/.test(chunk)) {
+                    orbTypingQueue = orbTypingQueue.then(() =>
+                        new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                    );
                 }
+            }
 
-                // === FINAL FLUSH: дописываем хвост, если стрим оборвался ===
-                if (window._chatStreamMsg) {
-                    const printed = window._chatStreamPrinted || 0;
-                    const full = window._chatStreamBuffer || '';
-                    const tail = full.slice(printed);
-                    if (tail && tail.trim().length > 0) {
-                        await typeWriterWordsEffect(window._chatStreamMsg, tail);
-                        window._chatStreamPrinted = full.length;
-                    }
+            // Копим для озвучки
+            audioBuffer += chunk;
+
+            if (!speechStarted) {
+                speechStarted = true;
+
+                // считаем первый чанк уже озвученным,
+                // чтобы он не попал в delta и не сказалcя второй раз
+                spokenLength = audioBuffer.length;
+
+                setTimeout(() => {
+                    speak(chunk);
+                }, 120);
+            }
+
+            if (speechStarted) {
+                const delta = audioBuffer.slice(spokenLength);
+                // более ранний порог — речь дышит вместе с печатью
+                if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+                    spokenLength = audioBuffer.length;
+                    speak(delta);
                 }
-
-                // После выхода из цикла проверяем, был ли текст
-                if (window._chatStreamMsg && !window._chatStreamHasText) {
-                    window._chatStreamMsg.closest('.chat-message')?.remove(); // удаляем пустой блок
-                }
-                window._chatStreamHasText = false;
-                window._chatStreamBuffer = '';
-                window._chatStreamMsg = null;
-                window._chatStreamPrinted = 0;
-                orbTypingQueue = Promise.resolve();
-
-                window.__aiTypingLock = false;
-
-                if (responseContainer) {
-                    responseContainer.classList.remove("typing-cursor");
-                }
-                status.innerText = "speaking";
-                // One strong vibration at the end of receiving
-                if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-                else if (navigator.vibrate) navigator.vibrate([60]);
-
-                // договариваем хвост, если он остался
-                const tail = audioBuffer.slice(spokenLength);
-                if (tail.trim().length > 0) {
-                    speak(tail);
-                }
-
-            } catch (e) {
-                console.error(e);
-                status.innerText = "stream error";
-                orb.classList.remove('thinking');
-                orb.classList.remove('speaking');
-                isThinking = false;
-                isSpeaking = false;
-                stopThinkingVibration();
-                stopSpeakingVibration();
-                stopOrbBounce();
-                setTimeout(startListening, 2000);
-            } finally {
-                clearTimeout(processingTimeout);
-                clearTimeout(researchingTimeout);
-                // just in case, stop bounce
-                stopOrbBounce();
             }
         }
+
+        // === FINAL FLUSH: железобетонный commit ===
+        await chatTypingQueue;
+
+        if (window._chatStreamMsg) {
+            const printed = window._chatStreamPrinted || 0;
+            const tail = fullAIText.slice(printed);
+            if (tail && tail.length > 0) {
+                window._chatStreamMsg.textContent += tail;
+                window._chatStreamPrinted = fullAIText.length;
+            }
+        }
+        window._chatStreamHasText = false;
+        window._chatStreamBuffer = '';
+        window._chatStreamMsg = null;
+        window._chatStreamPrinted = 0;
+        orbTypingQueue = Promise.resolve();
+
+        window.__aiTypingLock = false;
+
+        if (responseContainer) {
+            responseContainer.classList.remove("typing-cursor");
+        }
+        status.innerText = "speaking";
+        // One strong vibration at the end of receiving
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+        else if (navigator.vibrate) navigator.vibrate([60]);
+
+        // договариваем хвост, если он остался
+        const tail = audioBuffer.slice(spokenLength);
+        if (tail.trim().length > 0) {
+            speak(tail);
+        }
+
+    } catch (e) {
+        console.error(e);
+        status.innerText = "stream error";
+        orb.classList.remove('thinking');
+        orb.classList.remove('speaking');
+        isThinking = false;
+        isSpeaking = false;
+        stopThinkingVibration();
+        stopSpeakingVibration();
+        stopOrbBounce();
+        setTimeout(startListening, 2000);
+    } finally {
+        clearTimeout(processingTimeout);
+        clearTimeout(researchingTimeout);
+        // just in case, stop bounce
+        stopOrbBounce();
+        // === Last-resort commit of fullAIText ===
+        if (window._chatStreamMsg && fullAIText) {
+            window._chatStreamMsg.textContent = fullAIText;
+        }
+    }
+}
 
 //
 // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
