@@ -2025,6 +2025,56 @@ let isActiveTab = true;
             return out.trim();
         }
 
+        // === Chat AI message stream / animation ===
+        // Добавляет текст AI в чат с анимацией (по символам или словам)
+        function addAIMessage(text) {
+            // === anti-duplicate stream guard ===
+            if (typeof window._lastAIText !== 'string') {
+                window._lastAIText = '';
+            }
+            // если пришёл текст, который уже является суффиксом предыдущего — игнор
+            if (window._lastAIText.endsWith(text)) {
+                return;
+            }
+            // если новый текст содержит предыдущий + дубли (stream overlap)
+            if (text.startsWith(window._lastAIText)) {
+                text = text.slice(window._lastAIText.length);
+            }
+            // обновляем хвост
+            window._lastAIText += text;
+            // защита от бесконечного роста
+            if (window._lastAIText.length > 4000) {
+                window._lastAIText = window._lastAIText.slice(-2000);
+            }
+
+            // Находим контейнер сообщений чата
+            const chatMessages = document.getElementById('chatMessages');
+            if (!chatMessages) return;
+            // Создаём новое сообщение AI
+            let msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message ai';
+            let textDiv = document.createElement('div');
+            textDiv.className = 'text';
+            msgDiv.appendChild(textDiv);
+            chatMessages.appendChild(msgDiv);
+
+            // Анимация появления текста по символам
+            let i = 0;
+            function animateChar() {
+                if (i < text.length) {
+                    let span = document.createElement('span');
+                    span.className = 'chat-char';
+                    span.textContent = text[i];
+                    textDiv.appendChild(span);
+                    i++;
+                    setTimeout(animateChar, 9 + Math.random() * 40);
+                } else {
+                    // Курсор исчезает по окончании
+                }
+            }
+            animateChar();
+        }
+
         const dialogEngine = {
             lastResponseTime: 0,
 
