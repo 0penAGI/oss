@@ -5186,7 +5186,7 @@ let isActiveTab = true;
                 let segIdx = 0;
                 let buffer = [];
                 let flushing = false;
-                const MAX_BATCH = 24;
+                const MAX_BATCH = 12;
 
                 function flushBuffer() {
                     if (buffer.length === 0) return;
@@ -5194,9 +5194,7 @@ let isActiveTab = true;
                     for (const n of buffer) frag.appendChild(n);
                     buffer.length = 0;
                     element.insertBefore(frag, cursor || null);
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    }
+                    scrollChatToBottom();
                 }
 
                 function scheduleFlush() {
@@ -5235,6 +5233,19 @@ let isActiveTab = true;
                             }
 
                             span.textContent = chars[i++];
+
+                            // мягкий магнетизм + блюр при появлении
+                            span.style.filter = 'blur(2px)';
+                            span.style.transform = 'translateY(2px) scale(0.985)';
+                            span.style.opacity = '0';
+
+                            requestAnimationFrame(() => {
+                                span.style.transition = 'filter 160ms ease, transform 160ms ease, opacity 120ms ease';
+                                span.style.filter = 'blur(0px)';
+                                span.style.transform = 'translateY(0px) scale(1)';
+                                span.style.opacity = '1';
+                            });
+
                             buffer.push(span);
                             count++;
                         }
