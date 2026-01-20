@@ -4108,10 +4108,11 @@ let isActiveTab = true;
                     }
 
                     if (delta.length > 0 && window._chatStreamMsg) {
-                        window._chatStreamPrinted = full.length;
+                        const nextPrinted = full.length;
                         chatShouldStick = stickChatToBottom(chatMessages);
                         chatTypingQueue = chatTypingQueue.then(() => {
                             return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
+                                window._chatStreamPrinted = nextPrinted;
                                 if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
                             });
                         });
