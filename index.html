@@ -2025,6 +2025,21 @@ let isActiveTab = true;
             return out.trim();
         }
 
+        // === OUTPUT DISCIPLINE LAYER ===
+        function disciplinedOutput(rawText, intent = "answer") {
+            if (!rawText || typeof rawText !== "string") return "";
+
+            let text = rawText
+                .replace(/Inner Quest:.*|Thinking:.*|Autothought:.*/gi, "")
+                .replace(/я думаю|мне кажется|возможно|наверное/gi, "")
+                .replace(/\(.*?\)/g, "")
+                .trim();
+
+            // одно предложение
+            text = text.split(/(?<=[.!?])/)[0].trim();
+            return text;
+        }
+
         const dialogEngine = {
             lastResponseTime: 0,
 
@@ -4450,6 +4465,9 @@ let isActiveTab = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            // === OUTPUT DISCIPLINE (PATCH 2) ===
+            text = disciplinedOutput(text, "answer");
+            if (!text) return;
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
@@ -4975,7 +4993,7 @@ let isActiveTab = true;
                         for (const obj of OBJECTS_OF_INTEREST) {
                             const found = predictions.find(p =>
                                 obj.en.some(enName => (p.class || p.className || "").toLowerCase().includes(enName))
-                                && p.score > 0.35
+                                && p.score > 0.22
                             );
                             if (found) detectedObjectsRu.push(obj.ru);
                         }
@@ -4989,8 +5007,33 @@ let isActiveTab = true;
                     (faceDesc ? faceDesc : '') +
                     (objectsDesc ? (faceDesc ? '; ' : '') + objectsDesc + '.' : '');
 
-                if (!latestCameraDescription) {
-                    latestCameraDescription = 'Кадр без значимых объектов.';
+                // === SIGNAL FILL PATCH ===
+                // Никогда не возвращаем "пустоту" — даже слабый сигнал важнее нуля
+                if (!latestCameraDescription || latestCameraDescription.trim() === '') {
+                    // базовые сенсорные признаки
+                    const w = visionCanvas.width;
+                    const h = visionCanvas.height;
+
+                    let brightness = 0;
+                    try {
+                        const imgData = visionCtx.getImageData(0, 0, w, h).data;
+                        let sum = 0;
+                        for (let i = 0; i < imgData.length; i += 4) {
+                            sum += (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+                        }
+                        brightness = sum / (imgData.length / 4) / 255;
+                    } catch (e) {
+                        brightness = 0;
+                    }
+
+                    let lightDesc =
+                        brightness < 0.15 ? 'очень темный кадр' :
+                        brightness < 0.35 ? 'слабое освещение' :
+                        brightness < 0.65 ? 'умеренное освещение' :
+                        'яркое освещение';
+
+                    latestCameraDescription =
+                        `Сцена без распознанных объектов; ${lightDesc}; разрешение ${w}x${h}.`;
                 }
 
                 const now = performance.now();
