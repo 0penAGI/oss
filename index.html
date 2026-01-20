@@ -4428,8 +4428,10 @@
             // Гуманизация текста + разбиение на фрагменты
             let cleanedForSpeech = humanizeText(text)
                 .replace(/\\+/g, '')
-                .replace(/\s*,\s*/g, ', ')
-                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.,!? ]+/g, '')
+                // убираем запятые и двоеточия из TTS (иначе говорит "запятая")
+                .replace(/[,;:]/g, ' ')
+                // точки, ! и ? оставляем как паузы
+                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.!? ]+/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
 
@@ -5070,7 +5072,7 @@
             return segments;
         }
 
-        function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
+        function typeWriterWordsEffect(element, text, charDelay = 1, wordDelay = 5) {
             // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
                 if (detectCodeBlock(text)) {
