@@ -4949,8 +4949,8 @@ let isActiveTab = true;
                         faceDesc = 'Лиц не анализируем (OpenCV не готов).';
                     }
                 } catch(e) {
-                    console.error("Ошибка анализа лица:", e);
-                    faceDesc = 'Ошибка анализа лица.';
+                    console.warn("Face analysis skipped:", e);
+                    faceDesc = '';
                 }
 
                 // --- TensorFlow.js object detection ---
@@ -4971,13 +4971,21 @@ let isActiveTab = true;
                     console.error("Ошибка анализа объектов:", e);
                 }
 
-                latestCameraDescription = faceDesc + (objectsDesc ? '; ' + objectsDesc + '.' : '.');
+                latestCameraDescription =
+                    (faceDesc ? faceDesc : '') +
+                    (objectsDesc ? (faceDesc ? '; ' : '') + objectsDesc + '.' : '');
+
+                if (!latestCameraDescription) {
+                    latestCameraDescription = 'Кадр без значимых объектов.';
+                }
 
                 // Self-Awareness
                 try {
-                    selfAwareness.analyzeFrame(latestCameraDescription);
-                    orb.classList.add('reflecting');
-                    setTimeout(() => orb.classList.remove('reflecting'), 1500);
+                    if (latestCameraDescription && !latestCameraDescription.includes('Ошибка')) {
+                        selfAwareness.analyzeFrame(latestCameraDescription);
+                        orb.classList.add('reflecting');
+                        setTimeout(() => orb.classList.remove('reflecting'), 1500);
+                    }
                 } catch(e) {
                     console.error("Ошибка selfAwareness:", e);
                 }
