@@ -769,6 +769,8 @@ let isActiveTab = true;
 
         const fragmentShader = `
             uniform float time;
+            uniform sampler2D tTrail;   // feedback / trail texture
+            uniform float trailStrength;
             const float PI = 3.141592653589793;
             varying vec3 vColor;
 
@@ -788,9 +790,35 @@ let isActiveTab = true;
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
                 vec3 color = XDust(p, vec3(1.0, 0, 0.48), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
+
+                // глубокая тёмная масляная подложка
+                vec3 darkBase = vec3(0.04, 0.02, 0.06); // почти чёрный индиго
+                color = mix(darkBase, color, 0.85);
+
+                // trail — память прошлого кадра
+                vec2 uv = gl_PointCoord;
+                vec3 trail = texture2D(tTrail, uv).rgb;
+
+                // мягкое масляное смещение цветом трейла
+                color += trail * trailStrength;
+
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                gl_FragColor = vec4(color * vColor, alpha * 0.7);
+
+                // дыхание (затемнённое)
+                float breath = 0.85 + 0.15 * sin(time * 0.4);
+                color *= breath;
+
+                // мазки кисти (утопить в тьме)
+                float brushStroke = smoothstep(0.18, 0.02, dist);
+                vec3 oilLift = color * 1.25;
+                color = mix(color, oilLift, brushStroke * 0.22);
+
+                // финальное затемнение краёв (виньетка холста)
+                float vignette = smoothstep(0.6, 0.2, dist);
+                color *= vignette;
+
+                gl_FragColor = vec4(color * vColor, alpha);
             }
         `;
 
