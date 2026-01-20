@@ -621,6 +621,8 @@ const orbLearning = {
     smoothness: 0.5,
     chaos: 0.5,
     contrast: 0.5,
+    gravity: 0.6,
+    horizon: 1.02,
     targetEntropy: 0.6
 };
 
@@ -1180,7 +1182,9 @@ const orbLearning = {
             uniforms: {
                 time: { value: 0 },
                 energy: { value: 0 },
-                chaos: { value: 0.5 }
+                chaos: { value: 0.5 },
+                gravity: { value: 0.6 },
+                horizon: { value: 1.02 }
             },
             vertexShader: `
                 attribute float seed;
@@ -1188,16 +1192,25 @@ const orbLearning = {
                 uniform float time;
                 uniform float energy;
                 uniform float chaos;
+                uniform float gravity;
+                uniform float horizon;
 
                 void main() {
                     vec3 p = position;
+
+                    float r = length(p);
+                    float shellForce = (horizon - r);
+                    float grav = shellForce * gravity;
 
                     float n =
                         sin(seed + time * 1.4) *
                         cos(seed * 0.7 + time * 0.9);
 
-                    // хаотичное скольжение по поверхности
-                    p += normalize(p) * n * 0.06 * (0.3 + energy) * chaos;
+                    // гравитация к горизонту событий
+                    p += normalize(p) * grav;
+
+                    // локальные флуктуации поля
+                    p += normalize(p) * n * 0.05 * (0.3 + energy) * chaos;
 
                     // микро-дрейф вдоль касательной
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
@@ -1499,10 +1512,19 @@ const orbLearning = {
             orbLearning.smoothness = THREE.MathUtils.clamp(orbLearning.smoothness, 0.2, 1.0);
             orbLearning.contrast = THREE.MathUtils.clamp(orbLearning.contrast, 0.2, 1.5);
 
+            // дыхание гравитации
+            orbLearning.gravity += Math.sin(performance.now() * 0.0004) * 0.0005;
+            orbLearning.gravity = THREE.MathUtils.clamp(orbLearning.gravity, 0.2, 1.2);
+
+            // горизонт слегка пульсирует
+            orbLearning.horizon = 1.0 + orbEnergy * 0.12;
+
             // прокидываем в шейдер
             lineMat.uniforms.energy.value =
                 orbEnergy * orbLearning.contrast;
             lineMat.uniforms.chaos.value = orbLearning.chaos;
+            lineMat.uniforms.gravity.value = orbLearning.gravity;
+            lineMat.uniforms.horizon.value = orbLearning.horizon;
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
