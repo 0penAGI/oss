@@ -4357,6 +4357,9 @@
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            if (typeof text === 'string' && text.includes('| Notes:')) {
+                text = text.replace(/\s*\|\s*Notes:.*$/s, '');
+            }
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
