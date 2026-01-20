@@ -4090,10 +4090,8 @@ let isActiveTab = true;
                     const full = window._chatStreamBuffer;
                     const delta = full.slice(printed);
 
-                    // удаляем пробелы и служебную пустоту
-                    const cleanDelta = delta.replace(/\s+/g, '');
-
-                    if (!window._chatStreamMsg && cleanDelta.length > 0) {
+                    // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
+                    if (!window._chatStreamMsg && delta.length > 0) {
                         const msgDiv = document.createElement('div');
                         msgDiv.className = 'chat-message ai';
                         msgDiv.innerHTML = `
@@ -4105,7 +4103,7 @@ let isActiveTab = true;
                         window._chatStreamPrinted = printed;
                     }
 
-                    if (cleanDelta.length > 0) {
+                    if (delta.length > 0) {
                         window._chatStreamHasText = true;
                     }
 
