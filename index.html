@@ -3899,10 +3899,30 @@ let isActiveTab = true;
                 await generateImageFromText(text);
             }
         };
+        // === Web/Telegram Session ID (unified) ===
+        const isTelegram =
+          typeof window.Telegram !== 'undefined' &&
+          window.Telegram.WebApp &&
+          window.Telegram.WebApp.initDataUnsafe?.user?.id;
+
+        const WEB_SESSION_KEY = 'web_fake_user_id';
+
+        let user_id;
+
+        if (isTelegram) {
+          user_id = String(window.Telegram.WebApp.initDataUnsafe.user.id);
+        } else {
+          user_id = localStorage.getItem(WEB_SESSION_KEY);
+          if (!user_id) {
+            user_id = 'web_' + crypto.randomUUID();
+            localStorage.setItem(WEB_SESSION_KEY, user_id);
+          }
+        }
+
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
             try {
-                const userId = tg?.initDataUnsafe?.user?.id || 1;
+                const userId = user_id;
                 const response = await fetch("/api/generate_image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -4056,7 +4076,7 @@ let isActiveTab = true;
             const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
             try {
-                const userId = tg?.initDataUnsafe?.user?.id || 0;
+                const userId = user_id;
                 // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
@@ -5065,7 +5085,7 @@ let isActiveTab = true;
                 }
 
                 try {
-                    const userId = tg?.initDataUnsafe?.user?.id || 0;
+                    const userId = user_id;
                     await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
