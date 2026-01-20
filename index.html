@@ -3789,6 +3789,26 @@ const orbLearning = {
         let isChatMode = false;
 
         // === SpeechSynthesis Voices Loader ===
+
+        // === LLM firewall ===
+        let LLM_BUSY = false;
+        let LLM_QUEUE = null;
+
+        function sendLLM(text) {
+            if (LLM_BUSY) {
+                LLM_QUEUE = text; // всегда держим только последнее сообщение
+                return;
+            }
+            LLM_BUSY = true;
+            sendToBot(text).finally(() => {
+                LLM_BUSY = false;
+                if (LLM_QUEUE) {
+                    const t = LLM_QUEUE;
+                    LLM_QUEUE = null;
+                    setTimeout(() => sendLLM(t), 300);
+                }
+            });
+        }
         function updateVoices() {
             availableVoices = synth.getVoices();
             // Автоматически выбираем голос под текущий язык
@@ -4152,7 +4172,7 @@ const orbLearning = {
                 if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
                 if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
 
-                await sendToBot(text);
+                sendLLM(text);
                 await generateImageFromText(text);
             }
         };
