@@ -4128,6 +4128,17 @@
                     }
                 }
 
+                // === FINAL FLUSH: дописываем хвост, если стрим оборвался ===
+                if (window._chatStreamMsg) {
+                    const printed = window._chatStreamPrinted || 0;
+                    const full = window._chatStreamBuffer || '';
+                    const tail = full.slice(printed);
+                    if (tail && tail.trim().length > 0) {
+                        await typeWriterWordsEffect(window._chatStreamMsg, tail);
+                        window._chatStreamPrinted = full.length;
+                    }
+                }
+
                 // После выхода из цикла проверяем, был ли текст
                 if (window._chatStreamMsg && !window._chatStreamHasText) {
                     window._chatStreamMsg.closest('.chat-message')?.remove(); // удаляем пустой блок
