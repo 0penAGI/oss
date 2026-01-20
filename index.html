@@ -869,9 +869,11 @@
 
                 void main() {
                     vec2 flow = texture2D(tOld, vUv).rg * 2.0 - 1.0;
+                    flow *= 0.15;
                     flow *= (0.3 + learning * 0.7);
                     vec2 displacedUV = vUv + flow * 0.002;
                     vec4 oldCol = noiseBlur(tOld, displacedUV);
+                    oldCol.rgb *= 0.6;
 
                     // накопленная усталость из предыдущих кадров (alpha-канал)
                     float fatigueMemory = oldCol.a;
@@ -904,15 +906,16 @@
                     newCol.rgb *= vec3(0.6, 0.8, 1.0);
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
-                    vec4 color = max(oldCol * 0.9, newCol * 0.8);
+                    vec4 color = oldCol * 0.85 + newCol * 0.25;
                     if (
                         any(isnan(color.rgb)) ||
                         any(isinf(color.rgb))
                     ) {
                         color = vec4(0.0, 0.0, 0.0, 1.0);
                     }
-                    color.rgb = clamp(color.rgb, 0.0, 1.0);
-                    color.rgb *= 0.85;
+                    // --- Color processing before output ---
+                    color.rgb = min(color.rgb, vec3(0.35));
+                    color.rgb *= 0.9;
                     gl_FragColor = color;
                 }
             `,
