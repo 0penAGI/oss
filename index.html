@@ -5144,14 +5144,12 @@ let isActiveTab = true;
         }
 
         function typeWriterWordsEffect(element, text, charDelay = 1, wordDelay = 5) {
-            // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
                 if (detectCodeBlock(text)) {
                     const pre = document.createElement('pre');
                     pre.className = 'code-artifact';
                     const code = document.createElement('code');
 
-                    // strip leading ``` if present
                     let codeText = text.trimStart();
                     if (codeText.startsWith('```')) {
                         codeText = codeText.replace(/^```[\w-]*\n?/, '').replace(/```$/, '');
@@ -5163,17 +5161,16 @@ let isActiveTab = true;
                     resolve();
                     return;
                 }
+
                 text = text.replace(/^[.\s]+/, '');
                 if (!text || !text.trim()) {
                     resolve();
                     return;
                 }
+
                 const isAI = element.closest('.chat-message')?.classList.contains('ai');
-                const chatContainer = document.getElementById('chatMessages');
-                function scrollChatToBottomLocal() {
-                    scrollChatToBottom();
-                }
                 let cursor = null;
+
                 if (isAI) {
                     cursor = element.querySelector('.ai-cursor');
                     if (!cursor) {
@@ -5182,165 +5179,79 @@ let isActiveTab = true;
                         element.appendChild(cursor);
                     }
                 }
-                // Split text into markdown segments
+
                 const segments = parseMarkdownSegments(text);
+
+                // === Fast render buffers ===
                 let segIdx = 0;
-                function typeSegment() {
+                let buffer = [];
+                let flushing = false;
+                const MAX_BATCH = 24;
+
+                function flushBuffer() {
+                    if (buffer.length === 0) return;
+                    const frag = document.createDocumentFragment();
+                    for (const n of buffer) frag.appendChild(n);
+                    buffer.length = 0;
+                    element.insertBefore(frag, cursor || null);
+                    if (element.parentElement) {
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    }
+                }
+
+                function scheduleFlush() {
+                    if (flushing) return;
+                    flushing = true;
+                    requestAnimationFrame(() => {
+                        flushBuffer();
+                        flushing = false;
+                    });
+                }
+
+                function typeNextSegment() {
                     if (segIdx >= segments.length) {
-                        if (isAI) {
-                            const cursor = element.querySelector('.ai-cursor');
-                            if (cursor) cursor.remove();
-                        }
-                        scrollChatToBottomLocal();
+                        flushBuffer();
+                        if (cursor) cursor.remove();
                         resolve();
                         return;
                     }
+
                     const seg = segments[segIdx++];
-                    if (seg.type === "plain") {
-                        // Split into words/punctuation/spaces
-                        const wordRegex = /(\s+|[^\wа-яА-ЯёЁa-zA-Z0-9]+)/g;
-                        let parts = [];
-                        let lastIndex = 0;
-                        let m;
-                        while ((m = wordRegex.exec(seg.text)) !== null) {
-                            if (m.index > lastIndex) {
-                                parts.push(seg.text.slice(lastIndex, m.index));
-                            }
-                            parts.push(m[0]);
-                            lastIndex = wordRegex.lastIndex;
-                        }
-                        if (lastIndex < seg.text.length) {
-                            parts.push(seg.text.slice(lastIndex));
-                        }
-                        let i = 0;
-                        function typePart() {
-                            if (i >= parts.length) {
-                                typeSegment();
-                                return;
-                            }
-                            const part = parts[i++];
-                            // spaces
-                            if (/^\s+$/.test(part)) {
-                                const span = document.createElement('span');
-                                span.textContent = part;
-                                element.appendChild(span);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                setTimeout(typePart, wordDelay / 2);
-                                return;
-                            }
-                            // punctuation
-                            if (/^[^\wа-яА-ЯёЁa-zA-Z0-9]+$/.test(part)) {
-                                const span = document.createElement('span');
-                                span.textContent = part;
-                                element.appendChild(span);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                let puncPause = 40;
-                                if (/[.!?]/.test(part)) puncPause += 50;
-                                setTimeout(typePart, puncPause);
-                                return;
-                            }
-                            // word — letter by letter
-                            let charIdx = 0;
-                            function typeChar() {
-                                if (charIdx >= part.length) {
-                                    setTimeout(typePart, wordDelay + Math.random() * 15);
-                                    return;
-                                }
-                                const span = document.createElement('span');
-                                span.className = 'chat-char';
-                                span.textContent = part[charIdx++];
-                                element.appendChild(span);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                setTimeout(typeChar, charDelay + Math.random() * 4);
-                            }
-                            typeChar();
-                        }
-                        typePart();
-                    } else if (seg.type === "italic") {
-                        // *italic* → semi-transparent, slightly italicized
-                        const span = document.createElement('span');
-                        span.className = 'chat-char chat-italic';
-                        let chars = Array.from(seg.text);
-                        let i = 0;
-                        function typeChar() {
-                            if (i >= chars.length) {
-                                element.appendChild(span);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
-                                return;
-                            }
-                            const cspan = document.createElement('span');
-                            cspan.className = 'chat-char chat-italic';
-                            cspan.textContent = chars[i++];
-                            span.appendChild(cspan);
-                            if (cursor) element.appendChild(cursor);
-                            scrollChatToBottomLocal();
-                            setTimeout(typeChar, charDelay + Math.random() * 4);
-                        }
-                        typeChar();
-                    } else if (seg.type === "bold") {
-                        // **bold** → larger, bold
-                        const span = document.createElement('span');
-                        span.className = 'chat-char chat-bold';
-                        let chars = Array.from(seg.text);
-                        let i = 0;
-                        function typeChar() {
-                            if (i >= chars.length) {
-                                element.appendChild(span);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
-                                return;
-                            }
-                            const cspan = document.createElement('span');
-                            cspan.className = 'chat-char chat-bold';
-                            cspan.textContent = chars[i++];
-                            span.appendChild(cspan);
-                            if (cursor) element.appendChild(cursor);
-                            scrollChatToBottomLocal();
-                            setTimeout(typeChar, charDelay + Math.random() * 4);
-                        }
-                        typeChar();
-                    } else if (seg.type === "glitch") {
-                        const parentSpan = document.createElement('span');
-                        parentSpan.className = 'chat-glitch';
-                        const chars = Array.from(seg.text);
-                        let i = 0;
-                        function typeChar() {
-                            if (i >= chars.length) {
-                                element.appendChild(parentSpan);
-                                if (cursor) element.appendChild(cursor);
-                                scrollChatToBottomLocal();
-                                setTimeout(typeSegment, wordDelay + Math.random() * 10);
-                                return;
-                            }
+                    let chars = Array.from(seg.text);
+                    let i = 0;
+
+                    function step() {
+                        let count = 0;
+                        while (i < chars.length && count < MAX_BATCH) {
                             const span = document.createElement('span');
-                            span.className = 'chat-char chat-glitch';
-                            span._baseText = chars[i];
+                            span.className = 'chat-char';
+
+                            if (seg.type === 'italic') span.classList.add('chat-italic');
+                            if (seg.type === 'bold') span.classList.add('chat-bold');
+                            if (seg.type === 'glitch') {
+                                span.classList.add('chat-glitch');
+                                span._baseText = chars[i];
+                                startGlitchAnimation(span, span._baseText);
+                            }
+
                             span.textContent = chars[i++];
-                            parentSpan.appendChild(span);
-                            startGlitchAnimation(span, span._baseText);
-                            if (cursor) element.appendChild(cursor);
-                            scrollChatToBottomLocal();
-                            setTimeout(typeChar, charDelay + Math.random() * 2);
+                            buffer.push(span);
+                            count++;
                         }
-                        typeChar();
-                    } else {
-                        // fallback: just append
-                        const span = document.createElement('span');
-                        span.className = 'chat-char';
-                        span.textContent = seg.text;
-                        element.appendChild(span);
-                        if (cursor) element.appendChild(cursor);
-                        scrollChatToBottomLocal();
-                        setTimeout(typeSegment, wordDelay + Math.random() * 10);
+
+                        scheduleFlush();
+
+                        if (i < chars.length) {
+                            requestAnimationFrame(step);
+                        } else {
+                            setTimeout(typeNextSegment, wordDelay);
+                        }
                     }
+
+                    step();
                 }
-                typeSegment();
+
+                typeNextSegment();
             });
         }
 
