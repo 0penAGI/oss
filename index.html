@@ -5395,46 +5395,6 @@ const orbLearning = {
 
         // ===== cameraEnabled =====
         let cameraEnabled = false;
-  
-        const prevOnResult = recognition.onresult;
-        recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-           
-            if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
-                if (!musicPlaying) {
-                    if (musicCtx.state === 'suspended') await musicCtx.resume();
-                    startMusic();
-                }
-                return;
-            }
-          
-            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
-                if (cameraVideo.style.display !== 'block') {
-                    startCamera(currentCamera);
-                    cameraEnabled = true;
-                }
-            }
-            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
-                if (cameraVideo.style.display === 'block') {
-                    stopCamera();
-                    cameraEnabled = false;
-                }
-            }
-            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
-                switchCamera();
-            }
-
-         
-            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
-            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
-                triggerAmbient();
-            }
-
-           
-            if (typeof prevOnResult === 'function') {
-                await prevOnResult(event);
-            }
-        };
 
         const origStartCamera = startCamera;
         startCamera = async function(...args) {
