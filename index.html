@@ -571,22 +571,20 @@ let isActiveTab = true;
             isActiveTab = !document.hidden;
 
             if (!isActiveTab) {
-                // сброс визуальной энергии
-                orbEnergy *= 0.2;
-                speechEnvelope = 0.0;
+                orbEnergy = 0;
+                speechEnvelope = 0;
 
-                // жёсткая остановка голоса и аудио
-                if (window.speechSynthesis) {
-                    window.speechSynthesis.cancel();
-                }
-                if (window.audioContext && audioContext.state === 'running') {
-                    audioContext.suspend();
-                }
+                if (speechSynthesis) speechSynthesis.cancel();
+                if (audioContext?.state === 'running') audioContext.suspend();
+
+                // сброс GPU feedback (критично для Safari / mobile)
+                renderer.setRenderTarget(feedbackRT1);
+                renderer.clear(true, true, true);
+                renderer.setRenderTarget(feedbackRT2);
+                renderer.clear(true, true, true);
+                renderer.setRenderTarget(null);
             } else {
-                // восстановление аудио только при активном окне
-                if (window.audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
+                if (audioContext?.state === 'suspended') audioContext.resume();
             }
         });
 
@@ -1274,10 +1272,7 @@ let isActiveTab = true;
 
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
         function animate() {
-            if (!isActiveTab) {
-                requestAnimationFrame(animate);
-                return;
-            }
+            if (!isActiveTab) return;
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
