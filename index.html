@@ -612,9 +612,17 @@ let isActiveTab = true;
 
         const scene = new THREE.Scene();
 
-        let orbEnergy = 0;        // 0..1 — текущая энергия
-        let targetEnergy = 0.22; // baseline listening
-        let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
+let orbEnergy = 0;        // 0..1 — текущая энергия
+let targetEnergy = 0.22; // baseline listening
+let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
+
+// === Shader Self-Optimization State ===
+const orbLearning = {
+    smoothness: 0.5,
+    chaos: 0.5,
+    contrast: 0.5,
+    targetEntropy: 0.6
+};
 
         const transcriptDiv = document.getElementById('transcript');
 
@@ -1171,13 +1179,15 @@ let isActiveTab = true;
         const lineMat = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                energy: { value: 0 }
+                energy: { value: 0 },
+                chaos: { value: 0.5 }
             },
             vertexShader: `
                 attribute float seed;
                 varying float vFade;
                 uniform float time;
                 uniform float energy;
+                uniform float chaos;
 
                 void main() {
                     vec3 p = position;
@@ -1187,7 +1197,7 @@ let isActiveTab = true;
                         cos(seed * 0.7 + time * 0.9);
 
                     // хаотичное скольжение по поверхности
-                    p += normalize(p) * n * 0.06 * (0.3 + energy);
+                    p += normalize(p) * n * 0.06 * (0.3 + energy) * chaos;
 
                     // микро-дрейф вдоль касательной
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
@@ -1469,9 +1479,30 @@ let isActiveTab = true;
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
-
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
+
+            // === Aesthetic Feedback Loop (pseudo-learning) ===
+            const entropy =
+                Math.abs(Math.sin(lineMat.uniforms.time.value * 0.2)) *
+                (0.5 + orbEnergy);
+
+            const error = orbLearning.targetEntropy - entropy;
+
+            // медленное самонастройка
+            orbLearning.chaos += error * 0.002;
+            orbLearning.smoothness -= error * 0.001;
+            orbLearning.contrast += error * 0.0015;
+
+            // кламп
+            orbLearning.chaos = THREE.MathUtils.clamp(orbLearning.chaos, 0.1, 1.2);
+            orbLearning.smoothness = THREE.MathUtils.clamp(orbLearning.smoothness, 0.2, 1.0);
+            orbLearning.contrast = THREE.MathUtils.clamp(orbLearning.contrast, 0.2, 1.5);
+
+            // прокидываем в шейдер
+            lineMat.uniforms.energy.value =
+                orbEnergy * orbLearning.contrast;
+            lineMat.uniforms.chaos.value = orbLearning.chaos;
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
