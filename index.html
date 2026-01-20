@@ -555,9 +555,6 @@
 let renderer;
 let isActiveTab = true;
 
-// PATCH B: feedbackRT not every frame
-let frameCounter = 0;
-
         if (isApple && THREE.WebGPURenderer) {
             renderer = new THREE.WebGPURenderer({
                 canvas,
@@ -895,9 +892,12 @@ const orbLearning = {
                     vec2 px = 1.0 / resolution;
                     vec2 dir = noiseDir(uv);
 
-                    vec4 col = texture2D(tex, uv) * 0.5;
-                    col += texture2D(tex, uv + dir * px) * 0.25;
-                    col += texture2D(tex, uv - dir * px) * 0.25;
+                    vec4 col = vec4(0.0);
+                    col += texture2D(tex, uv) * 0.314;
+                    col += texture2D(tex, uv + dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv - dir * px * 1.0) * 0.22;
+                    col += texture2D(tex, uv + dir * px * 2.5) * 0.11;
+                    col += texture2D(tex, uv - dir * px * 2.5) * 0.11;
 
                     return col;
                 }
@@ -1203,7 +1203,7 @@ const orbLearning = {
                         cos(seed * 0.7 + time * 0.9);
 
                     // хаотичное скольжение по поверхности
-                    p += p * n * 0.06 * (0.3 + energy) * chaos;
+                    p += normalize(p) * n * 0.06 * (0.3 + energy) * chaos;
 
                     // микро-дрейф вдоль касательной
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
@@ -1244,10 +1244,6 @@ const orbLearning = {
         let currentMode = 0;
         let targetMode = 0;
         let speechEnvelope = 0.0;
-
-        // === Orb speech dynamics ===
-        let orbSpeechEnergy = 0.0;   // 0..1
-        let orbSpeechTarget = 0.0;
 
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
@@ -1444,15 +1440,6 @@ const orbLearning = {
             if (!isActiveTab) return;
             requestAnimationFrame(animate);
 
-            // PATCH B: feedbackRT not every frame
-            frameCounter++;
-
-            // === Orb speech: smooth energy ===
-            orbSpeechEnergy += (orbSpeechTarget - orbSpeechEnergy) * 0.08;
-
-            // --- Лёгкая пульсация по речевому ритму ---
-            const pulse = Math.sin(performance.now() * 0.006) * orbSpeechEnergy;
-
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
                 touchMemory[i].strength *= 0.992;
@@ -1471,23 +1458,6 @@ const orbLearning = {
             lineMat.uniforms.energy.value = orbEnergy;
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
-
-            // === Усилить движение линий во время речи ===
-            // Используем orbSpeechEnergy для boost
-            // (в оригинале здесь нет параметров speed/noise, но можно модифицировать вращения/шейдеры)
-            {
-                // line movement boost
-                const speechBoost = 1.0 + orbSpeechEnergy * 1.4;
-                // Применяем к вращению и uniform'ам
-                orbLines.rotation.y -= 0.0006 * speechBoost;
-                orbLines.rotation.x += 0.0003 * speechBoost;
-                // Можно добавить пульсацию к толщине/альфе через lineMat uniforms
-                // (либо если есть lineWidth/lineAlpha — применить к ним)
-                if (lineMat.uniforms.energy) {
-                    // energy уже отражает orbEnergy, но можно добавить speech эффект
-                    lineMat.uniforms.energy.value = orbEnergy * (1.0 + orbSpeechEnergy * 0.8);
-                }
-            }
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
@@ -1516,25 +1486,17 @@ const orbLearning = {
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
             const scale = 1.0 + speechEnvelope * 0.45;
-            soulOrbMesh.scale.set(scale + pulse * 0.12, scale + pulse * 0.12, scale + pulse * 0.12);
+            soulOrbMesh.scale.set(scale, scale, scale);
 
-            // --- Используем pulse для линий (альфа, ширина) ---
-            // (если есть параметры lineAlpha/lineWidth — модифицируй их, иначе через energy)
-            if (lineMat.uniforms.energy) {
-                // Дополнительно варьируем energy для пульсации
-                lineMat.uniforms.energy.value += pulse * 0.18;
-            }
-            // Можно добавить радиальное смещение в шейдере через uniform, если реализовано
 
-            // PATCH B: feedbackRT not every frame
-            if (frameCounter % 2 === 0) {
-                renderer.setRenderTarget(feedbackRT2);
-                renderer.clear();
-                renderer.render(scene, camera);
+            // render particles to feedback buffer
+            renderer.setRenderTarget(feedbackRT2);
+            renderer.clear();
+            renderer.render(scene, camera);
 
-                feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
-                feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
-            }
+            // mix previous frame + new frame
+            feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
+            feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
             // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.001;
@@ -1558,12 +1520,10 @@ const orbLearning = {
             renderer.clear(true, true, true);
             renderer.render(feedbackScene, feedbackCamera);
 
-            // PATCH B: swap only every 2nd frame
-            if (frameCounter % 2 === 0) {
-                const tmp = feedbackRT1;
-                feedbackRT1 = feedbackRT2;
-                feedbackRT2 = tmp;
-            }
+            // swap render targets
+            const tmp = feedbackRT1;
+            feedbackRT1 = feedbackRT2;
+            feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
             // Emulate multi-agent system: graphic, content, ux pulse every frame
@@ -1576,15 +1536,8 @@ const orbLearning = {
             agentChannels.ux.forEach(cb =>
                 cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
             );
-
-            // --- chat shaders update (single rAF) ---
-            animateChatShader();
-            autoReactiveChat();
         }
         animate();
-        // ====== Orb speech: feed energy from speech ======
-        // Find speak(text) and patch orbSpeechTarget triggers
-        // (Assume speak is defined somewhere above)
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -1718,10 +1671,11 @@ const orbLearning = {
         // --- animation XDust chat
         function animateChatShader() {
             if (!isActiveTab) {
+                requestAnimationFrame(animateChatShader);
                 return;
             }
-            // PATCH C: remove resizeChatCanvas() call
-            // resizeChatCanvas();
+            requestAnimationFrame(animateChatShader);
+            resizeChatCanvas();
             const t = performance.now() * 0.001;
             chatMaterial.uniforms.time.value = t;
             chatRenderer.render(chatScene, feedbackCamera);
@@ -1730,6 +1684,7 @@ const orbLearning = {
        
         function autoReactiveChat() {
             if (!isActiveTab) {
+                requestAnimationFrame(autoReactiveChat);
                 return;
             }
             const t = performance.now() * 0.001;
@@ -1760,7 +1715,11 @@ const orbLearning = {
 
             chatMaterial.uniforms.time.value = t * intensity;
             chatMaterial.uniforms.flow.value.set(flowX, flowY);
+
+            requestAnimationFrame(autoReactiveChat);
         }
+
+        autoReactiveChat();
 
         // Resize for chat
         let baseWidth = window.innerWidth;
@@ -1792,6 +1751,7 @@ const orbLearning = {
             resizeChatCanvas();
         });
 
+        animateChatShader();
 
         // ====== Chat swipe support for mobile & desktop drag-scroll ======
         (function enableChatSwipe() {
@@ -2327,46 +2287,6 @@ const orbLearning = {
             }
           }
         },4000 + Math.random()*2000);
-        // --- Patch for speech dynamics ---
-        // Find speak(text) and patch orbSpeechTarget triggers
-        // (Monkey-patch if not already present)
-        if (typeof speak === 'function') {
-            const origSpeak = speak;
-            window.speak = function(text) {
-                // If using SpeechSynthesisUtterance
-                if (typeof window.speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined') {
-                    try {
-                        const utter = new SpeechSynthesisUtterance(text);
-                        // On start: raise speech
-                        utter.onstart = function() {
-                            orbSpeechTarget = 1.0;
-                            if (typeof origSpeak.onstart === 'function') origSpeak.onstart();
-                        };
-                        // On end/error: fade speech
-                        utter.onend = function() {
-                            orbSpeechTarget = 0.0;
-                            if (typeof origSpeak.onend === 'function') origSpeak.onend();
-                        };
-                        utter.onerror = function() {
-                            orbSpeechTarget = 0.0;
-                            if (typeof origSpeak.onerror === 'function') origSpeak.onerror();
-                        };
-                        window.speechSynthesis.speak(utter);
-                        return;
-                    } catch (e) {
-                        // fallback to origSpeak
-                    }
-                }
-                // fallback
-                orbSpeechTarget = 1.0;
-                try {
-                    origSpeak(text);
-                } finally {
-                    orbSpeechTarget = 0.0;
-                }
-            };
-        }
-
         // === Вспомогательная функция для очистки текста пользователя ===
         function sanitizeUserOutput(text) {
             if (typeof text !== 'string') return text;
