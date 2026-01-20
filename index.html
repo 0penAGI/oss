@@ -797,16 +797,7 @@
                     noise(p.yzx - time * 0.1)
                 ) * 2.0 - 1.0);
 
-                // базовый тёмно-синий
-                vec3 baseColor = vec3(0.03, 0.06, 0.12);
-
-                // интенсивность поля
-                float strength = length(flow);
-
-                // аккуратное усиление при активности (learning приходит через alpha позже)
-                vec3 colorOut = baseColor + strength * vec3(0.08, 0.12, 0.2);
-
-                gl_FragColor = vec4(colorOut, 1.0);
+                gl_FragColor = vec4(flow * 0.5 + 0.5, 0.0, 1.0);
             }
         `;
 
@@ -868,11 +859,10 @@
                 }
 
                 void main() {
-                    vec2 flow = normalize(texture2D(tOld, vUv).rg * 2.0 - 1.0);
-                    flow *= 0.001;
-                    vec2 displacedUV = vUv + flow;
+                    vec2 flow = texture2D(tOld, vUv).rg * 2.0 - 1.0;
+                    flow *= (0.3 + learning * 0.7);
+                    vec2 displacedUV = vUv + flow * 0.006;
                     vec4 oldCol = noiseBlur(tOld, displacedUV);
-                    oldCol.rgb *= 0.6;
 
                     // накопленная усталость из предыдущих кадров (alpha-канал)
                     float fatigueMemory = oldCol.a;
@@ -902,19 +892,15 @@
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
-                    newCol.rgb *= vec3(0.6, 0.8, 1.0);
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
-                    vec4 color = oldCol * 0.85 + newCol * 0.25;
+                    vec4 color = max(oldCol * 0.96, newCol);
                     if (
                         any(isnan(color.rgb)) ||
                         any(isinf(color.rgb))
                     ) {
                         color = vec4(0.0, 0.0, 0.0, 1.0);
                     }
-                    // --- Color processing before output ---
-                    color.rgb = min(color.rgb, vec3(0.35));
-                    color.rgb *= 0.9;
                     gl_FragColor = color;
                 }
             `,
