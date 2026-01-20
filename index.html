@@ -403,15 +403,19 @@
         border: none;
     }
 
-    .chat-input input {
+    .chat-input textarea {
         flex: 1;
-        padding: 10px 16px; 
-        height: 25px;
+        padding: 10px 16px;
+        min-height: 25px;
+        max-height: 140px;
+        resize: none;
+        overflow-y: auto;
         background: rgba(0,0,0,0);
         border: none;
         border-radius: 20px;
         color: #fff;
         outline: none;
+        line-height: 1.35;
     }
     .chat-input button {
         background: rgba(0,0,0,0);
@@ -518,9 +522,17 @@
         ></canvas>
         <div class="chat-messages" id="chatMessages" style="position:relative;z-index:2;background:transparent;box-shadow:none;"></div>
         <div class="chat-input" style="position:relative;z-index:2;background:transparent;box-shadow:none;">
-            <input type="text" id="chatInput" placeholder="Type message...">
+            <textarea id="chatInput" placeholder="Type message..."></textarea>
             <button id="sendBtn">Send</button>
         </div>
+        // ===== Автоподстройка высоты textarea в чате =====
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput && chatInput.tagName === 'TEXTAREA') {
+            chatInput.addEventListener('input', () => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
+            });
+        }
     </div>
 
 </div>
@@ -1201,33 +1213,42 @@ let isActiveTab = true;
             }
 
             void main() {
-                // glass shader: мягкая радиальная маска
-                vec2 uv = vUv - 0.5;
-                float r = length(uv);
-                // убираем сингулярность в центре
-                r = max(r, 0.08);
-                // мягкий купол вместо пятна
-                float mask = smoothstep(0.6, 0.15, r);
+                vec2 uv = vUv;
+                // --- мягкое ядро вместо сингулярности ---
+                vec2 p = uv - 0.5;
+                float r = length(p);
+                float softR = smoothstep(0.0, 0.6, r);
+                // плавное стеклянное затухание
+                float glassMask = 1.0 - softR;
+                glassMask = pow(glassMask, 1.5);
 
                 float t = time * 0.001;
+
+                // --- Use provided flow uniform ---
+                // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
-                // Используем mask вместо старого радиального фактора
-                vec2 refractUV = vUv + (usedFlow - 0.3) * 0.03 * mask * (1.0 + skinMemory*0.5);
+
+                vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
 
                 // === Gravity Displacement Around Orb ===
-                vec2 center = vUv - 0.314;
-                float orbRadius = 0.42;
-                float orbGravityStrength = 0.07 + energy * 0.1;
-                vec2 dirToOrb = normalize(center);
-                float distToOrb = length(center);
-                float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb);
-                float angle = hash(vUv + time) * 6.2831;
+                float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
+                float orbGravityStrength = 0.07 + energy * 0.1; // сила зависит от энергии орба
+                vec2 dirToOrb = normalize(p); // направление к центру орба
+                float distToOrb = r;
+                float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
+
+                // плавный шум для органики
+                float angle = hash(uv + time) * 6.2831;
                 vec2 swirl = vec2(cos(angle), sin(angle)) * 0.011;
+
+                // итоговое смещение
                 refractUV -= dirToOrb * gravityFactor * orbGravityStrength + swirl * gravityFactor;
 
-                float shimmer = sin(vUv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
+                // subtle shimmer
+                float shimmer = sin(uv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
                 refractUV += vec2(shimmer, shimmer);
 
+                // chromatic aberration
                 float caR = 0.011 + curiosity * 0.008;
                 float caG = 0.012;
                 float caB = 0.009 + energy * 0.011;
@@ -1236,13 +1257,12 @@ let isActiveTab = true;
                 col.g = texture2D(tBackground, refractUV).g;
                 col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
 
-                // highlight купол — используем mask
-                float highlight = pow(mask, 3.1);
-                col += vec3(0.12, 0.14, 0.22) * highlight * mask;
-                float edge = smoothstep(0.55, 0.9, r);
-                col += vec3(0.09, 0.1, 0.18) * edge * mask;
+                float highlight = pow(1.0 - softR, 3.1);
+                col += vec3(0.12, 0.14, 0.22) * highlight * glassMask;
+                float edge = smoothstep(0.55, 0.9, softR);
+                col += vec3(0.09, 0.1, 0.18) * edge * glassMask;
 
-                float alpha = 0.18 + 0.18 * mask;
+                float alpha = 0.18 + 0.18 * glassMask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
