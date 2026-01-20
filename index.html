@@ -1969,6 +1969,13 @@
             }
           }
         },4000 + Math.random()*2000);
+        // === Вспомогательная функция для очистки текста пользователя ===
+        function sanitizeUserOutput(text) {
+            if (typeof text !== 'string') return text;
+            // удаляем все хвосты вида "| Notes: ...."
+            return text.replace(/\s*\|\s*Notes:.*$/s, '').trim();
+        }
+
         const dialogEngine = {
             lastResponseTime: 0,
 
@@ -2010,6 +2017,10 @@
                 markovContext.memory.push({ text, emb: markovContext.embed(text) });
                 if (markovContext.memory.length > 100) markovContext.memory.shift();
                 markovContext.update(markovContext.memory.map(m => m.text));
+
+                // --- sanitize user text for output if spoken ---
+                // If there is a speak(text) or speak(idea) elsewhere, sanitize
+                // (no such direct call here, but for completeness)
 
                 this.lastResponseTime = performance.now();
             },
@@ -2082,7 +2093,7 @@
                         if (typeof cleanText === 'string') {
                             cleanText = cleanText.replace(/\s*\|\s*Notes:\s*.*$/s, '');
                         }
-                        speak(cleanText);
+                        speak(sanitizeUserOutput(cleanText));
                     }
                     this.lastResponseTime = performance.now();
                 }
@@ -2704,6 +2715,7 @@
         let lastInternalNote = null;
         let lastNoteTime = 0;
         function noteObservation(desc) {
+            desc = sanitizeUserOutput(desc);
             if (typeof desc === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(desc)) {
                 internalNotes.push(desc);
                 if (internalNotes.length > 50) internalNotes.shift();
@@ -2717,7 +2729,7 @@
             ) {
                 return;
             }
-            // Новый фильтр: не добавлять заметку, если она уже есть в последних 10 внутренних заметках или 5 observation-узлах
+            // Новый фильтр: не добавлять заметку, если она уже есть в последних 10 внутренних заметках или 5 observation-узлов
             let alreadyExists = false;
             for (let i = Math.max(0, internalNotes.length - 10); i < internalNotes.length; i++) {
                 if (internalNotes[i] === desc) {
