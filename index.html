@@ -3562,20 +3562,8 @@
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
         // Append transcript with full Markdown/code support, triple backticks and Prism.js highlighting
-        // --- Sanitize user output for display and sending ---
-        function sanitizeUserOutput(text) {
-            if (typeof text !== 'string') return text;
-            return text
-                .replace(/\s*\|\s*Notes:.*$/s, '')
-                .replace(/Inner Quest:.*?(;|$)/gi, '')
-                .replace(/Thinking:.*?(;|$)/gi, '')
-                .replace(/Autothought:.*?(;|$)/gi, '')
-                .trim();
-        }
-
         // Новый вариант appendTranscript: корректная обработка блоков кода с обратными кавычками и Prism.js
         function appendTranscript(text) {
-            text = sanitizeUserOutput(text);
             // Utility to escape HTML
             function escapeHTML(str) {
                 return str.replace(/[&<>"']/g, ch =>
@@ -3723,7 +3711,7 @@
 
           
             if (finalTranscript && finalTranscript.trim()) {
-                const text = sanitizeUserOutput(finalTranscript.trim());
+                const text = finalTranscript.trim();
             
                 appendTranscript(text);
            
@@ -3951,87 +3939,90 @@
         }
     }
 
-        async function sendToBot(text) {
-                stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-                if (window.recognition && recognition.abort) {
-                    try { recognition.abort(); } catch(e){}
+    async function sendToBot(text) {
+            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+            if (window.recognition && recognition.abort) {
+                try { recognition.abort(); } catch(e){}
+            }
+            isThinking = true;
+            orb.classList.remove('listening');
+            orb.classList.add('thinking');
+            status.innerText = "processing stream";
+            // --- таймеры статуса для длинной обработки ---
+            let processingTimeout = setTimeout(() => {
+                status.innerText = "thinking";
+            }, 10000); // через 10 секунд
+
+            let researchingTimeout = setTimeout(() => {
+                status.innerText = "preparing answer";
+            }, 20000); // через 20 секунд
+            startThinkingVibration();
+
+            // --- Orb bounce animation start ---
+            startOrbBounce();
+
+            // Подготовка UI с курсором
+            let responseContainer = document.getElementById("current-response");
+
+            if (!responseContainer) {
+                transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
+                responseContainer = document.getElementById("current-response");
+            } else {
+                responseContainer.innerHTML = '';
+                responseContainer.classList.add('typing-cursor');
+            }
+            audioBuffer = "";
+            spokenLength = 0;
+            // --- sDelay-driven speech sync ---
+            let speechStarted = false;
+            const speechDelayMs = 420; // базовая задержка «вязкого времени»
+
+            try {
+                const userId = tg?.initDataUnsafe?.user?.id || 0;
+                // Добавляем описание камеры в скобках, если оно есть
+                let textWithContext = text;
+                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                    textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-                isThinking = true;
-                orb.classList.remove('listening');
-                orb.classList.add('thinking');
-                status.innerText = "processing stream";
-                // --- таймеры статуса для длинной обработки ---
-                let processingTimeout = setTimeout(() => {
-                    status.innerText = "thinking";
-                }, 10000); // через 10 секунд
+                // Добавляем внутренние заметки self-awareness
+                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
-                let researchingTimeout = setTimeout(() => {
-                    status.innerText = "preparing answer";
-                }, 20000); // через 20 секунд
-                startThinkingVibration();
+                // Gather extended context for payload
+                const recentNotes = internalNotes.slice(-8);
+                const musicContext = {
+                    genre: currentGenre,
+                    genome: musicGenome,
+                    aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
+                    playing: !!musicPlaying
+                };
+                const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
+                    ? memoryPalace.getRecentNodes(8)
+                    : [];
+                const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
-                // --- Orb bounce animation start ---
-                startOrbBounce();
+                const payload = {
+                    user_id: userId,
+                    text: textWithContext,
+                    gender: userGender,
+                    lang: currentLang,
+                    notes: recentNotes,
+                    music: musicContext,
+                    memory: memoryContext,
+                    self_awareness: selfAwarenessContext,
+                    external_context: window.externalSearchContext.slice(-6)
+                };
 
-                // Подготовка UI с курсором
-                let responseContainer = document.getElementById("current-response");
-
-                if (!responseContainer) {
-                    transcriptDiv.innerHTML += `<br><br><span style="color: rgba(255,255,255,0.7)">AI:</span> <span id="current-response" class="typing-cursor"></span>`;
-                    responseContainer = document.getElementById("current-response");
-                } else {
-                    responseContainer.innerHTML = '';
-                    responseContainer.classList.add('typing-cursor');
-                }
-                audioBuffer = "";
-                spokenLength = 0;
-                // --- sDelay-driven speech sync ---
-                let speechStarted = false;
-                const speechDelayMs = 420; // базовая задержка «вязкого времени»
-
-                try {
-                    const userId = tg?.initDataUnsafe?.user?.id || 0;
-                    // Добавляем описание камеры в скобках, если оно есть
-                    let textWithContext = text;
-                    if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                        textWithContext = text + " (" + latestCameraDescription + ")";
+                const response = await fetch(
+                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify(payload)
                     }
-                    // Gather extended context for payload
-                    const recentNotes = internalNotes.slice(-8);
-                    const musicContext = {
-                        genre: currentGenre,
-                        genome: musicGenome,
-                        aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
-                        playing: !!musicPlaying
-                    };
-                    const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
-                        ? memoryPalace.getRecentNodes(8)
-                        : [];
-                    const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
-
-                    const payload = {
-                        user_id: userId,
-                        text: textWithContext,
-                        gender: userGender,
-                        lang: currentLang,
-                        notes: recentNotes,
-                        music: musicContext,
-                        memory: memoryContext,
-                        self_awareness: selfAwarenessContext,
-                        external_context: window.externalSearchContext.slice(-6)
-                    };
-
-                    const response = await fetch(
-                        'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'ngrok-skip-browser-warning': 'true'
-                            },
-                            body: JSON.stringify(payload)
-                        }
-                    );
+                );
 
                 // clear external context after successful handoff to backend
                 window.externalSearchContext = [];
@@ -4087,8 +4078,7 @@
                     }
 
                     if (delta.trim().length > 0 && window._chatStreamMsg) {
-                        // фикс: не считаем напечатанным раньше факта печати
-                        window._chatStreamPrinted = printed + delta.length;
+                        window._chatStreamPrinted = full.length;
                         chatShouldStick = stickChatToBottom(chatMessages);
                         chatTypingQueue = chatTypingQueue.then(() => {
                             return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
@@ -4138,22 +4128,6 @@
                     }
                 }
 
-                // === FORCE FLUSH CHAT STREAM (fix truncated text) ===
-                if (window._chatStreamMsg) {
-                    const full = window._chatStreamBuffer || '';
-                    const printed = window._chatStreamPrinted || 0;
-                    if (printed < full.length) {
-                        const tail = full.slice(printed);
-                        if (tail.trim().length > 0) {
-                            chatTypingQueue = chatTypingQueue.then(() => {
-                                return typeWriterWordsEffect(window._chatStreamMsg, tail).then(() => {
-                                    if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
-                                });
-                            });
-                        }
-                        window._chatStreamPrinted = full.length;
-                    }
-                }
                 // После выхода из цикла проверяем, был ли текст
                 if (window._chatStreamMsg && !window._chatStreamHasText) {
                     window._chatStreamMsg.closest('.chat-message')?.remove(); // удаляем пустой блок
@@ -4425,8 +4399,6 @@
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
-            text = sanitizeUserOutput(text);
-            if (!text) return;
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
