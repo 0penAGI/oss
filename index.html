@@ -763,41 +763,12 @@
                 }
             }
 
-            // 2D noise for flow field
-            float hash(vec3 p) {
-                p = fract(p * 0.3183099 + vec3(0.1,0.2,0.3));
-                p *= 17.0;
-                return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
-            }
-            float noise(vec3 p) {
-                vec3 i = floor(p);
-                vec3 f = fract(p);
-                f = f*f*(3.0-2.0*f);
-                return mix(
-                    mix(mix(hash(i+vec3(0,0,0)), hash(i+vec3(1,0,0)), f.x),
-                        mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
-                    mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
-                        mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y),
-                    f.z);
-            }
-
             void main() {
                 vec3 p = gl_PointCoord.xyx / vec3(2.0);
-                vec3 color = XDust(
-                    p,
-                    vec3(0.15, 0.25, 0.45),
-                    vec3(0.35, 0.55, 0.75),
-                    vec3(0.65, 0.75, 0.95)
-                );
+                vec3 color = XDust(p, vec3(1.0, 0, 0.48), vec3(0.24, 0.8, 1.0), vec3(0.33, 0.55, 1.0));
                 float dist = length(gl_PointCoord - vec2(0.5));
                 float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-                // --- FLOW FIELD REPLACEMENT ---
-                vec2 flow = normalize(vec2(
-                    noise(p + time * 0.1),
-                    noise(p.yzx - time * 0.1)
-                ) * 2.0 - 1.0);
-
-                gl_FragColor = vec4(flow * 0.5 + 0.5, 0.0, 1.0);
+                gl_FragColor = vec4(color * vColor, alpha * 0.7);
             }
         `;
 
@@ -859,10 +830,7 @@
                 }
 
                 void main() {
-                    vec2 flow = texture2D(tOld, vUv).rg * 2.0 - 1.0;
-                    flow *= (0.3 + learning * 0.7);
-                    vec2 displacedUV = vUv + flow * 0.006;
-                    vec4 oldCol = noiseBlur(tOld, displacedUV);
+                    vec4 oldCol = noiseBlur(tOld, vUv);
 
                     // накопленная усталость из предыдущих кадров (alpha-канал)
                     float fatigueMemory = oldCol.a;
@@ -923,12 +891,11 @@
             sizes[i] = Math.random() * 3 + 1;
 
             // Живые, гармоничные цвета с плавным смещением
+            const hue = Math.random();
+            const sat = 0.6 + Math.random() * 0.4;
+            const light = 0.5 + Math.random() * 0.5;
             const col = new THREE.Color();
-            col.setRGB(
-                0.2 + Math.random() * 0.4,
-                0.35 + Math.random() * 0.4,
-                0.55 + Math.random() * 0.4
-            );
+            col.setHSL(hue, sat, light);
 
             colors[i * 3] = col.r;
             colors[i * 3 + 1] = col.g;
@@ -951,7 +918,6 @@
 
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
-        particles.scale.set(1.8, 1.8, 1.0);
 
         // === Artistic Glowing Orb Shader (Extended Modes, Audio-Reactive) ===
         // Geometry
@@ -960,14 +926,10 @@
         const orbVertexShader = `
             varying vec3 vNormal;
             varying vec3 vPosition;
-            uniform float time;
             void main() {
                 vNormal = normalize(normalMatrix * normal);
                 vPosition = position;
-                // === micro-life wobble ===
-                vec3 pos = position;
-                pos.xy += normal.xy * sin(time * 1.2 + position.y * 4.0) * 0.01;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.13);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.13);
             }
         `;
         const orbFragmentShader = `
@@ -975,8 +937,6 @@
             uniform float mode;
             uniform float modeSmooth;
             uniform float audioLevel;
-            uniform float thinking;
-            uniform vec2 resolution;
             varying vec3 vNormal;
             varying vec3 vPosition;
 
@@ -1025,15 +985,6 @@
                 vec3 c = vec3(1.0, 1.0, 1.0);
                 vec3 d = vec3(0.15, 0.25, 0.45);
                 return a + b * cos(6.28318 * (c * t + d));
-            }
-
-            // === trailMask ===
-            float trailMask(vec2 uv) {
-                vec2 p = uv - 0.5;
-                float r = length(p);
-                float a = atan(p.y, p.x);
-                float wobble = sin(a * 6.0 + time * 1.5) * 0.02;
-                return smoothstep(0.35, 0.15, r + wobble);
             }
 
             // -------- Core look --------
@@ -1095,18 +1046,6 @@
                 vec4 col = mix(c0, c1, smoothstep(0.0, 1.0, m));
                 col = mix(col, c2, m * m);
 
-                // === TRAIL COLOR MIX ===
-                vec3 color = col.rgb;
-                vec3 calmCol = mix(vec3(0.85, 0.9, 1.0), vec3(0.5, 0.75, 1.0), 0.5);
-                vec3 thinkCol = vec3(1.0, 0.2, 0.2);
-                vec3 baseCol = mix(calmCol, thinkCol, thinking);
-                float trail = trailMask(gl_FragCoord.xy / resolution.xy);
-                color *= baseCol * (0.6 + trail * 0.8);
-                col.rgb = color;
-
-                // === TRAIL ALPHA ===
-                col.a *= (0.7 + trail * 0.6);
-
                 gl_FragColor = col;
             }
         `;
@@ -1116,9 +1055,7 @@
                 time: { value: 0 },
                 mode: { value: 0 },
                 modeSmooth: { value: 0 },
-                audioLevel: { value: 0 }, // Audio-reactive uniform, update via JS each frame
-                thinking: { value: 0 },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                audioLevel: { value: 0 } // Audio-reactive uniform, update via JS each frame
             },
             vertexShader: orbVertexShader,
             fragmentShader: orbFragmentShader,
@@ -1312,9 +1249,6 @@
         });
 
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
-        // === Orb "thinking" state: set this flag from your app logic! ===
-        let orbIsThinking = false;
-
         function animate() {
             requestAnimationFrame(animate);
 
@@ -1359,13 +1293,9 @@
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
+
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
-
-            // --- TRAIL SHADER UNIFORMS ---
-            orbMaterial.uniforms.time.value = performance.now() * 0.001;
-            orbMaterial.uniforms.thinking.value = orbIsThinking ? 1.0 : 0.0;
-            orbMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
@@ -1459,11 +1389,7 @@
             chatSizes[i] = Math.random() * 3 + 1;
 
             const col = new THREE.Color();
-            col.setRGB(
-                0.2 + Math.random() * 0.4,
-                0.35 + Math.random() * 0.4,
-                0.55 + Math.random() * 0.4
-            );
+            col.setHSL(Math.random(), 0.6 + Math.random() * 0.4, 0.5 + Math.random() * 0.5);
             chatColors[i * 3] = col.r;
             chatColors[i * 3 + 1] = col.g;
             chatColors[i * 3 + 2] = col.b;
@@ -1532,7 +1458,6 @@
         });
 
         const chatMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), chatMaterial);
-        chatMesh.scale.set(1.8, 1.8, 1.0);
 
     
 
