@@ -797,7 +797,16 @@
                     noise(p.yzx - time * 0.1)
                 ) * 2.0 - 1.0);
 
-                gl_FragColor = vec4(flow * 0.5 + 0.5, 0.0, 1.0);
+                // базовый тёмно-синий
+                vec3 baseColor = vec3(0.03, 0.06, 0.12);
+
+                // интенсивность поля
+                float strength = length(flow);
+
+                // аккуратное усиление при активности (learning приходит через alpha позже)
+                vec3 colorOut = baseColor + strength * vec3(0.08, 0.12, 0.2);
+
+                gl_FragColor = vec4(colorOut, 1.0);
             }
         `;
 
@@ -892,6 +901,7 @@
 
                     oldCol *= localDecay;
                     vec4 newCol = texture2D(tNew, vUv);
+                    newCol.rgb *= vec3(0.6, 0.8, 1.0);
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
                     vec4 color = max(oldCol * 0.96, newCol);
