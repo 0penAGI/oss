@@ -1245,6 +1245,10 @@ const orbLearning = {
         let targetMode = 0;
         let speechEnvelope = 0.0;
 
+        // === Orb speech dynamics ===
+        let orbSpeechEnergy = 0.0;   // 0..1
+        let orbSpeechTarget = 0.0;
+
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
         orbMaterial.uniforms.modeSmooth.value = currentMode;
@@ -1440,6 +1444,12 @@ const orbLearning = {
             if (!isActiveTab) return;
             requestAnimationFrame(animate);
 
+            // === Orb speech: smooth energy ===
+            orbSpeechEnergy += (orbSpeechTarget - orbSpeechEnergy) * 0.08;
+
+            // --- Лёгкая пульсация по речевому ритму ---
+            const pulse = Math.sin(performance.now() * 0.006) * orbSpeechEnergy;
+
             // --- Затухание телесной памяти ---
             for (let i = touchMemory.length - 1; i >= 0; i--) {
                 touchMemory[i].strength *= 0.992;
@@ -1458,6 +1468,23 @@ const orbLearning = {
             lineMat.uniforms.energy.value = orbEnergy;
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
+
+            // === Усилить движение линий во время речи ===
+            // Используем orbSpeechEnergy для boost
+            // (в оригинале здесь нет параметров speed/noise, но можно модифицировать вращения/шейдеры)
+            {
+                // line movement boost
+                const speechBoost = 1.0 + orbSpeechEnergy * 1.4;
+                // Применяем к вращению и uniform'ам
+                orbLines.rotation.y -= 0.0006 * speechBoost;
+                orbLines.rotation.x += 0.0003 * speechBoost;
+                // Можно добавить пульсацию к толщине/альфе через lineMat uniforms
+                // (либо если есть lineWidth/lineAlpha — применить к ним)
+                if (lineMat.uniforms.energy) {
+                    // energy уже отражает orbEnergy, но можно добавить speech эффект
+                    lineMat.uniforms.energy.value = orbEnergy * (1.0 + orbSpeechEnergy * 0.8);
+                }
+            }
 
             // Smoothly interpolate orb mode
             updateOrbModeSmooth();
@@ -1486,8 +1513,15 @@ const orbLearning = {
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
             const scale = 1.0 + speechEnvelope * 0.45;
-            soulOrbMesh.scale.set(scale, scale, scale);
+            soulOrbMesh.scale.set(scale + pulse * 0.12, scale + pulse * 0.12, scale + pulse * 0.12);
 
+            // --- Используем pulse для линий (альфа, ширина) ---
+            // (если есть параметры lineAlpha/lineWidth — модифицируй их, иначе через energy)
+            if (lineMat.uniforms.energy) {
+                // Дополнительно варьируем energy для пульсации
+                lineMat.uniforms.energy.value += pulse * 0.18;
+            }
+            // Можно добавить радиальное смещение в шейдере через uniform, если реализовано
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
@@ -1538,6 +1572,9 @@ const orbLearning = {
             );
         }
         animate();
+        // ====== Orb speech: feed energy from speech ======
+        // Find speak(text) and patch orbSpeechTarget triggers
+        // (Assume speak is defined somewhere above)
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -2287,6 +2324,46 @@ const orbLearning = {
             }
           }
         },4000 + Math.random()*2000);
+        // --- Patch for speech dynamics ---
+        // Find speak(text) and patch orbSpeechTarget triggers
+        // (Monkey-patch if not already present)
+        if (typeof speak === 'function') {
+            const origSpeak = speak;
+            window.speak = function(text) {
+                // If using SpeechSynthesisUtterance
+                if (typeof window.speechSynthesis !== 'undefined' && typeof SpeechSynthesisUtterance !== 'undefined') {
+                    try {
+                        const utter = new SpeechSynthesisUtterance(text);
+                        // On start: raise speech
+                        utter.onstart = function() {
+                            orbSpeechTarget = 1.0;
+                            if (typeof origSpeak.onstart === 'function') origSpeak.onstart();
+                        };
+                        // On end/error: fade speech
+                        utter.onend = function() {
+                            orbSpeechTarget = 0.0;
+                            if (typeof origSpeak.onend === 'function') origSpeak.onend();
+                        };
+                        utter.onerror = function() {
+                            orbSpeechTarget = 0.0;
+                            if (typeof origSpeak.onerror === 'function') origSpeak.onerror();
+                        };
+                        window.speechSynthesis.speak(utter);
+                        return;
+                    } catch (e) {
+                        // fallback to origSpeak
+                    }
+                }
+                // fallback
+                orbSpeechTarget = 1.0;
+                try {
+                    origSpeak(text);
+                } finally {
+                    orbSpeechTarget = 0.0;
+                }
+            };
+        }
+
         // === Вспомогательная функция для очистки текста пользователя ===
         function sanitizeUserOutput(text) {
             if (typeof text !== 'string') return text;
@@ -4218,8 +4295,16 @@ const orbLearning = {
         };
         
         // Глобальная переменная для буфера речи
+        // (audioBuffer и spokenLength больше не нужны для стрим-озвучки)
         let audioBuffer = "";
         let spokenLength = 0; // сколько символов уже отдано в речь
+        // === Глобальная очередь речи ===
+        let globalSpeakQueue = Promise.resolve();
+        function enqueueSpeak(fn) {
+            globalSpeakQueue = globalSpeakQueue.then(
+                () => new Promise(resolve => fn(resolve))
+            );
+        }
         let chatTypingQueue = Promise.resolve();
         let orbTypingQueue = Promise.resolve();
 
@@ -4342,9 +4427,6 @@ const orbLearning = {
         spokenLength = 0;
         // === FULL AI TEXT accumulator ===
         let fullAIText = '';
-            // --- sDelay-driven speech sync ---
-            let speechStarted = false;
-            const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
             try {
                 const userId = user_id_int;
@@ -4478,30 +4560,7 @@ const orbLearning = {
                     );
                 }
             }
-
-            // Копим для озвучки
-            audioBuffer += chunk;
-
-            if (!speechStarted) {
-                speechStarted = true;
-
-                // считаем первый чанк уже озвученным,
-                // чтобы он не попал в delta и не сказалcя второй раз
-                spokenLength = audioBuffer.length;
-
-                setTimeout(() => {
-                    speak(chunk);
-                }, 120);
-            }
-
-            if (speechStarted) {
-                const delta = audioBuffer.slice(spokenLength);
-                // более ранний порог — речь дышит вместе с печатью
-                if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
-                    spokenLength = audioBuffer.length;
-                    speak(delta);
-                }
-            }
+            // (Озвучка по чанкам отключена)
         }
 
         // === FINAL FLUSH: железобетонный commit ===
@@ -4531,10 +4590,9 @@ const orbLearning = {
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
         else if (navigator.vibrate) navigator.vibrate([60]);
 
-        // договариваем хвост, если он остался
-        const tail = audioBuffer.slice(spokenLength);
-        if (tail.trim().length > 0) {
-            speak(tail);
+        // Финальный вызов речи: озвучить весь fullAIText, если есть
+        if (fullAIText && fullAIText.trim()) {
+            speak(fullAIText);
         }
 
     } catch (e) {
@@ -4797,10 +4855,7 @@ const orbLearning = {
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
             }
-            if (speechSynthesis.speaking || speechSynthesis.pending) {
-                speechSynthesis.cancel();
-                setTimeout(() => {}, 30);
-            }
+            // (Удалён блок убийства TTS при каждом чанке)
             if (!text || !text.trim()) return;
 
             updateSessionResonance();
@@ -5010,9 +5065,12 @@ const orbLearning = {
                     utter.rate = rate * 0.82 + (Math.random() - 0.5) * 0.08;
                     utter.pitch = pitch * 0.98 + (Math.random() - 0.5) * 0.05;
                     utter.volume = 0.0;
-                    utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
-                    utter.onerror = () => setTimeout(speakNext, 100);
-                    setTimeout(() => synth.speak(utter), utterQueue.length * 16);
+                    // Очередь речи
+                    enqueueSpeak(done => {
+                        utter.onend = () => { setTimeout(speakNext, 120 + Math.random() * 140); done(); };
+                        utter.onerror = () => { setTimeout(speakNext, 100); done(); };
+                        synth.speak(utter);
+                    });
                     utterQueue.push(utter);
                     return;
                 }
@@ -5035,15 +5093,20 @@ const orbLearning = {
                             }
                         }, 320);
                     };
-                    utter.onend = () => {
-                        stopSpeakingVibration();
-                        setTimeout(speakNext, 80 + Math.random() * 120);
-                    };
-                    utter.onerror = () => {
-                        stopSpeakingVibration();
-                        setTimeout(speakNext, 100);
-                    };
-                    setTimeout(() => synth.speak(utter), utterQueue.length * 18);
+                    // Очередь речи
+                    enqueueSpeak(done => {
+                        utter.onend = () => {
+                            stopSpeakingVibration();
+                            setTimeout(speakNext, 80 + Math.random() * 120);
+                            done();
+                        };
+                        utter.onerror = () => {
+                            stopSpeakingVibration();
+                            setTimeout(speakNext, 100);
+                            done();
+                        };
+                        synth.speak(utter);
+                    });
                     utterQueue.push(utter);
                     return;
                 }
@@ -5069,15 +5132,20 @@ const orbLearning = {
                         }
                     }, 300);
                 };
-                utter.onend = () => {
-                    stopSpeakingVibration();
-                    setTimeout(speakNext, 60 + Math.random() * 110);
-                };
-                utter.onerror = () => {
-                    stopSpeakingVibration();
-                    setTimeout(speakNext, 100);
-                };
-                setTimeout(() => synth.speak(utter), utterQueue.length * 20);
+                // Очередь речи
+                enqueueSpeak(done => {
+                    utter.onend = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 60 + Math.random() * 110);
+                        done();
+                    };
+                    utter.onerror = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 100);
+                        done();
+                    };
+                    synth.speak(utter);
+                });
                 utterQueue.push(utter);
             }
             setTimeout(speakNext, 100);
