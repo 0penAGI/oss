@@ -533,6 +533,19 @@
         
         const canvas = document.getElementById('webgl-canvas');
 
+        // ===== Жёсткий фикс: чат всегда доступен на ноуте =====
+        const chat =
+            document.querySelector('#chat') ||
+            document.querySelector('#chatContainer') ||
+            document.querySelector('.chat-messages') ||
+            document.getElementById('chatMessages');
+
+        if (chat && canvas) {
+            canvas.style.pointerEvents = 'none';
+            chat.style.pointerEvents = 'auto';
+            chat.style.zIndex = '10';
+        }
+
         const isApple = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 let renderer;
@@ -1188,38 +1201,33 @@ let isActiveTab = true;
             }
 
             void main() {
-                vec2 uv = vUv;
-                vec2 center = uv - 0.314;
-                float r = length(center);
+                // glass shader: мягкая радиальная маска
+                vec2 uv = vUv - 0.5;
+                float r = length(uv);
+                // убираем сингулярность в центре
+                r = max(r, 0.08);
+                // мягкий купол вместо пятна
+                float mask = smoothstep(0.6, 0.15, r);
+
                 float t = time * 0.001;
-
-                // --- Use provided flow uniform ---
-                // (flow is passed from JS, interpolated)
                 vec2 usedFlow = flow;
-
-            float glassMask = smoothstep(0.8, 0.4, r);
-            glassMask = pow(glassMask, 1.5);
-                vec2 refractUV = uv + (usedFlow - 0.3) * 0.03 * glassMask * (1.0 + skinMemory*0.5);
+                // Используем mask вместо старого радиального фактора
+                vec2 refractUV = vUv + (usedFlow - 0.3) * 0.03 * mask * (1.0 + skinMemory*0.5);
 
                 // === Gravity Displacement Around Orb ===
-                float orbRadius = 0.42; // радиус действия эффекта (≈ размер орба)
-                float orbGravityStrength = 0.07 + energy * 0.1; // сила зависит от энергии орба
-                vec2 dirToOrb = normalize(center); // направление к центру орба
+                vec2 center = vUv - 0.314;
+                float orbRadius = 0.42;
+                float orbGravityStrength = 0.07 + energy * 0.1;
+                vec2 dirToOrb = normalize(center);
                 float distToOrb = length(center);
-                float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb); // затухание эффекта
-
-                // плавный шум для органики
-                float angle = hash(uv + time) * 6.2831;
+                float gravityFactor = smoothstep(orbRadius, 0.0, distToOrb);
+                float angle = hash(vUv + time) * 6.2831;
                 vec2 swirl = vec2(cos(angle), sin(angle)) * 0.011;
-
-                // итоговое смещение
                 refractUV -= dirToOrb * gravityFactor * orbGravityStrength + swirl * gravityFactor;
 
-                // subtle shimmer
-                float shimmer = sin(uv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
+                float shimmer = sin(vUv.y*3.30 + time*3.1 + curiosity*1.1) * 0.01;
                 refractUV += vec2(shimmer, shimmer);
 
-                // chromatic aberration
                 float caR = 0.011 + curiosity * 0.008;
                 float caG = 0.012;
                 float caB = 0.009 + energy * 0.011;
@@ -1228,12 +1236,13 @@ let isActiveTab = true;
                 col.g = texture2D(tBackground, refractUV).g;
                 col.b = texture2D(tBackground, refractUV - vec2(caB, 0.0)).b;
 
-                float highlight = pow(1.0 - r, 3.1);
-                col += vec3(0.12, 0.14, 0.22) * highlight * glassMask;
+                // highlight купол — используем mask
+                float highlight = pow(mask, 3.1);
+                col += vec3(0.12, 0.14, 0.22) * highlight * mask;
                 float edge = smoothstep(0.55, 0.9, r);
-                col += vec3(0.09, 0.1, 0.18) * edge * glassMask;
+                col += vec3(0.09, 0.1, 0.18) * edge * mask;
 
-                float alpha = 0.18 + 0.18 * glassMask;
+                float alpha = 0.18 + 0.18 * mask;
                 gl_FragColor = vec4(col, alpha);
             }
         `;
@@ -1603,6 +1612,114 @@ let isActiveTab = true;
         });
 
         animateChatShader();
+
+        // ====== Chat swipe support for mobile & desktop drag-scroll ======
+        (function enableChatSwipe() {
+            // Try to find chat container: #chat, #chatContainer, or .chat-messages
+            const chat =
+                document.querySelector('#chat') ||
+                document.querySelector('#chatContainer') ||
+                document.querySelector('.chat-messages') ||
+                document.getElementById('chatMessages');
+            if (!chat) return;
+
+            // гарантируем, что чат принимает события
+            chat.style.pointerEvents = 'auto';
+            chat.style.touchAction = 'pan-y';
+
+            // поддержка wheel-scroll (если canvas перехватывает wheel)
+            chat.addEventListener('wheel', (e) => {
+                chat.scrollTop += e.deltaY;
+                e.stopPropagation();
+            }, { passive: true });
+
+            // hover‑захват, чтобы canvas не ел ввод
+            chat.addEventListener('mouseenter', () => {
+                document.body.classList.add('chat-active');
+            });
+
+            chat.addEventListener('mouseleave', () => {
+                document.body.classList.remove('chat-active');
+            });
+
+            let startY = 0;
+            let startScrollTop = 0;
+            let isTouching = false;
+
+            chat.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                isTouching = true;
+                startY = e.touches[0].clientY;
+                startScrollTop = chat.scrollTop;
+            }, { passive: true });
+
+            chat.addEventListener('touchmove', (e) => {
+                if (!isTouching) return;
+                const deltaY = e.touches[0].clientY - startY;
+                chat.scrollTop = startScrollTop - deltaY;
+            }, { passive: true });
+
+            chat.addEventListener('touchend', () => {
+                isTouching = false;
+            }, { passive: true });
+
+            // ===== Desktop mouse drag support =====
+            let isMouseDown = false;
+            let mouseStartY = 0;
+            let mouseStartScrollTop = 0;
+
+            chat.addEventListener('mousedown', (e) => {
+                // только левая кнопка
+                if (e.button !== 0) return;
+                isMouseDown = true;
+                mouseStartY = e.clientY;
+                mouseStartScrollTop = chat.scrollTop;
+                chat.classList.add('drag-scrolling');
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+                const deltaY = e.clientY - mouseStartY;
+                chat.scrollTop = mouseStartScrollTop - deltaY;
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!isMouseDown) return;
+                isMouseDown = false;
+                chat.classList.remove('drag-scrolling');
+            });
+        })();
+
+        // === Desktop: click on right free area opens chat ===
+        (function enableRightClickChatOpen() {
+            const wrapper = document.getElementById('mainWrapper');
+            const orb = document.getElementById('orb-interactive');
+
+            if (!wrapper) return;
+
+            wrapper.addEventListener('click', (e) => {
+                const chatPanel = document.getElementById('chatPanel');
+
+                // если клик по орбу — ничего не делаем
+                if (orb && orb.contains(e.target)) return;
+
+                const x = e.clientX / window.innerWidth;
+
+                // если чат открыт
+                if (wrapper.classList.contains('chat-open')) {
+                    // клик по левой зоне ВНЕ чата — закрываем
+                    if (x < 0.2) {
+                        wrapper.classList.remove('chat-open');
+                    }
+                    return;
+                }
+
+                // если чат закрыт — правая зона открывает
+                if (x > 0.65) {
+                    wrapper.classList.add('chat-open');
+                }
+            });
+        })();
 
 
         let latestCameraDescription = "";
@@ -3919,10 +4036,24 @@ let isActiveTab = true;
           }
         }
 
+        function stringToIntId(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+
+        const user_id_int =
+            typeof user_id === 'string'
+                ? stringToIntId(user_id)
+                : Number(user_id);
+
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
             try {
-                const userId = user_id;
+                const userId = user_id_int;
                 const response = await fetch("/api/generate_image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -4076,7 +4207,7 @@ let isActiveTab = true;
             const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
             try {
-                const userId = user_id;
+                const userId = user_id_int;
                 // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
@@ -5085,7 +5216,7 @@ let isActiveTab = true;
                 }
 
                 try {
-                    const userId = user_id;
+                    const userId = user_id_int;
                     await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
@@ -5769,31 +5900,14 @@ let isActiveTab = true;
           });
         }
 
-        // recognition integration
+        // recognition integration (NO chat append — single source of truth)
         if (window.recognition) {
           const origRecognitionOnResult = recognition.onresult;
           recognition.onresult = function(event) {
-            const text = event.results[0][0].transcript;
-            // Новый вариант: typeChatMessage для пользователя
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `chat-message user`;
-            const senderDiv = document.createElement('div');
-            senderDiv.className = 'sender';
-            senderDiv.textContent = 'You';
-            const textDiv = document.createElement('div');
-            textDiv.className = 'text';
-            msgDiv.appendChild(senderDiv);
-            msgDiv.appendChild(textDiv);
-            chatMessages.appendChild(msgDiv);
-            // removed direct scroll here for autoscroll patch
-            msgDiv.addEventListener('click', () => {
-                navigator.clipboard.writeText(text).then(() => {
-                    msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                    setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
-                });
-            });
-            typeChatMessage(text, textDiv);
-            if (origRecognitionOnResult) origRecognitionOnResult.call(this, event);
+            // только прокидываем дальше, UI рисуется в sendToBot / sendBtn
+            if (origRecognitionOnResult) {
+              return origRecognitionOnResult.call(this, event);
+            }
           };
         }
 
