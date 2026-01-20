@@ -5717,17 +5717,6 @@ let isActiveTab = true;
           };
         }
 
-        // speak integration 
-        if (window.speak) {
-          const origSpeak = window.speak;
-          window.speak = function(text) {
-            if (!window._chatStreamMsg) {
-                // Используем addAIMessage для AI сообщений с анимацией букв
-                addAIMessage(text);
-            }
-            if (origSpeak) origSpeak.call(this, text);
-          };
-        }
 
     </script>
 
