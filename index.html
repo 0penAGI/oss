@@ -4564,9 +4564,9 @@
                     utter.volume = 0.0;
                     utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
                     utter.onerror = () => setTimeout(speakNext, 100);
-                    setTimeout(() => synth.speak(utter), utterQueue.length * 16);
-                    utterQueue.push(utter);
-                    return;
+                setTimeout(() => synth.speak(utter), utterQueue.length * 16);
+                utterQueue.push(utter);
+                return;
                 }
                 if (isInterjection) {
                     // Для междометия — чуть быстрее, чуть выше pitch, чуть тише
@@ -4595,9 +4595,9 @@
                         stopSpeakingVibration();
                         setTimeout(speakNext, 100);
                     };
-                    setTimeout(() => synth.speak(utter), utterQueue.length * 18);
-                    utterQueue.push(utter);
-                    return;
+                setTimeout(() => synth.speak(utter), utterQueue.length * 18);
+                utterQueue.push(utter);
+                return;
                 }
              
                 let jitter = Math.min(0.025, Math.abs(vocalTemperature) * 0.04);
@@ -4629,6 +4629,13 @@
                     stopSpeakingVibration();
                     setTimeout(speakNext, 100);
                 };
+                // --- PATCH: Smooth gain for TTS ---
+                if (typeof audioContext !== 'undefined' && typeof gainNode !== 'undefined') {
+                    const t = audioContext.currentTime;
+                    gainNode.gain.value = Math.min(0.7, gainNode.gain.value ?? 0.7);
+                    gainNode.gain.setValueAtTime(0.0001, t);
+                    gainNode.gain.linearRampToValueAtTime(gainNode.gain.value, t + 0.03);
+                }
                 setTimeout(() => synth.speak(utter), utterQueue.length * 20);
                 utterQueue.push(utter);
             }
