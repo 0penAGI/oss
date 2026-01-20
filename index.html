@@ -525,14 +525,6 @@
             <textarea id="chatInput" placeholder="Type message..."></textarea>
             <button id="sendBtn">Send</button>
         </div>
-        // ===== Автоподстройка высоты textarea в чате =====
-        const chatInput = document.getElementById('chatInput');
-        if (chatInput && chatInput.tagName === 'TEXTAREA') {
-            chatInput.addEventListener('input', () => {
-                chatInput.style.height = 'auto';
-                chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + 'px';
-            });
-        }
     </div>
 
 </div>
@@ -5937,3 +5929,7 @@ let isActiveTab = true;
     
 </body>
 </html>
+</script>
+<script>
+
+</script>
