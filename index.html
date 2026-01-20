@@ -2078,9 +2078,10 @@
                         noteObservation(noteText);
                     }
                     if (typeof idea === 'string' && !/^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(idea)) {
-                        const cleanText = typeof idea === 'string'
-                          ? idea.replace(/\s*\|\s*Notes:.*$/s, '')
-                          : idea;
+                        let cleanText = idea;
+                        if (typeof cleanText === 'string') {
+                            cleanText = cleanText.replace(/\s*\|\s*Notes:\s*.*$/s, '');
+                        }
                         speak(cleanText);
                     }
                     this.lastResponseTime = performance.now();
