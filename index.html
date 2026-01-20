@@ -1587,6 +1587,20 @@ let isActiveTab = true;
 
         let latestCameraDescription = "";
 
+        let lastGemmaImageTime = 0;
+        const GEMMA_IMAGE_INTERVAL = 10000; // 10 сек
+
+        function captureSmallImageBase64() {
+            const size = 224;
+            const tmp = document.createElement('canvas');
+            tmp.width = size;
+            tmp.height = size;
+            const ctx = tmp.getContext('2d');
+
+            ctx.drawImage(visionCanvas, 0, 0, size, size);
+            return tmp.toDataURL('image/jpeg', 0.5); // маленький JPEG
+        }
+
         
         // ====== Self-Awareness Layer ======
         // ===== Heuristic (Fast Instinct) Layer =====
@@ -4979,6 +4993,14 @@ let isActiveTab = true;
                     latestCameraDescription = 'Кадр без значимых объектов.';
                 }
 
+                const now = performance.now();
+                let gemmaImage = null;
+
+                if (now - lastGemmaImageTime > GEMMA_IMAGE_INTERVAL) {
+                    gemmaImage = captureSmallImageBase64();
+                    lastGemmaImageTime = now;
+                }
+
                 // Self-Awareness
                 try {
                     if (latestCameraDescription && !latestCameraDescription.includes('Ошибка')) {
@@ -4995,7 +5017,11 @@ let isActiveTab = true;
                     await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-                        body: JSON.stringify({ user_id: userId, description: latestCameraDescription })
+                        body: JSON.stringify({
+                            user_id: userId,
+                            description: latestCameraDescription,
+                            image: gemmaImage
+                        })
                     });
                 } catch(e) {
                     console.error("Ошибка отправки описания камеры:", e);
