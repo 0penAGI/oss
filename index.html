@@ -4098,6 +4098,13 @@ let isActiveTab = true;
 
                 let chatShouldStick = stickChatToBottom(chatMessages);
                 // === STREAM TO CHAT (AI) ===
+        // --- GLOBAL AI TYPING LOCK ---
+        if (window.__aiTypingLock) {
+            // жёстко сбрасываем предыдущие очереди
+            chatTypingQueue = Promise.resolve();
+            orbTypingQueue = Promise.resolve();
+        }
+        window.__aiTypingLock = true;
                 window._chatStreamBuffer = '';
                 window._chatStreamMsg = null;
                 window._chatStreamHasText = false;
@@ -4204,6 +4211,8 @@ let isActiveTab = true;
                 window._chatStreamPrinted = 0;
                 orbTypingQueue = Promise.resolve();
 
+                window.__aiTypingLock = false;
+
                 if (responseContainer) {
                     responseContainer.classList.remove("typing-cursor");
                 }
@@ -4241,6 +4250,10 @@ let isActiveTab = true;
 // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
 // Теперь поддерживает *orb-large* и **italic orb**
         function typeWriterEffect(element, text, options = {}) {
+            if (window.__aiTypingLock && element.dataset.locked === '1') {
+                return Promise.resolve();
+            }
+            element.dataset.locked = '1';
             let delay = typeof options === "number"
                 ? options
                 : (options.charDelay ?? 28);
@@ -4280,6 +4293,7 @@ let isActiveTab = true;
                 let segIdx = 0;
                 function typeSegment() {
                     if (segIdx >= segments.length) {
+                        delete element.dataset.locked;
                         resolve();
                         return;
                     }
