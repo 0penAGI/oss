@@ -868,10 +868,9 @@
                 }
 
                 void main() {
-                    vec2 flow = texture2D(tOld, vUv).rg * 2.0 - 1.0;
-                    flow *= 0.15;
-                    flow *= (0.3 + learning * 0.7);
-                    vec2 displacedUV = vUv + flow * 0.002;
+                    vec2 flow = normalize(texture2D(tOld, vUv).rg * 2.0 - 1.0);
+                    flow *= 0.001;
+                    vec2 displacedUV = vUv + flow;
                     vec4 oldCol = noiseBlur(tOld, displacedUV);
                     oldCol.rgb *= 0.6;
 
