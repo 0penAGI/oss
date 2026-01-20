@@ -5420,12 +5420,35 @@ const orbLearning = {
             ) <= threshold;
         }
 
-        // Utility: scroll chat to bottom
+        // Utility: scroll chat to bottom (smooth)
+        let chatScrollRAF = null;
+
         function scrollChatToBottom() {
             if (userScrolling) return;
-            const chatContainer = document.getElementById('chatMessages');
-            if (!chatContainer) return;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const c = document.getElementById('chatMessages');
+            if (!c) return;
+
+            const start = c.scrollTop;
+            const end = c.scrollHeight - c.clientHeight;
+            const duration = 240;
+            const t0 = performance.now();
+
+            if (chatScrollRAF) cancelAnimationFrame(chatScrollRAF);
+
+            function easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            function step(now) {
+                const t = Math.min(1, (now - t0) / duration);
+                c.scrollTop = start + (end - start) * easeOutCubic(t);
+                if (t < 1) {
+                    chatScrollRAF = requestAnimationFrame(step);
+                }
+            }
+
+            chatScrollRAF = requestAnimationFrame(step);
         }
 
         // ===== Chat Panel Management =====
@@ -5741,6 +5764,11 @@ const orbLearning = {
                     opacity: 1;
                     transform: translateY(0) scale(1);
                     filter: blur(0);
+                }
+                #chatMessages {
+                  scroll-behavior: smooth;
+                  overscroll-behavior: contain;
+                  -webkit-overflow-scrolling: touch;
                 }
             `;
             document.head.appendChild(style);
