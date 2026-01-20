@@ -1973,6 +1973,9 @@
             lastResponseTime: 0,
 
             handleUserInput(text) {
+                if (typeof text === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(text)) {
+                    return;
+                }
                 if (!text || typeof text !== 'string') return;
 
                 const t = text.toLowerCase();
@@ -2698,6 +2701,11 @@
         let lastInternalNote = null;
         let lastNoteTime = 0;
         function noteObservation(desc) {
+            if (typeof desc === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(desc)) {
+                internalNotes.push(desc);
+                if (internalNotes.length > 50) internalNotes.shift();
+                return;
+            }
             const now = performance.now();
             // Фильтр: если повтор или слишком быстро — не добавлять
             if (
