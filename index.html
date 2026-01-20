@@ -4439,10 +4439,20 @@
             let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
             sentences = sentences.flatMap(s => {
                 if (s.length <= 120) return [s];
+
+                const words = s.split(/\s+/);
                 let out = [];
-                for (let i = 0; i < s.length; i += 80) {
-                    out.push(s.slice(i, i + 80));
+                let buf = '';
+
+                for (let w of words) {
+                    if ((buf + ' ' + w).trim().length > 80) {
+                        if (buf) out.push(buf.trim());
+                        buf = w;
+                    } else {
+                        buf += ' ' + w;
+                    }
                 }
+                if (buf.trim()) out.push(buf.trim());
                 return out;
             });
 
