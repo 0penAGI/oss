@@ -554,10 +554,17 @@
             renderer.setPixelRatio(window.devicePixelRatio);
         }
 
+        renderer.autoClear = true;
+        renderer.setClearColor(0x000000, 1);
+        renderer.clear(true, true, true);
+
+        // --- защита от накопления света ---
+        renderer.toneMapping = THREE.NoToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        // (оставляем настройки выше, чтобы не переопределять безопасные значения)
 
         canvas.addEventListener('webglcontextlost', (e) => {
             e.preventDefault();
@@ -855,7 +862,14 @@
                     vec4 newCol = texture2D(tNew, vUv);
                     // сохраняем усталость обратно в память
                     oldCol.a = clamp(fatigue, 0.0, 1.0);
-                    gl_FragColor = max(oldCol * 0.96, newCol);
+                    vec4 color = max(oldCol * 0.96, newCol);
+                    if (
+                        any(isnan(color.rgb)) ||
+                        any(isinf(color.rgb))
+                    ) {
+                        color = vec4(0.0, 0.0, 0.0, 1.0);
+                    }
+                    gl_FragColor = color;
                 }
             `,
             transparent: true
@@ -1279,7 +1293,7 @@
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
 
-            // масштаб — медленный, телесный
+
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
 
@@ -1292,37 +1306,35 @@
             feedbackMaterial.uniforms.tOld.value = feedbackRT1.texture;
             feedbackMaterial.uniforms.tNew.value = feedbackRT2.texture;
 
-            renderer.setRenderTarget(null);
-
             // --- Liquid Glass Layer flow calculation (smooth breathing) ---
             const t = liquidMaterial.uniforms.time.value * 0.001;
 
-            // медленный синус для дыхания
             const breath = Math.sin(performance.now() * 0.0003) * 0.0001; // медленнее и меньше амплитуда
-
-            // минимальное случайное смещение для органичности
             const jitter = (Math.random() - 0.03) * 0.001;
 
-            let targetFlow = new THREE.Vector2(0.6 + breath + jitter, 0.3 + breath + jitter);
+            let targetFlow = new THREE.Vector2(
+                0.6 + breath + jitter,
+                0.3 + breath + jitter
+            );
 
-            // плавная интерполяция
-            prevFlow.lerp(targetFlow, 0.01); // ещё медленнее
+            prevFlow.lerp(targetFlow, 0.01);
             flow.copy(prevFlow);
             liquidMaterial.uniforms.prevFlow.value.copy(prevFlow);
             liquidMaterial.uniforms.flow.value.copy(flow);
 
-            // медленное увеличение времени
             liquidMaterial.uniforms.time.value += 0.015;
 
-                renderer.render(feedbackScene, feedbackCamera);
+            renderer.setRenderTarget(null);
+            renderer.clear(true, true, true);
+            renderer.render(feedbackScene, feedbackCamera);
 
-                // swap render targets
+            // swap render targets
             const tmp = feedbackRT1;
             feedbackRT1 = feedbackRT2;
             feedbackRT2 = tmp;
 
             // --- Multi-Agent Pulses ---
-                // Emulate multi-agent system: graphic, content, ux pulse every frame
+            // Emulate multi-agent system: graphic, content, ux pulse every frame
             agentChannels.graphic.forEach(cb =>
                 cb({ motionSpeed: 0.002 + Math.random() * 0.002, colors: [Math.random(), Math.random(), Math.random()] })
             );
@@ -1452,7 +1464,7 @@
         const chatScene = new THREE.Scene();
         chatScene.add(chatMesh);
 
-        // Синхронизация размера chatShaderCanvas с панелью чата
+       
         function resizeChatCanvas() {
             const chatPanel = document.getElementById('chatPanel');
             const width = chatPanel.clientWidth;
@@ -1460,11 +1472,11 @@
             chatShaderCanvas.width = width;
             chatShaderCanvas.height = height;
             chatRenderer.setSize(width, height, false);
-            // feedbackMaterial.uniforms.resolution.value.set(width, height); // не трогаем feedback для chat
+            // feedbackMaterial.uniforms.resolution.value.set(width, height); // 
         }
 
         
-        // --- Обновление анимации XDust на фоне чата ---
+        // --- animation XDust chat
         function animateChatShader() {
             requestAnimationFrame(animateChatShader);
             resizeChatCanvas();
@@ -1472,34 +1484,18 @@
             chatMaterial.uniforms.time.value = t;
             chatRenderer.render(chatScene, feedbackCamera);
         }
-        // ===== PATCH: Remove "| Notes:" section from printed text =====
-        // Minimal patch: add filter at the start of the typewriter function
-        // Find the function that prints text character-by-character or adds it to UI.
-        // For this code, let's patch the typeText function if it exists, or similar.
 
-        // Try to patch typeText, printText, appendChar, renderTyping, or addMessageChunk.
-        // We'll patch typeText as a likely candidate (add this filter at its start).
-        if (typeof window.typeText === 'function') {
-            const origTypeText = window.typeText;
-            window.typeText = function(text, ...args) {
-                if (typeof text === 'string' && text.includes('| Notes:')) {
-                    text = text.replace(/\s*\|\s*Notes:.*$/s, '');
-                }
-                return origTypeText.call(this, text, ...args);
-            };
-        }
-
-        // === Auto-reactive update for chat shader (dynamic flow) ===
+       
         function autoReactiveChat() {
             const t = performance.now() * 0.001;
 
-            // Интенсивность реакции от энергии орба
+       
             const intensity = 0.5 + orbEnergy * 0.5;
 
-            // Динамическое плавное направление движения (синус + шум)
-            // Для перлин шума используем fbm-подобный шум на JS
+      
+      
             function perlin2d(x, y) {
-                // Простая реализация value noise
+              
                 function hash(x, y) {
                     return Math.sin(x * 127.1 + y * 311.7) * 43758.5453 % 1;
                 }
@@ -1513,9 +1509,9 @@
                 let i2 = v01 * (1-xt) + v11 * xt;
                 return i1 * (1-yt) + i2 * yt;
             }
-            // Используем t как seed
+           
             const angle = t * 0.3 + Math.sin(t*0.7)*0.5;
-            // Добавляем шум для направления
+        
             const noiseX = perlin2d(Math.sin(t*0.17), Math.cos(t*0.11)) * 2.0 - 1.0;
             const noiseY = perlin2d(Math.cos(t*0.13), Math.sin(t*0.21)) * 2.0 - 1.0;
             const flowX = Math.sin(angle) * 0.25 + 0.15 * noiseX;
@@ -1529,7 +1525,7 @@
 
         autoReactiveChat();
 
-        // Унифицированный resize для главного и чат-канваса
+        // Resize for chat
         let baseWidth = window.innerWidth;
         let baseHeight = window.innerHeight;
 
@@ -1537,13 +1533,13 @@
             const dw = Math.abs(window.innerWidth - baseWidth);
             const dh = Math.abs(window.innerHeight - baseHeight);
 
-            // если изменение маленькое — это клавиатура, игнорируем для WebGL канваса
+            //  WebGL canvas
             if (dw < 50 && dh < 100) {
-                resizeChatCanvas(); // чат под клавиатуру
+                resizeChatCanvas(); 
                 return;
             }
 
-            // большое изменение — реальный ресайз
+            // resize
             baseWidth = window.innerWidth;
             baseHeight = window.innerHeight;
 
@@ -1559,10 +1555,9 @@
             resizeChatCanvas();
         });
 
-        // Запуск анимации чата
         animateChatShader();
 
-        // === Глобальная переменная для последнего описания камеры ===
+
         let latestCameraDescription = "";
 
         
@@ -1978,6 +1973,9 @@
             lastResponseTime: 0,
 
             handleUserInput(text) {
+                if (typeof text === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(text)) {
+                    return;
+                }
                 if (!text || typeof text !== 'string') return;
 
                 const t = text.toLowerCase();
@@ -2079,7 +2077,13 @@
                     if (!alreadyExists) {
                         noteObservation(noteText);
                     }
-                    speak(idea);
+                    if (typeof idea === 'string' && !/^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(idea)) {
+                        let cleanText = idea;
+                        if (typeof cleanText === 'string') {
+                            cleanText = cleanText.replace(/\s*\|\s*Notes:\s*.*$/s, '');
+                        }
+                        speak(cleanText);
+                    }
                     this.lastResponseTime = performance.now();
                 }
             }
@@ -2703,6 +2707,11 @@
         let lastInternalNote = null;
         let lastNoteTime = 0;
         function noteObservation(desc) {
+            if (typeof desc === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(desc)) {
+                internalNotes.push(desc);
+                if (internalNotes.length > 50) internalNotes.shift();
+                return;
+            }
             const now = performance.now();
             // Фильтр: если повтор или слишком быстро — не добавлять
             if (
@@ -4061,18 +4070,20 @@
                         });
                     }
 
-                    // агрегируем мелкие чанки, чтобы не дёргать DOM слишком часто
-                    window._orbChunkBuffer = (window._orbChunkBuffer || '') + chunk;
-
-                    if (window._orbChunkBuffer.length > 24 || /[.!?\n]/.test(chunk)) {
-                        const flush = window._orbChunkBuffer;
-                        window._orbChunkBuffer = '';
+                    // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
+                    if (responseContainer) {
                         orbTypingQueue = orbTypingQueue.then(() =>
-                            typeWriterEffect(responseContainer, flush, {
+                            typeWriterEffect(responseContainer, chunk, {
                                 charDelay: 6,
                                 wordPause: 0
                             })
                         );
+                        // Микропаузa на границах фраз
+                        if (/[.!?\n]/.test(chunk)) {
+                            orbTypingQueue = orbTypingQueue.then(() =>
+                                new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                            );
+                        }
                     }
 
                     // Копим для озвучки
@@ -4110,17 +4121,6 @@
                 window._chatStreamPrinted = 0;
                 orbTypingQueue = Promise.resolve();
 
-                // === Flush orb chunk buffer at the end of stream ===
-                if (window._orbChunkBuffer && responseContainer) {
-                    const flush = window._orbChunkBuffer;
-                    window._orbChunkBuffer = '';
-                    orbTypingQueue = orbTypingQueue.then(() =>
-                        typeWriterEffect(responseContainer, flush, {
-                            charDelay: 6,
-                            wordPause: 0
-                        })
-                    );
-                }
                 if (responseContainer) {
                     responseContainer.classList.remove("typing-cursor");
                 }
@@ -4192,18 +4192,6 @@
             }
 
             return new Promise((resolve) => {
-                // === FAST PATH: длинный текст печатаем без посимвольной анимации ===
-                const FAST_LIMIT = 180; // порог, можно менять
-                if (text.length > FAST_LIMIT) {
-                    const span = document.createElement('span');
-                    span.textContent = text;
-                    element.appendChild(span);
-                    if (element.parentElement) {
-                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
-                    }
-                    resolve();
-                    return;
-                }
                 element.innerHTML = element.innerHTML || '';
                 const segments = parseOrbSegments(text);
                 let segIdx = 0;
@@ -4214,30 +4202,30 @@
                     }
                     const seg = segments[segIdx++];
                     if (seg.type === 'plain') {
-                        // Печатаем по буквам обычным способом
+                        // Печатаем по буквам обычным способом (batch + rAF, no setTimeout per char)
                         const chars = Array.from(seg.text);
                         let i = 0;
-                        function nextChar() {
-                            if (i >= chars.length) {
-                                typeSegment();
-                                return;
+                        const BATCH = 5;
+                        function step() {
+                            let n = 0;
+                            while (i < chars.length && n < BATCH) {
+                                const ch = chars[i++];
+                                const span = document.createElement('span');
+                                span.className = 'chat-char';
+                                span.textContent = ch;
+                                element.appendChild(span);
+                                n++;
                             }
-                            const ch = chars[i];
-                            let span = document.createElement('span');
-                            span.className = 'chat-char';
-                            span.textContent = ch;
-                            element.appendChild(span);
-                            i++;
                             if (element.parentElement) {
                                 element.parentElement.scrollTop = element.parentElement.scrollHeight;
                             }
-                            let d = delay;
-                            if (wordPause > 0 && ch === ' ') {
-                                d += wordPause;
+                            if (i < chars.length) {
+                                requestAnimationFrame(step);
+                            } else {
+                                typeSegment();
                             }
-                            setTimeout(nextChar, d);
                         }
-                        nextChar();
+                        requestAnimationFrame(step);
                     } else if (seg.type === 'orb') {
                         // Печатаем выделенный фрагмент orb-large, тоже по буквам (чтобы была анимация)
                         const chars = Array.from(seg.text);
@@ -4394,9 +4382,6 @@
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
-            if (typeof text === 'string' && text.includes('| Notes:')) {
-                text = text.replace(/\s*\|\s*Notes:.*$/s, '');
-            }
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
@@ -4457,8 +4442,10 @@
             // Гуманизация текста + разбиение на фрагменты
             let cleanedForSpeech = humanizeText(text)
                 .replace(/\\+/g, '')
-                .replace(/\s*,\s*/g, ', ')
-                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.,!? ]+/g, '')
+                // убираем запятые и двоеточия из TTS (иначе говорит "запятая")
+                .replace(/[,;:]/g, ' ')
+                // точки, ! и ? оставляем как паузы
+                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.!? ]+/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
 
@@ -4466,10 +4453,20 @@
             let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
             sentences = sentences.flatMap(s => {
                 if (s.length <= 120) return [s];
+
+                const words = s.split(/\s+/);
                 let out = [];
-                for (let i = 0; i < s.length; i += 80) {
-                    out.push(s.slice(i, i + 80));
+                let buf = '';
+
+                for (let w of words) {
+                    if ((buf + ' ' + w).trim().length > 80) {
+                        if (buf) out.push(buf.trim());
+                        buf = w;
+                    } else {
+                        buf += ' ' + w;
+                    }
                 }
+                if (buf.trim()) out.push(buf.trim());
                 return out;
             });
 
@@ -4604,9 +4601,9 @@
                     utter.volume = 0.0;
                     utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
                     utter.onerror = () => setTimeout(speakNext, 100);
-                setTimeout(() => synth.speak(utter), utterQueue.length * 16);
-                utterQueue.push(utter);
-                return;
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 16);
+                    utterQueue.push(utter);
+                    return;
                 }
                 if (isInterjection) {
                     // Для междометия — чуть быстрее, чуть выше pitch, чуть тише
@@ -4635,9 +4632,9 @@
                         stopSpeakingVibration();
                         setTimeout(speakNext, 100);
                     };
-                setTimeout(() => synth.speak(utter), utterQueue.length * 18);
-                utterQueue.push(utter);
-                return;
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 18);
+                    utterQueue.push(utter);
+                    return;
                 }
              
                 let jitter = Math.min(0.025, Math.abs(vocalTemperature) * 0.04);
@@ -4669,13 +4666,6 @@
                     stopSpeakingVibration();
                     setTimeout(speakNext, 100);
                 };
-                // --- PATCH: Smooth gain for TTS ---
-                if (typeof audioContext !== 'undefined' && typeof gainNode !== 'undefined') {
-                    const t = audioContext.currentTime;
-                    gainNode.gain.value = Math.min(0.7, gainNode.gain.value ?? 0.7);
-                    gainNode.gain.setValueAtTime(0.0001, t);
-                    gainNode.gain.linearRampToValueAtTime(gainNode.gain.value, t + 0.03);
-                }
                 setTimeout(() => synth.speak(utter), utterQueue.length * 20);
                 utterQueue.push(utter);
             }
@@ -5106,7 +5096,7 @@
             return segments;
         }
 
-        function typeWriterWordsEffect(element, text, charDelay = 3, wordDelay = 10) {
+        function typeWriterWordsEffect(element, text, charDelay = 1, wordDelay = 5) {
             // Detect code block and render as pre/code if needed
             return new Promise((resolve) => {
                 if (detectCodeBlock(text)) {
