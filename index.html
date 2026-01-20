@@ -4045,20 +4045,18 @@
                         });
                     }
 
-                    // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                    if (responseContainer) {
+                    // агрегируем мелкие чанки, чтобы не дёргать DOM слишком часто
+                    window._orbChunkBuffer = (window._orbChunkBuffer || '') + chunk;
+
+                    if (window._orbChunkBuffer.length > 24 || /[.!?\n]/.test(chunk)) {
+                        const flush = window._orbChunkBuffer;
+                        window._orbChunkBuffer = '';
                         orbTypingQueue = orbTypingQueue.then(() =>
-                            typeWriterEffect(responseContainer, chunk, {
+                            typeWriterEffect(responseContainer, flush, {
                                 charDelay: 6,
                                 wordPause: 0
                             })
                         );
-                        // Микропаузa на границах фраз
-                        if (/[.!?\n]/.test(chunk)) {
-                            orbTypingQueue = orbTypingQueue.then(() =>
-                                new Promise(r => setTimeout(r, 40 + Math.random() * 40))
-                            );
-                        }
                     }
 
                     // Копим для озвучки
@@ -4096,6 +4094,17 @@
                 window._chatStreamPrinted = 0;
                 orbTypingQueue = Promise.resolve();
 
+                // === Flush orb chunk buffer at the end of stream ===
+                if (window._orbChunkBuffer && responseContainer) {
+                    const flush = window._orbChunkBuffer;
+                    window._orbChunkBuffer = '';
+                    orbTypingQueue = orbTypingQueue.then(() =>
+                        typeWriterEffect(responseContainer, flush, {
+                            charDelay: 6,
+                            wordPause: 0
+                        })
+                    );
+                }
                 if (responseContainer) {
                     responseContainer.classList.remove("typing-cursor");
                 }
@@ -4167,6 +4176,18 @@
             }
 
             return new Promise((resolve) => {
+                // === FAST PATH: длинный текст печатаем без посимвольной анимации ===
+                const FAST_LIMIT = 180; // порог, можно менять
+                if (text.length > FAST_LIMIT) {
+                    const span = document.createElement('span');
+                    span.textContent = text;
+                    element.appendChild(span);
+                    if (element.parentElement) {
+                        element.parentElement.scrollTop = element.parentElement.scrollHeight;
+                    }
+                    resolve();
+                    return;
+                }
                 element.innerHTML = element.innerHTML || '';
                 const segments = parseOrbSegments(text);
                 let segIdx = 0;
