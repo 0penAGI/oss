@@ -749,6 +749,7 @@
 uniform float time;
 uniform float orbRadius;
 uniform vec3 orbCenter;
+uniform float speak; // 0.0 = idle, 1.0 = отвечает
 varying vec3 vColor;
 
 float hash(vec3 p){
@@ -764,19 +765,25 @@ void main() {
 
     float sphereMask = smoothstep(
         orbRadius,
-        orbRadius - 0.12,
+        orbRadius - 0.14,
         length(vColor - orbCenter)
     );
     if (sphereMask <= 0.001) discard;
 
-    float n = hash(vec3(uv, time * 0.1));
-    float sparkle = step(0.965, n);
+    float n = hash(vec3(uv, time * 0.12));
+    float sparkle = step(0.968, n);
 
-    vec3 pink = vec3(1.0, 0.28, 0.62);
-    vec3 col = pink * sparkle;
+    vec3 pink = vec3(0.65, 0.18, 0.42);
+    vec3 blue = vec3(0.22, 0.48, 0.85);
 
-    float alpha = sparkle * sphereMask * (1.0 - d);
-    gl_FragColor = vec4(col, alpha);
+    float pulse = sin(time * 6.0) * 0.5 + 0.5;
+    vec3 colorSpeak = mix(pink, blue, pulse);
+    vec3 colorIdle = pink * 0.75;
+
+    vec3 col = mix(colorIdle, colorSpeak, speak);
+
+    float alpha = sparkle * sphereMask * (1.0 - d) * 0.85;
+    gl_FragColor = vec4(col * sparkle, alpha);
 }
 `;
 
@@ -918,6 +925,7 @@ void main() {
         const material = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
+                speak: { value: 0.0 },
                 orbRadius: { value: 0.85 },
                 orbCenter: { value: new THREE.Vector3(0.0, 0.8, 0.0) }
             },
@@ -927,6 +935,12 @@ void main() {
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
+        // === Управление режимом ответа (speak uniform) ===
+        // Вставьте эти строки там, где начинается и заканчивается ответ (TTS или генерация ответа):
+        // При начале ответа:
+        // material.uniforms.speak.value = 1.0;
+        // При окончании ответа:
+        // material.uniforms.speak.value = 0.0;
 
         const particles = new THREE.Points(geometry, material);
         scene.add(particles);
