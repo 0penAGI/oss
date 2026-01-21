@@ -4459,19 +4459,31 @@ void main() {
                 // --- Orb bounce animation stop at start of AI message ---
                 stopOrbBounce();
 
-                let chatShouldStick = stickChatToBottom(chatMessages);
-                // === STREAM TO CHAT (AI) ===
-        // --- GLOBAL AI TYPING LOCK ---
-        if (window.__aiTypingLock) {
-            // жёстко сбрасываем предыдущие очереди
-            chatTypingQueue = Promise.resolve();
-            orbTypingQueue = Promise.resolve();
+        let chatShouldStick = stickChatToBottom(chatMessages);
+        // === HARD INIT AI CHAT MESSAGE (fix missing chat bug) ===
+        if (!window._chatStreamMsg) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message ai';
+            msgDiv.innerHTML = `
+              <div class="sender">AI</div>
+              <div class="text"></div>
+            `;
+            chatMessages.appendChild(msgDiv);
+            window._chatStreamMsg = msgDiv.querySelector('.text');
+            window._chatStreamPrinted = 0;
         }
-        window.__aiTypingLock = true;
-                window._chatStreamBuffer = '';
-                window._chatStreamMsg = null;
-                window._chatStreamHasText = false;
-                window._chatStreamPrinted = 0;
+        // === STREAM TO CHAT (AI) ===
+// --- GLOBAL AI TYPING LOCK ---
+if (window.__aiTypingLock) {
+    // жёстко сбрасываем предыдущие очереди
+    chatTypingQueue = Promise.resolve();
+    orbTypingQueue = Promise.resolve();
+}
+window.__aiTypingLock = true;
+        window._chatStreamBuffer = '';
+        // window._chatStreamMsg is now pre-initialized above
+        window._chatStreamHasText = false;
+        window._chatStreamPrinted = 0;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -4486,17 +4498,7 @@ void main() {
             const delta = full.slice(printed);
 
             // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
-            if (!window._chatStreamMsg && delta.length > 0) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message ai';
-                msgDiv.innerHTML = `
-                  <div class="sender">AI</div>
-                  <div class="text"></div>
-                `;
-                chatMessages.appendChild(msgDiv);
-                window._chatStreamMsg = msgDiv.querySelector('.text');
-                window._chatStreamPrinted = printed;
-            }
+            // (no need to create .chat-message here anymore, handled above)
 
             if (delta.length > 0) {
                 window._chatStreamHasText = true;
