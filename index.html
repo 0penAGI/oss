@@ -1171,13 +1171,15 @@ let isActiveTab = true;
         const lineMat = new THREE.ShaderMaterial({
             uniforms: {
                 time: { value: 0 },
-                energy: { value: 0 }
+                energy: { value: 0 },
+                mode: { value: 0 } // 0=listen, 1=think, 2=speak
             },
             vertexShader: `
                 attribute float seed;
                 varying float vFade;
                 uniform float time;
                 uniform float energy;
+                uniform int mode;
 
                 void main() {
                     vec3 p = position;
@@ -1186,12 +1188,33 @@ let isActiveTab = true;
                         sin(seed + time * 1.4) *
                         cos(seed * 0.7 + time * 0.9);
 
-                    // хаотичное скольжение по поверхности
-                    p += normalize(p) * n * 0.06 * (0.3 + energy);
+                    // базовое дыхание
+                    float baseAmp = 0.04 + energy * 0.05;
 
-                    // микро-дрейф вдоль касательной
+                    // === MODE SHAPING ===
+                    if (mode == 0) {
+                        // LISTEN — тихо, стабильно
+                        baseAmp *= 0.35;
+                        n *= 0.5;
+                    } else if (mode == 1) {
+                        // THINK — туда‑сюда, сомнение, перебор вариантов
+                        float backAndForth = sin(time * 1.6 + seed * 3.0);
+                        float hesitation   = sin(time * 6.0 + seed * 11.0) * 0.25;
+
+                        n = backAndForth * 0.9 + hesitation;
+                        baseAmp *= 0.75;
+                    } else if (mode == 2) {
+                        // SPEAK — пульс, выброс наружу
+                        n += sin(time * 2.2) * 1.2;
+                        baseAmp *= 1.6;
+                    }
+
+                    p += normalize(p) * n * baseAmp;
+
+                    // касательная (ослабляем в listen)
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
-                    p += tangent * sin(seed + time) * 0.03;
+                    float tAmp = (mode == 0) ? 0.01 : 0.03;
+                    p += tangent * sin(seed + time) * tAmp;
 
                     vFade = fract(seed * 0.17);
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
@@ -1200,16 +1223,27 @@ let isActiveTab = true;
             fragmentShader: `
                 varying float vFade;
                 uniform float energy;
+                uniform int mode;
 
                 void main() {
                     float a = smoothstep(0.0, 0.4, vFade) *
                               smoothstep(1.0, 0.6, vFade);
 
-                    vec3 col = mix(
-                        vec3(0.5, 0.7, 1.0),
-                        vec3(1.0, 0.4, 0.7),
-                        energy
-                    );
+                    vec3 baseA = vec3(0.5, 0.7, 1.0);
+                    vec3 baseB = vec3(1.0, 0.4, 0.7);
+
+                    if (mode == 0) {
+                        // listen — холоднее
+                        baseB = vec3(0.4, 0.6, 1.0);
+                    } else if (mode == 1) {
+                        // think — фиолетовый сдвиг
+                        baseA = vec3(0.6, 0.4, 0.9);
+                    } else if (mode == 2) {
+                        // speak — яркий
+                        baseB = vec3(1.0, 0.6, 0.3);
+                    }
+
+                    vec3 col = mix(baseA, baseB, energy);
 
                     gl_FragColor = vec4(col, a * (0.25 + energy * 0.5));
                 }
@@ -1228,6 +1262,22 @@ let isActiveTab = true;
         let currentMode = 0;
         let targetMode = 0;
         let speechEnvelope = 0.0;
+
+        // === CHROME AUDIOCONTEXT PATCH ===
+        window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const audioContext = window.audioContext;
+        // === CHROME AUDIO UNLOCK PATCH ===
+        function unlockAudioContext() {
+          if (!audioContext) return;
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+          document.removeEventListener('pointerdown', unlockAudioContext);
+          document.removeEventListener('keydown', unlockAudioContext);
+        }
+
+        document.addEventListener('pointerdown', unlockAudioContext, { once: true });
+        document.addEventListener('keydown', unlockAudioContext, { once: true });
 
         // modeSmooth is the interpolated mode index (float)
         orbMaterial.uniforms.mode.value = currentMode;
@@ -1440,6 +1490,8 @@ let isActiveTab = true;
             soulOrbMesh.rotation.y += 0.001;
             lineMat.uniforms.time.value += 0.01;
             lineMat.uniforms.energy.value = orbEnergy;
+            // sync line shader mode with orb mode
+            lineMat.uniforms.mode.value = Math.round(orbMaterial.uniforms.modeSmooth.value);
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
 
@@ -3671,6 +3723,20 @@ let isActiveTab = true;
             startMusic();
         });
        
+        // === BRAIN STATE (single source of truth) ===
+        const BrainState = {
+          LISTEN: 0,
+          THINK: 1,
+          SPEAK: 2
+        };
+
+        let brainState = BrainState.LISTEN;
+
+        function setBrainState(state) {
+          brainState = state;
+          setOrbMode(state);
+        }
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         // === Мультиязычные глобальные переменные ===
@@ -3774,30 +3840,9 @@ let isActiveTab = true;
         }
 
         function startListening() {
-            if (isSpeaking || isThinking) return;
-    
-            // Плавное переключение визуального состояния
-            orb.classList.remove('speaking', 'thinking');
-    
-            requestAnimationFrame(() => {
-                orb.classList.add('listening');
-                status.innerText = "listening";
-            });
-    
-            // Задержка перед запуском вибрации для плавности
-            setTimeout(() => {
-                startListeningVibration();
-
-                // Запуск распознавания с задержкой
-                setTimeout(() => {
-                    try {
-                        recognition.start();
-                    } catch (e) {
-                        // Если ошибка, пробуем снова через 1 секунду
-                        setTimeout(startListening, 1000);
-                    }
-                }, 50);
-            }, 150);
+            if (brainState !== BrainState.LISTEN) return;
+            try { recognition.abort(); } catch(e){}
+            recognition.start();
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
@@ -4118,10 +4163,13 @@ let isActiveTab = true;
         };
         
         recognition.onend = () => {
-            orb.classList.remove('listening');
-            if (!isSpeaking && !isThinking) {
-                setTimeout(startListening, 1000);
-            }
+          if (brainState === BrainState.LISTEN) {
+            setTimeout(() => {
+              if (brainState === BrainState.LISTEN) {
+                recognition.start();
+              }
+            }, 500);
+          }
         };
         
         // Глобальная переменная для буфера речи
@@ -4213,15 +4261,14 @@ let isActiveTab = true;
         }
     }
 
-    async function sendToBot(text) {
-        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-        if (window.recognition && recognition.abort) {
+        async function sendToBot(text) {
+            setBrainState(BrainState.THINK);
             try { recognition.abort(); } catch(e){}
-        }
-        isThinking = true;
-        orb.classList.remove('listening');
-        orb.classList.add('thinking');
-        status.innerText = "processing stream";
+            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+            isThinking = true;
+            orb.classList.remove('listening');
+            orb.classList.add('thinking');
+            status.innerText = "processing stream";
         // --- таймеры статуса для длинной обработки ---
         let processingTimeout = setTimeout(() => {
             status.innerText = "thinking";
@@ -4701,6 +4748,8 @@ let isActiveTab = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            setBrainState(BrainState.SPEAK);
+            try { recognition.abort(); } catch(e){}
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
@@ -4874,10 +4923,12 @@ let isActiveTab = true;
 
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    // Ждём реального окончания TTS
+                    // Жёсткое переключение состояния после окончания TTS
                     const waitForSpeechEnd = setInterval(() => {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
+                            setBrainState(BrainState.LISTEN);
+                            setTimeout(startListening, 400);
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
                                 isSpeaking = false;
@@ -4886,13 +4937,6 @@ let isActiveTab = true;
                                 if (tg?.HapticFeedback) {
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
-                                setTimeout(() => {
-                                    if (window.recognition && recognition.start) {
-                                        try { recognition.start(); } catch(e){}
-                                    } else {
-                                        startListening();
-                                    }
-                                }, 400);
                             });
                         }
                     }, 120);
@@ -5293,45 +5337,7 @@ let isActiveTab = true;
         // ===== cameraEnabled =====
         let cameraEnabled = false;
   
-        const prevOnResult = recognition.onresult;
-        recognition.onresult = async (event) => {
-            const text = event.results[0][0].transcript;
-           
-            if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
-                if (!musicPlaying) {
-                    if (musicCtx.state === 'suspended') await musicCtx.resume();
-                    startMusic();
-                }
-                return;
-            }
-          
-            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
-                if (cameraVideo.style.display !== 'block') {
-                    startCamera(currentCamera);
-                    cameraEnabled = true;
-                }
-            }
-            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
-                if (cameraVideo.style.display === 'block') {
-                    stopCamera();
-                    cameraEnabled = false;
-                }
-            }
-            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
-                switchCamera();
-            }
-
-         
-            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
-            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
-                triggerAmbient();
-            }
-
-           
-            if (typeof prevOnResult === 'function') {
-                await prevOnResult(event);
-            }
-        };
+        // ВТОРОЙ recognition.onresult -- УДАЛЁН
 
         const origStartCamera = startCamera;
         startCamera = async function(...args) {
