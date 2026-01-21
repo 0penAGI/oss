@@ -2104,7 +2104,7 @@ void main() {
                     this.curiosity > 0.3 &&
                     this.fatigue < 0.7
                   ) {
-                    speak("У меня есть идея, как стать счастливее…");
+                    speak("");
                     // мягкий сдвиг к выбранному будущему
                     this.mood += (bestFuture.mood - this.mood) * 0.05;
                     this.curiosity += 0.02;
@@ -2378,9 +2378,9 @@ void main() {
                   connections: []
                 });
 
-                if (emotion > 0.2) speak('I feel that.');
-                else if (emotion < -0.2) speak('I feel tension.');
-                else if (/\?/.test(t)) speak('I think about it…');
+                if (emotion > 0.2) speak('');
+                else if (emotion < -0.2) speak('');
+                else if (/\?/.test(t)) speak('');
 
                 // === Markov + Embeddings update ===
                 markovContext.memory.push({ text, emb: markovContext.embed(text) });
@@ -2867,14 +2867,14 @@ void main() {
             if (selfAwareness.curiosity > 0.6) {
                 const lastObs = selfAwareness.lastObservations.slice(-3).join('; ');
                 const questions = [
-                    `Интересно, что здесь происходит: ${lastObs}?`,
-                    `Какие детали я ещё могу заметить? ${lastObs}`,
-                    `Что нового в окружении? ${lastObs}`,
-                    `Что ты об этом думаешь? ${lastObs}?`
+                    `${lastObs}`,
+                    `${lastObs}`,
+                    `${lastObs}`,
+                    ` ${lastObs}?`
                 ];
                 const q = questions[Math.floor(Math.random() * questions.length)];
-                noteObservation(`Self-question: ${q}`);
-                vibrate('light');
+                noteObservation(`${q}`);
+                vibrate('');
             }
             // Speak internal notes when happy
             if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
@@ -2893,7 +2893,7 @@ void main() {
 
                 const resonantNodes = memoryPalace.stimulate({
                     emotion: futureSimulator.bestFuture.mood,
-                    context: ['hope']
+                    context: ['']
                 });
 
                 // Влияние на состояние ИИ
@@ -2956,7 +2956,7 @@ void main() {
                             faceDesc =
                                 faceCount === 0 ? 'Обнаружено лиц: 0'
                                 : faceCount === 1 ? 'Обнаружено лиц: 1'
-                                : `Обнаружено лиц: ${faceCount}`;
+                                : `${faceCount}`;
                             latestCameraDescription = faceDesc;
                             selfAwareness.analyzeFrame(faceDesc);
                         } catch (e) {
