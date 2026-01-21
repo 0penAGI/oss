@@ -272,6 +272,31 @@ CREATE TABLE memory_connections (
 );
 ```
 
+📊 Database Schema
+
+long_memory Table
+
+Stores holographic conversation snapshots with:
+
+User ID, role, content, emotion
+Emotional vectors (warmth, tension, trust, curiosity)
+Resonance depth, message count, mode
+Personal snapshots (name, dream, fears, gender)
+latent_context Table
+
+Tracks slow‑drifting meaning axes:
+
+Identity stability, agency, coherence
+Temporal inertia values
+Updated timestamps
+🧭 Navigation Tips
+
+Emotional Intelligence
+
+Multi‑axis emotion detection (warmth, tension, trust, curiosity)
+AI emotional state with latent manipulation
+Empathic resonance with user emotions
+
 ### Memory Operations
 ```python
 class HolographicMemory:
