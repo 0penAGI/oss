@@ -1285,16 +1285,43 @@ void main() {
         // NOTE: Update orbMaterial.uniforms.audioLevel.value each frame (0..1) from JS using audio input!
 
         // === Orb Mode JS Logic ===
-        // --- BrainState: LLM "cycle" states ---
+        // --- BrainState: LLM cycle states ---
         const BrainState = {
-            LISTENING: 0,
-            THINKING: 1,
-            SPEAKING: 2
+          IDLE: -1,        // внутреннее состояние, не визуализируется
+          LISTENING: 0,
+          THINKING: 1,
+          SPEAKING: 2
         };
-        let brainState = BrainState.LISTENING;
+
+        let brainState = BrainState.IDLE;
+        let listenSessionId = 0;
+
         let modeSmooth = 0;
         let thinkPhase = 0;
         let speechEnvelope = 0.0;
+
+        // === HARD BrainState Controller ===
+        function setBrainState(next) {
+          if (brainState === next) return;
+          brainState = next;
+          // --- HARD sync visual modes ---
+          orbMaterial.uniforms.mode.value = next;
+          lineMat.uniforms.mode.value = next;
+
+          // --- HARD SIDE EFFECTS ---
+          if (next !== BrainState.LISTENING) {
+            try { recognition.abort(); } catch(e){}
+            stopListeningVibration();
+          }
+
+          if (next !== BrainState.THINKING) {
+            stopThinkingVibration();
+          }
+
+          if (next !== BrainState.SPEAKING) {
+            stopSpeakingVibration();
+          }
+        }
 
         // === CHROME AUDIOCONTEXT PATCH ===
         window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1533,10 +1560,10 @@ void main() {
             soulOrbMesh.rotation.y += 0.001;
             lineMat.uniforms.time.value += 0.01;
             lineMat.uniforms.energy.value = orbEnergy;
-            // sync line shader mode with orb mode
+            // orb uses smooth, lines use hard brain state
             orbMaterial.uniforms.modeSmooth.value = modeSmooth;
-            orbMaterial.uniforms.mode.value = modeSmooth;
-            lineMat.uniforms.mode.value = modeSmooth;
+            orbMaterial.uniforms.mode.value = brainState;
+            lineMat.uniforms.mode.value = brainState;
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
 
@@ -3785,10 +3812,10 @@ void main() {
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
-let isSpeaking = false;
-let isThinking = false;
-let isChatMode = false;
-let isListening = false;
+        let isSpeaking = false;
+        let isThinking = false;
+        let isChatMode = false;
+        let isListening = false;
 
         // === SpeechSynthesis Voices Loader ===
         function updateVoices() {
