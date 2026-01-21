@@ -1129,8 +1129,8 @@ let isActiveTab = true;
 
         // === Orb Boundary Flow Lines (chaotic shell patterns) ===
         // меньше линий, больше индивидуальной жизни
-        const lineCount = 120;
-        const pointsPerLine = 4;
+        const lineCount = 168;
+        const pointsPerLine = 2;
 
         const linePositions = new Float32Array(lineCount * pointsPerLine * 3);
         const lineSeeds = new Float32Array(lineCount * pointsPerLine);
@@ -1148,13 +1148,15 @@ let isActiveTab = true;
                 const theta = baseTheta + t * 1.6 + Math.sin(seed + t * 4.0) * 0.6;
                 const phi   = basePhi   + Math.cos(seed + t * 3.0) * 0.4;
 
-                const radius =
-                    1.02 +
-                    Math.sin(seed * 2.3 + t * 8.0) * 0.08;
+                // --- УКОРOЧЕННАЯ ЗЕРНИСТАЯ ДЛИНА ---
+                const r = 1.0 * (0.35 + t * 0.45);
+                // const radius =
+                //     1.02 +
+                //     Math.sin(seed * 2.3 + t * 8.0) * 0.08;
 
-                const x = Math.sin(phi) * Math.cos(theta) * radius;
-                const y = Math.cos(phi) * radius;
-                const z = Math.sin(phi) * Math.sin(theta) * radius;
+                const x = Math.sin(phi) * Math.cos(theta) * r;
+                const y = Math.cos(phi) * r;
+                const z = Math.sin(phi) * Math.sin(theta) * r;
 
                 linePositions[ptr * 3 + 0] = x;
                 linePositions[ptr * 3 + 1] = y;
