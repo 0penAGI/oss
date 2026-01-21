@@ -1755,7 +1755,6 @@ const orbLearning = {
 
         // ====== Chat swipe support for mobile & desktop drag-scroll ======
         (function enableChatSwipe() {
-            // Try to find chat container: #chat, #chatContainer, or .chat-messages
             const chat =
                 document.querySelector('#chat') ||
                 document.querySelector('#chatContainer') ||
@@ -1763,71 +1762,15 @@ const orbLearning = {
                 document.getElementById('chatMessages');
             if (!chat) return;
 
-            // гарантируем, что чат принимает события
+            // нативный плавный скролл, без блоков и перехвата
             chat.style.pointerEvents = 'auto';
-            chat.style.touchAction = 'pan-y';
+            chat.style.overflowY = 'auto';
+            chat.style.webkitOverflowScrolling = 'touch';
 
-            // поддержка wheel-scroll (если canvas перехватывает wheel)
+            // wheel не перехватываем, только даем приоритет чату
             chat.addEventListener('wheel', (e) => {
-                chat.scrollTop += e.deltaY;
                 e.stopPropagation();
             }, { passive: true });
-
-            // hover‑захват, чтобы canvas не ел ввод
-            chat.addEventListener('mouseenter', () => {
-                document.body.classList.add('chat-active');
-            });
-
-            chat.addEventListener('mouseleave', () => {
-                document.body.classList.remove('chat-active');
-            });
-
-            let startY = 0;
-            let startScrollTop = 0;
-            let isTouching = false;
-
-            chat.addEventListener('touchstart', (e) => {
-                if (e.touches.length !== 1) return;
-                isTouching = true;
-                startY = e.touches[0].clientY;
-                startScrollTop = chat.scrollTop;
-            }, { passive: true });
-
-            chat.addEventListener('touchmove', (e) => {
-                if (!isTouching) return;
-                const deltaY = e.touches[0].clientY - startY;
-                chat.scrollTop = startScrollTop - deltaY;
-            }, { passive: true });
-
-            chat.addEventListener('touchend', () => {
-                isTouching = false;
-            }, { passive: true });
-
-            // ===== Desktop mouse drag support =====
-            let isMouseDown = false;
-            let mouseStartY = 0;
-            let mouseStartScrollTop = 0;
-
-            chat.addEventListener('mousedown', (e) => {
-                // только левая кнопка
-                if (e.button !== 0) return;
-                isMouseDown = true;
-                mouseStartY = e.clientY;
-                mouseStartScrollTop = chat.scrollTop;
-                chat.classList.add('drag-scrolling');
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isMouseDown) return;
-                const deltaY = e.clientY - mouseStartY;
-                chat.scrollTop = mouseStartScrollTop - deltaY;
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (!isMouseDown) return;
-                isMouseDown = false;
-                chat.classList.remove('drag-scrolling');
-            });
         })();
 
         // === Desktop: click on right free area opens chat ===
