@@ -100,8 +100,8 @@ def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "yourtokenfrombotfather"
-    MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
+    TOKEN = "tokeeeenfromBotFather"
+    MODEL_PATH = "pathhhh"
 
     # Token budgets per reasoning mode
     MAX_TOKENS_LOW = 512
@@ -1178,13 +1178,12 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
             # --- MULTIMODAL USER MESSAGE ---
             import base64
 
+            # === ENSURE SINGLE USER MESSAGE (ANTI-DUPLICATE) ===
+            ollama_messages = [
+                m for m in ollama_messages
+                if m.get("role") != "user"
+            ]
             user_image_bytes = kwargs.get("user_image_bytes", None)
-            if user_image_bytes is not None or text:
-                # Remove existing user message if present (to avoid duplication)
-                for i, msg in enumerate(ollama_messages):
-                    if msg.get("role") == "user":
-                        del ollama_messages[i]
-                        break
             if user_image_bytes:
                 image_b64 = base64.b64encode(user_image_bytes).decode()
                 ollama_messages.append({
@@ -1712,12 +1711,31 @@ class State:
     DREAM_MODE = 8
     READY = 9
 
+# Emotions engine stores lightweight state per user and influences prompt tone
+
 user_state: Dict[int, int] = {}
 current_mode: Dict[int, str] = {}
 user_emotion: Dict[int, str] = {}
 impression_state: Dict[int, ImpressionState] = {}
-# Emotions engine stores lightweight state per user and influences prompt tone
 
+# --- Ensure EmotionIdentityCore is defined before get_identity_core ---
+from dataclasses import dataclass
+
+@dataclass
+class EmotionIdentityCore:
+    anchor_warmth: float = 0.0
+    anchor_trust: float = 0.0
+    anchor_curiosity: float = 0.0
+    stability: float = 0.7
+
+emotion_identity: dict[int, EmotionIdentityCore] = {}
+
+def get_identity_core(user_id: int) -> EmotionIdentityCore:
+    core = emotion_identity.get(user_id)
+    if not core:
+        core = EmotionIdentityCore()
+        emotion_identity[user_id] = core
+    return core
 # ---------- ЭМОЦИОНАЛЬНЫЙ АНАЛИЗ ----------
 def detect_emotion(text: str) -> str:
     """Базовое определение эмоции"""
@@ -1757,6 +1775,7 @@ class EmotionState:
     tension: float = 0.0
     trust: float = 0.0
     curiosity: float = 0.0
+    stability: float = 0.7
     
 @dataclass
 class ImpressionState:
@@ -1971,6 +1990,25 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
     state.tension = clamp(state.tension * 0.985)
     state.trust = clamp(state.trust * 0.99)
     state.curiosity = clamp(state.curiosity * 0.99)
+    
+    # ===== IDENTITY CORE ANCHORING =====
+    core = get_identity_core(user_id)
+
+    def anchor(current, anchor, k):
+        return clamp(current * (1 - k) + anchor * k)
+
+    k = 0.08 * core.stability
+    state.warmth = anchor(state.warmth, core.anchor_warmth, k)
+    state.trust = anchor(state.trust, core.anchor_trust, k)
+    state.curiosity = anchor(state.curiosity, core.anchor_curiosity, k)
+
+    core.anchor_warmth = clamp(core.anchor_warmth * 0.995 + state.warmth * 0.005)
+    core.anchor_trust = clamp(core.anchor_trust * 0.995 + state.trust * 0.005)
+    core.anchor_curiosity = clamp(core.anchor_curiosity * 0.995 + state.curiosity * 0.005)
+
+    imp = impression_state.get(user_id)
+    if imp:
+        core.stability = clamp(0.6 + 0.4 * imp.integrity, 0.3, 0.95)
 
     save_emotion_state(user_id, state)
     return state
