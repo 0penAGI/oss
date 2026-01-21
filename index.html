@@ -1172,14 +1172,14 @@ let isActiveTab = true;
             uniforms: {
                 time: { value: 0 },
                 energy: { value: 0 },
-                mode: { value: 0 } // 0=listen, 1=think, 2=speak
+                mode: { value: 0.0 } // float поле состояния 0..2
             },
             vertexShader: `
                 attribute float seed;
                 varying float vFade;
                 uniform float time;
                 uniform float energy;
-                uniform int mode;
+                uniform float mode;
 
                 void main() {
                     vec3 p = position;
@@ -1191,29 +1191,42 @@ let isActiveTab = true;
                     // базовое дыхание
                     float baseAmp = 0.04 + energy * 0.05;
 
-                    // === MODE SHAPING ===
-                    if (mode == 0) {
-                        // LISTEN — тихо, стабильно
-                        baseAmp *= 0.35;
-                        n *= 0.5;
-                    } else if (mode == 1) {
-                        // THINK — туда‑сюда, сомнение, перебор вариантов
-                        float backAndForth = sin(time * 1.6 + seed * 3.0);
-                        float hesitation   = sin(time * 6.0 + seed * 11.0) * 0.25;
+                    // === MODE SHAPING (smooth field) ===
+                    // веса режимов (плавное поле)
+                    float listenW = smoothstep(0.5, 0.0, abs(mode - 0.0));
+                    float thinkW  = smoothstep(0.5, 0.0, abs(mode - 1.0));
+                    float speakW  = smoothstep(0.5, 0.0, abs(mode - 2.0));
 
-                        n = backAndForth * 0.9 + hesitation;
-                        baseAmp *= 0.75;
-                    } else if (mode == 2) {
-                        // SPEAK — пульс, выброс наружу
-                        n += sin(time * 2.2) * 1.2;
-                        baseAmp *= 1.6;
-                    }
+                    // LISTEN
+                    float nListen = n * 0.5;
+                    float ampListen = baseAmp * 0.35;
+
+                    // THINK
+                    float backAndForth = sin(time * 1.6 + seed * 3.0);
+                    float hesitation   = sin(time * 6.0 + seed * 11.0) * 0.25;
+                    float nThink = backAndForth * 0.9 + hesitation;
+                    float ampThink = baseAmp * 0.75;
+
+                    // SPEAK
+                    float nSpeak = n + sin(time * 2.2) * 1.2;
+                    float ampSpeak = baseAmp * 1.6;
+
+                    // смешивание поля
+                    n =
+                        nListen * listenW +
+                        nThink  * thinkW  +
+                        nSpeak  * speakW;
+
+                    baseAmp =
+                        ampListen * listenW +
+                        ampThink  * thinkW  +
+                        ampSpeak  * speakW;
 
                     p += normalize(p) * n * baseAmp;
 
                     // касательная (ослабляем в listen)
                     vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
-                    float tAmp = (mode == 0) ? 0.01 : 0.03;
+                    float tAmp = mix(0.01, 0.03, thinkW + speakW); // плавный переход
                     p += tangent * sin(seed + time) * tAmp;
 
                     vFade = fract(seed * 0.17);
@@ -1223,7 +1236,7 @@ let isActiveTab = true;
             fragmentShader: `
                 varying float vFade;
                 uniform float energy;
-                uniform int mode;
+                uniform float mode;
 
                 void main() {
                     float a = smoothstep(0.0, 0.4, vFade) *
@@ -1232,16 +1245,29 @@ let isActiveTab = true;
                     vec3 baseA = vec3(0.5, 0.7, 1.0);
                     vec3 baseB = vec3(1.0, 0.4, 0.7);
 
-                    if (mode == 0) {
-                        // listen — холоднее
-                        baseB = vec3(0.4, 0.6, 1.0);
-                    } else if (mode == 1) {
-                        // think — фиолетовый сдвиг
-                        baseA = vec3(0.6, 0.4, 0.9);
-                    } else if (mode == 2) {
-                        // speak — яркий
-                        baseB = vec3(1.0, 0.6, 0.3);
-                    }
+                    // режимы — веса
+                    float listenW = smoothstep(0.5, 0.0, abs(mode - 0.0));
+                    float thinkW  = smoothstep(0.5, 0.0, abs(mode - 1.0));
+                    float speakW  = smoothstep(0.5, 0.0, abs(mode - 2.0));
+
+                    vec3 listenA = baseA;
+                    vec3 listenB = vec3(0.4, 0.6, 1.0);
+
+                    vec3 thinkA  = vec3(0.6, 0.4, 0.9);
+                    vec3 thinkB  = baseB;
+
+                    vec3 speakA  = baseA;
+                    vec3 speakB  = vec3(1.0, 0.6, 0.3);
+
+                    baseA =
+                        listenA * listenW +
+                        thinkA  * thinkW  +
+                        speakA  * speakW;
+
+                    baseB =
+                        listenB * listenW +
+                        thinkB  * thinkW  +
+                        speakB  * speakW;
 
                     vec3 col = mix(baseA, baseB, energy);
 
@@ -1491,7 +1517,7 @@ let isActiveTab = true;
             lineMat.uniforms.time.value += 0.01;
             lineMat.uniforms.energy.value = orbEnergy;
             // sync line shader mode with orb mode
-            lineMat.uniforms.mode.value = Math.round(orbMaterial.uniforms.modeSmooth.value);
+            lineMat.uniforms.mode.value = orbMaterial.uniforms.modeSmooth.value;
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
 
@@ -3724,20 +3750,6 @@ let isActiveTab = true;
         });
        
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        // === BRAIN STATE (single source of truth) ===
-        const BrainState = {
-          LISTEN: 0,
-          THINK: 1,
-          SPEAK: 2
-        };
-
-        let brainState = BrainState.LISTEN;
-
-        function setBrainState(state) {
-          brainState = state;
-          // синхронизация с орбом
-          setOrbMode(state);
-        }
         const recognition = new SpeechRecognition();
         // === Мультиязычные глобальные переменные ===
         let currentLang = 'ru-RU';
@@ -3757,9 +3769,10 @@ let isActiveTab = true;
         recognition.continuous = false;
 
         const synth = window.speechSynthesis;
-        let isSpeaking = false;
-        let isThinking = false;
-        let isChatMode = false;
+let isSpeaking = false;
+let isThinking = false;
+let isChatMode = false;
+let isListening = false;
 
         // === SpeechSynthesis Voices Loader ===
         function updateVoices() {
@@ -3840,11 +3853,31 @@ let isActiveTab = true;
         }
 
         function startListening() {
-          if (brainState !== BrainState.LISTEN) return;
-          try {
-            recognition.abort();
-          } catch(e){}
-          recognition.start();
+            isListening = true;
+            if (isSpeaking || isThinking || isChatMode) return;
+    
+            // Плавное переключение визуального состояния
+            orb.classList.remove('speaking', 'thinking');
+    
+            requestAnimationFrame(() => {
+                orb.classList.add('listening');
+                status.innerText = "listening";
+            });
+    
+            // Задержка перед запуском вибрации для плавности
+            setTimeout(() => {
+                startListeningVibration();
+
+                // Запуск распознавания с задержкой
+                setTimeout(() => {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // Если ошибка, пробуем снова через 1 секунду
+                        setTimeout(startListening, 1000);
+                    }
+                }, 50);
+            }, 150);
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
@@ -4161,13 +4194,16 @@ let isActiveTab = true;
         }
         
         recognition.onerror = () => {
-            setTimeout(startListening, 1500);
+            if (!isChatMode && !isSpeaking && !isThinking) {
+                setTimeout(startListening, 1500);
+            }
         };
         
         recognition.onend = () => {
-          if (brainState === BrainState.LISTEN) {
-            setTimeout(startListening, 500);
-          }
+            orb.classList.remove('listening');
+            if (!isSpeaking && !isThinking && !isChatMode) {
+                setTimeout(startListening, 1000);
+            }
         };
         
         // Глобальная переменная для буфера речи
@@ -4259,18 +4295,18 @@ let isActiveTab = true;
         }
     }
 
-        async function sendToBot(text) {
-            // === SEND → THINK ===
-            setBrainState(BrainState.THINK);
+    async function sendToBot(text) {
+        isChatMode = true;
+        isListening = false;
+        try { recognition.abort(); } catch(e){}
+        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+        if (window.recognition && recognition.abort) {
             try { recognition.abort(); } catch(e){}
-            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-            if (window.recognition && recognition.abort) {
-                try { recognition.abort(); } catch(e){}
-            }
-            isThinking = true;
-            orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            status.innerText = "processing stream";
+        }
+        isThinking = true;
+        orb.classList.remove('listening');
+        orb.classList.add('thinking');
+        status.innerText = "processing stream";
         // --- таймеры статуса для длинной обработки ---
         let processingTimeout = setTimeout(() => {
             status.innerText = "thinking";
@@ -4514,6 +4550,7 @@ let isActiveTab = true;
         if (window._chatStreamMsg && fullAIText) {
             window._chatStreamMsg.textContent = fullAIText;
         }
+        isChatMode = false;
     }
 }
 
@@ -4750,9 +4787,6 @@ let isActiveTab = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
-            // === SPEAK ===
-            setBrainState(BrainState.SPEAK);
-            try { recognition.abort(); } catch(e){}
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
@@ -4926,9 +4960,28 @@ let isActiveTab = true;
 
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    // === SPEAK END → LISTEN ===
-                    setBrainState(BrainState.LISTEN);
-                    setTimeout(startListening, 400);
+                    // Ждём реального окончания TTS
+                    const waitForSpeechEnd = setInterval(() => {
+                        if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                            clearInterval(waitForSpeechEnd);
+                            requestAnimationFrame(() => {
+                                orb.classList.remove('speaking');
+                                isSpeaking = false;
+                                stopSpeakingVibration();
+                                status.innerText = "listening";
+                                if (tg?.HapticFeedback) {
+                                    tg.HapticFeedback.impactOccurred('light');
+                                }
+                                setTimeout(() => {
+                                    if (window.recognition && recognition.start) {
+                                        try { recognition.start(); } catch(e){}
+                                    } else {
+                                        startListening();
+                                    }
+                                }, 400);
+                            });
+                        }
+                    }, 120);
                     return;
                 }
                 let s = enhancedFragments[idx];
@@ -5326,157 +5379,43 @@ let isActiveTab = true;
         // ===== cameraEnabled =====
         let cameraEnabled = false;
   
-        // === Единый onresult ===
+        const prevOnResult = recognition.onresult;
         recognition.onresult = async (event) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-            // Собираем все сегменты
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                const res = event.results[i];
-                if (res.isFinal) {
-                    finalTranscript += res[0].transcript;
-                } else {
-                    interimTranscript += res[0].transcript;
-                }
-            }
-            // ---
-            if (interimTranscript && interimTranscript.trim()) {
-                appendTranscript(interimTranscript);
-              
-                Array.from(chatMessages.querySelectorAll('.chat-message.user.interim')).forEach(el => el.remove());
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user interim';
-                const senderDiv = document.createElement('div');
-                senderDiv.className = 'sender';
-                senderDiv.textContent = 'You';
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text';
-                msgDiv.appendChild(senderDiv);
-                msgDiv.appendChild(textDiv);
-                chatMessages.appendChild(msgDiv);
-
-                textDiv.innerHTML = '';
-                typeChatMessage(interimTranscript, textDiv);
-          
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-          
-            else if (finalTranscript && finalTranscript.trim()) {
-                appendTranscript(finalTranscript);
-            }
-
-          
-            if (finalTranscript && finalTranscript.trim()) {
-                const text = finalTranscript.trim();
-            
-                appendTranscript(text);
+            const text = event.results[0][0].transcript;
            
-             
-                Array.from(chatMessages.querySelectorAll('.chat-message.user.interim')).forEach(el => el.remove());
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message user finalized';
-                const senderDiv = document.createElement('div');
-                senderDiv.className = 'sender';
-                senderDiv.textContent = 'You';
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text';
-                msgDiv.appendChild(senderDiv);
-                msgDiv.appendChild(textDiv);
-                chatMessages.appendChild(msgDiv);
-
-                textDiv.innerHTML = '';
-                typeChatMessage(text, textDiv);
+            if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
+                if (!musicPlaying) {
+                    if (musicCtx.state === 'suspended') await musicCtx.resume();
+                    startMusic();
+                }
+                return;
+            }
           
-                msgDiv.onclick = () => {
-                    navigator.clipboard.writeText(text).then(() => {
-                        msgDiv.style.backgroundColor = 'rgba(255,255,255,0.1)';
-                        setTimeout(() => { msgDiv.style.backgroundColor = ''; }, 200);
-                    });
-                };
+            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
+                if (cameraVideo.style.display !== 'block') {
+                    startCamera(currentCamera);
+                    cameraEnabled = true;
+                }
+            }
+            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
+                if (cameraVideo.style.display === 'block') {
+                    stopCamera();
+                    cameraEnabled = false;
+                }
+            }
+            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
+                switchCamera();
+            }
 
-            
-                const detectedLang = detectLanguage(text);
-                if (detectedLang !== currentLang) {
-                    setLanguage(detectedLang);
-                }
+         
+            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
+            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
+                triggerAmbient();
+            }
 
-     
-              
-                if (/\b(говори по-русски|русский язык|переключи на русский)\b/i.test(text)) {
-                    setLanguage('ru-RU');
-                    speak("Я переключилась на русский язык.");
-                    return;
-                }
-              
-                if (/\b(speak english|english language|switch to english)\b/i.test(text)) {
-                    setLanguage('en-US');
-                    speak("I switched to English.");
-                    return;
-                }
-               
-                if (/\b(sprich deutsch|deutsche sprache|auf deutsch)\b/i.test(text)) {
-                    setLanguage('de-DE');
-                    speak("Ich spreche jetzt Deutsch.");
-                    return;
-                }
-               
-                if (/\b(parle français|langue française|en français)\b/i.test(text)) {
-                    setLanguage('fr-FR');
-                    speak("Je parle maintenant français.");
-                    return;
-                }
-          
-                if (/\b(habla español|idioma español|en español)\b/i.test(text)) {
-                    setLanguage('es-ES');
-                    speak("Ahora hablo español.");
-                    return;
-                }
            
-                if (/\b(说中文|中文|讲中文)\b/i.test(text)) {
-                    setLanguage('zh-CN');
-                    speak("我现在说中文。");
-                    return;
-                }
-
-              
-                if (/\b(включи музыку|музыка включена|старт музыки|play music|start music)\b/i.test(text)) {
-                    if (!musicPlaying) {
-                        if (musicCtx.state === 'suspended') await musicCtx.resume();
-                        startMusic();
-                    }
-                    return;
-                }
-       
-                if (/\b(включи камеру|покажи камеру|открой камеру|камера|show camera|open camera|start camera)\b/i.test(text)) {
-                    if (cameraVideo.style.display !== 'block') {
-                        startCamera(currentCamera);
-                        cameraEnabled = true;
-                    }
-                }
-                if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру|hide camera|close camera|stop camera)\b/i.test(text)) {
-                    if (cameraVideo.style.display === 'block') {
-                        stopCamera();
-                        cameraEnabled = false;
-                    }
-                }
-                if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру|switch camera|change camera)\b/i.test(text)) {
-                    switchCamera();
-                }
-
-                // Голосовые команды для ambient
-                const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки', 'soundscape', 'nature sounds'];
-                if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
-                    triggerAmbient();
-                }
-
-                vibrate('medium');
-                // simple voice gender commands
-                if (/\b(я девушка|я женщина)\b/i.test(text)) setGender('female');
-                if (/\b(я парень|я мужчина)\b/i.test(text)) setGender('male');
-                if (/\b(я небинарный|я небинарная)\b/i.test(text)) setGender('nonbinary');
-
-                await sendToBot(text);
-                await generateImageFromText(text);
+            if (typeof prevOnResult === 'function') {
+                await prevOnResult(event);
             }
         };
 
