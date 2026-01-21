@@ -4163,24 +4163,39 @@ let isListening = false;
             }
         };
         // === Web/Telegram Session ID (unified) ===
-        const isTelegram =
-          typeof window.Telegram !== 'undefined' &&
-          window.Telegram.WebApp &&
-          window.Telegram.WebApp.initDataUnsafe?.user?.id;
-
         const WEB_SESSION_KEY = 'web_fake_user_id';
 
-        let user_id;
-
-        if (isTelegram) {
-          user_id = String(window.Telegram.WebApp.initDataUnsafe.user.id);
-        } else {
-          user_id = localStorage.getItem(WEB_SESSION_KEY);
-          if (!user_id) {
-            user_id = 'web_' + crypto.randomUUID();
-            localStorage.setItem(WEB_SESSION_KEY, user_id);
+        function resolveUserId() {
+          if (
+            window.Telegram &&
+            window.Telegram.WebApp &&
+            window.Telegram.WebApp.initDataUnsafe &&
+            window.Telegram.WebApp.initDataUnsafe.user &&
+            window.Telegram.WebApp.initDataUnsafe.user.id
+          ) {
+            return String(window.Telegram.WebApp.initDataUnsafe.user.id);
           }
+
+          let id = localStorage.getItem(WEB_SESSION_KEY);
+          if (!id) {
+            id = 'web_' + crypto.randomUUID();
+            localStorage.setItem(WEB_SESSION_KEY, id);
+          }
+          return id;
         }
+
+        let user_id = resolveUserId();
+
+        // 🔁 Telegram может проинициализироваться позже
+        setTimeout(() => {
+          const tgId =
+            window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+
+          if (tgId && String(user_id) !== String(tgId)) {
+            user_id = String(tgId);
+            console.log('[sync] Telegram userID synced:', user_id);
+          }
+        }, 800);
 
         function stringToIntId(str) {
             let hash = 0;
