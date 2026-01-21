@@ -1175,71 +1175,66 @@ let isActiveTab = true;
                 mode: { value: 0.0 } // float поле состояния 0..2
             },
             vertexShader: `
-                attribute float seed;
-                varying float vFade;
-                uniform float time;
-                uniform float energy;
-                uniform float mode;
+attribute float seed;
+varying float vFade;
 
-                void main() {
-                    vec3 p = position;
+uniform float time;
+uniform float energy;
+uniform float mode;
 
-                    float n =
-                        sin(seed + time * 1.4) *
-                        cos(seed * 0.7 + time * 0.9);
+void main() {
+    vec3 p = position;
 
-                    // базовое дыхание
-                    float baseAmp = 0.04 + energy * 0.05;
+    float phase = seed * 6.28318;
+    float t = time;
 
-                    // === MODE SHAPING (smooth field) ===
-                    // веса режимов (плавное поле, усиленная динамика)
-                    float listenW = smoothstep(0.8, 0.0, abs(mode - 0.0));
-                    float thinkW  = smoothstep(0.8, 0.0, abs(mode - 1.0));
-                    float speakW  = smoothstep(0.8, 0.0, abs(mode - 2.0));
-                    // нормализация чтобы энергия не терялась
-                    float wSum = listenW + thinkW + speakW + 0.0001;
-                    listenW /= wSum;
-                    thinkW  /= wSum;
-                    speakW  /= wSum;
+    float baseAmp = 0.015 + energy * 0.08;
 
-                    // LISTEN
-                    float nListen = n * 0.5;
-                    float ampListen = baseAmp * 0.35;
+    float wListen = exp(-pow(mode - 0.0, 2.0) * 8.0);
+    float wThink  = exp(-pow(mode - 1.0, 2.0) * 8.0);
+    float wSpeak  = exp(-pow(mode - 2.0, 2.0) * 8.0);
+    float wSum = wListen + wThink + wSpeak + 0.0001;
+    wListen /= wSum;
+    wThink  /= wSum;
+    wSpeak  /= wSum;
 
-                    // THINK (нервная динамика)
-                    float backAndForth = sin(time * 2.4 + seed * 3.0);
-                    float hesitation   = sin(time * 9.0 + seed * 11.0) * 0.45;
-                    float jitter       = sin(time * 18.0 + seed * 37.0) * 0.15;
-                    float nThink = backAndForth * 1.1 + hesitation + jitter;
-                    float ampThink = baseAmp * 0.95;
+    float nListen = sin(phase + t * 0.6);
+    float ampListen = baseAmp * 0.15;
 
-                    // SPEAK (усиленный импульс)
-                    float pulse = sin(time * 2.2) + sin(time * 4.4) * 0.5;
-                    float nSpeak = n + pulse * 1.6;
-                    float ampSpeak = baseAmp * 2.0;
+    float swirl = sin(t * 1.8 + phase);
+    float shake = sin(t * 14.0 + seed * 31.0) * 0.4;
+    float push  = sin(t * 2.6 + seed * 5.0);
 
-                    // смешивание поля
-                    n =
-                        nListen * listenW +
-                        nThink  * thinkW  +
-                        nSpeak  * speakW;
+    float thinkMix = fract(seed * 3.1);
+    float nThink =
+        mix(swirl, shake, step(0.33, thinkMix)) * 0.8 +
+        push * 0.6;
 
-                    baseAmp =
-                        ampListen * listenW +
-                        ampThink  * thinkW  +
-                        ampSpeak  * speakW;
+    float ampThink = baseAmp * 2.4;
 
-                    p += normalize(p) * n * baseAmp;
+    float breath = sin(t * 1.6);
+    float nSpeak = sin(phase + t * 1.4);
+    float ampSpeak = baseAmp * (3.0 + breath * 1.8);
 
-                    // касательная (ослабляем в listen)
-                    vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
-                    float tAmp = mix(0.01, 0.03, thinkW + speakW); // плавный переход
-                    p += tangent * sin(seed + time) * tAmp;
+    float n =
+        nListen * wListen +
+        nThink  * wThink  +
+        nSpeak  * wSpeak;
 
-                    vFade = fract(seed * 0.17);
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-                }
-            `,
+    float amp =
+        ampListen * wListen +
+        ampThink  * wThink  +
+        ampSpeak  * wSpeak;
+
+    p += normalize(p) * n * amp * mix(0.6, 1.8, wThink + wSpeak);
+
+    vec3 tangent = normalize(vec3(-p.z, 0.0, p.x));
+    p += tangent * sin(t * 2.4 + phase) * 0.12 * wThink;
+
+    vFade = fract(seed * 0.17);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}
+`,
             fragmentShader: `
                 varying float vFade;
                 uniform float energy;
@@ -1252,10 +1247,10 @@ let isActiveTab = true;
                     vec3 baseA = vec3(0.5, 0.7, 1.0);
                     vec3 baseB = vec3(1.0, 0.4, 0.7);
 
-                    // режимы — веса
-                    float listenW = smoothstep(0.5, 0.0, abs(mode - 0.0));
-                    float thinkW  = smoothstep(0.5, 0.0, abs(mode - 1.0));
-                    float speakW  = smoothstep(0.5, 0.0, abs(mode - 2.0));
+                    // режимы — веса (более локализованные)
+                    float listenW = exp(-pow(mode - 0.0, 2.0) * 8.0);
+                    float thinkW  = exp(-pow(mode - 1.0, 2.0) * 8.0);
+                    float speakW  = exp(-pow(mode - 2.0, 2.0) * 8.0);
 
                     vec3 listenA = baseA;
                     vec3 listenB = vec3(0.4, 0.6, 1.0);
@@ -1293,8 +1288,15 @@ let isActiveTab = true;
         // NOTE: Update orbMaterial.uniforms.audioLevel.value each frame (0..1) from JS using audio input!
 
         // === Orb Mode JS Logic ===
-        let currentMode = 0;
-        let targetMode = 0;
+        // --- BrainState: LLM "cycle" states ---
+        const BrainState = {
+            LISTENING: 0,
+            THINKING: 1,
+            SPEAKING: 2
+        };
+        let brainState = BrainState.LISTENING;
+        let modeSmooth = 0;
+        let thinkPhase = 0;
         let speechEnvelope = 0.0;
 
         // === CHROME AUDIOCONTEXT PATCH ===
@@ -1313,24 +1315,28 @@ let isActiveTab = true;
         document.addEventListener('pointerdown', unlockAudioContext, { once: true });
         document.addEventListener('keydown', unlockAudioContext, { once: true });
 
-        // modeSmooth is the interpolated mode index (float)
-        orbMaterial.uniforms.mode.value = currentMode;
-        orbMaterial.uniforms.modeSmooth.value = currentMode;
+        // --- modeSmooth update for LLM cycle ---
+        // Mapping: LISTENING → calm, THINKING → inner cycle, SPEAKING → breathing
+        const MODE_RESPONSE = {
+          [BrainState.LISTENING]: 0.06,
+          [BrainState.THINKING]: 0.025,
+          [BrainState.SPEAKING]: 0.08
+        };
 
-        function setOrbMode(mode) {
-            targetMode = Math.max(0, Math.min(4, Math.floor(mode)));
+        function updateModeSmooth(dt) {
+          let target = brainState; // 0 / 1 / 2
+          // THINK: внутренний цикл "метаний"
+          if (brainState === BrainState.THINKING) {
+            thinkPhase += dt * 1.8;
+            target = 1 + Math.sin(thinkPhase) * 0.35;
+          } else {
+            thinkPhase = 0;
+          }
+          const speed = MODE_RESPONSE[brainState] || 0.05;
+          modeSmooth += (target - modeSmooth) * speed;
         }
 
-        // Smooth interpolation of mode in the animation loop
-        function updateOrbModeSmooth() {
-            let ms = orbMaterial.uniforms.modeSmooth.value;
-            if (Math.abs(ms - targetMode) > 0.001) {
-                ms += (targetMode - ms) * 0.12;
-                if (Math.abs(ms - targetMode) < 0.01) ms = targetMode;
-                orbMaterial.uniforms.modeSmooth.value = ms;
-            }
-            orbMaterial.uniforms.mode.value = targetMode;
-        }
+        // Use this to update orb/line shader with real modeSmooth
 
         
         // === Liquid Glass Layer ===
@@ -1504,8 +1510,14 @@ let isActiveTab = true;
         });
 
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
+        // --- Animation loop with real LLM modeSmooth cycle ---
+        let lastTime = performance.now();
         function animate() {
             if (!isActiveTab) return;
+            const now = performance.now();
+            const deltaTime = (now - lastTime) / 1000;
+            lastTime = now;
+            updateModeSmooth(deltaTime);
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
@@ -1525,12 +1537,12 @@ let isActiveTab = true;
             lineMat.uniforms.time.value += 0.01;
             lineMat.uniforms.energy.value = orbEnergy;
             // sync line shader mode with orb mode
-            lineMat.uniforms.mode.value = orbMaterial.uniforms.modeSmooth.value;
+            orbMaterial.uniforms.modeSmooth.value = modeSmooth;
+            orbMaterial.uniforms.mode.value = modeSmooth;
+            lineMat.uniforms.mode.value = modeSmooth;
             orbLines.rotation.y -= 0.0006;
             orbLines.rotation.x += 0.0003;
 
-            // Smoothly interpolate orb mode
-            updateOrbModeSmooth();
             // живой отклик с микро‑нерешительностью
             orbEnergy += (targetEnergy - orbEnergy) * responseInertia;
 
@@ -1554,7 +1566,6 @@ let isActiveTab = true;
 
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
-
 
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
