@@ -3723,20 +3723,6 @@ let isActiveTab = true;
             startMusic();
         });
        
-        // === BRAIN STATE (single source of truth) ===
-        const BrainState = {
-          LISTEN: 0,
-          THINK: 1,
-          SPEAK: 2
-        };
-
-        let brainState = BrainState.LISTEN;
-
-        function setBrainState(state) {
-          brainState = state;
-          setOrbMode(state);
-        }
-
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         // === Мультиязычные глобальные переменные ===
@@ -3840,9 +3826,30 @@ let isActiveTab = true;
         }
 
         function startListening() {
-            if (brainState !== BrainState.LISTEN) return;
-            try { recognition.abort(); } catch(e){}
-            recognition.start();
+            if (isSpeaking || isThinking) return;
+    
+            // Плавное переключение визуального состояния
+            orb.classList.remove('speaking', 'thinking');
+    
+            requestAnimationFrame(() => {
+                orb.classList.add('listening');
+                status.innerText = "listening";
+            });
+    
+            // Задержка перед запуском вибрации для плавности
+            setTimeout(() => {
+                startListeningVibration();
+
+                // Запуск распознавания с задержкой
+                setTimeout(() => {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        // Если ошибка, пробуем снова через 1 секунду
+                        setTimeout(startListening, 1000);
+                    }
+                }, 50);
+            }, 150);
         }
         
         // === Единый мультиязычный onresult с автодетектом и голосовыми командами ===
@@ -4163,13 +4170,10 @@ let isActiveTab = true;
         };
         
         recognition.onend = () => {
-          if (brainState === BrainState.LISTEN) {
-            setTimeout(() => {
-              if (brainState === BrainState.LISTEN) {
-                recognition.start();
-              }
-            }, 500);
-          }
+            orb.classList.remove('listening');
+            if (!isSpeaking && !isThinking) {
+                setTimeout(startListening, 1000);
+            }
         };
         
         // Глобальная переменная для буфера речи
@@ -4261,14 +4265,15 @@ let isActiveTab = true;
         }
     }
 
-        async function sendToBot(text) {
-            setBrainState(BrainState.THINK);
+    async function sendToBot(text) {
+        stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
+        if (window.recognition && recognition.abort) {
             try { recognition.abort(); } catch(e){}
-            stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
-            isThinking = true;
-            orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            status.innerText = "processing stream";
+        }
+        isThinking = true;
+        orb.classList.remove('listening');
+        orb.classList.add('thinking');
+        status.innerText = "processing stream";
         // --- таймеры статуса для длинной обработки ---
         let processingTimeout = setTimeout(() => {
             status.innerText = "thinking";
@@ -4748,8 +4753,6 @@ let isActiveTab = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
-            setBrainState(BrainState.SPEAK);
-            try { recognition.abort(); } catch(e){}
             // === 2) Защита от overlap TTS ===
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
@@ -4923,12 +4926,10 @@ let isActiveTab = true;
 
             function speakNext() {
                 if (idx >= enhancedFragments.length) {
-                    // Жёсткое переключение состояния после окончания TTS
+                    // Ждём реального окончания TTS
                     const waitForSpeechEnd = setInterval(() => {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
-                            setBrainState(BrainState.LISTEN);
-                            setTimeout(startListening, 400);
                             requestAnimationFrame(() => {
                                 orb.classList.remove('speaking');
                                 isSpeaking = false;
@@ -4937,6 +4938,13 @@ let isActiveTab = true;
                                 if (tg?.HapticFeedback) {
                                     tg.HapticFeedback.impactOccurred('light');
                                 }
+                                setTimeout(() => {
+                                    if (window.recognition && recognition.start) {
+                                        try { recognition.start(); } catch(e){}
+                                    } else {
+                                        startListening();
+                                    }
+                                }, 400);
                             });
                         }
                     }, 120);
@@ -5337,7 +5345,45 @@ let isActiveTab = true;
         // ===== cameraEnabled =====
         let cameraEnabled = false;
   
-        // ВТОРОЙ recognition.onresult -- УДАЛЁН
+        const prevOnResult = recognition.onresult;
+        recognition.onresult = async (event) => {
+            const text = event.results[0][0].transcript;
+           
+            if (/\b(включи музыку|музыка включена|старт музыки)\b/i.test(text)) {
+                if (!musicPlaying) {
+                    if (musicCtx.state === 'suspended') await musicCtx.resume();
+                    startMusic();
+                }
+                return;
+            }
+          
+            if (/\b(включи камеру|покажи камеру|открой камеру|камера)\b/i.test(text)) {
+                if (cameraVideo.style.display !== 'block') {
+                    startCamera(currentCamera);
+                    cameraEnabled = true;
+                }
+            }
+            if (/\b(выключи камеру|закрой камеру|скрой камеру|убери камеру)\b/i.test(text)) {
+                if (cameraVideo.style.display === 'block') {
+                    stopCamera();
+                    cameraEnabled = false;
+                }
+            }
+            if (/\b(переключи камеру|сменить камеру|другая камера|переверни камеру)\b/i.test(text)) {
+                switchCamera();
+            }
+
+         
+            const ambientTriggerWords = ['старт', 'музыка', 'ambient', 'звуки'];
+            if (ambientTriggerWords.some(word => text.toLowerCase().includes(word))) {
+                triggerAmbient();
+            }
+
+           
+            if (typeof prevOnResult === 'function') {
+                await prevOnResult(event);
+            }
+        };
 
         const origStartCamera = startCamera;
         startCamera = async function(...args) {
