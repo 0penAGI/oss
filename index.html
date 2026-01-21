@@ -4403,8 +4403,9 @@ let isActiveTab = true;
 
             if (speechStarted) {
                 const delta = audioBuffer.slice(spokenLength);
-                // более ранний порог — речь дышит вместе с печатью
-                if (delta.length > 12 && /[.!?]|,|\n/.test(delta)) {
+
+                // говорим всё, не ждём пунктуацию
+                if (delta.length > 6) {
                     spokenLength = audioBuffer.length;
                     speak(delta);
                 }
