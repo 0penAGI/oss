@@ -1753,6 +1753,25 @@ const orbLearning = {
 
         animateChatShader();
 
+        // ====== Chat swipe support for mobile & desktop drag-scroll ======
+        (function enableChatSwipe() {
+            const chat =
+                document.querySelector('#chat') ||
+                document.querySelector('#chatContainer') ||
+                document.querySelector('.chat-messages') ||
+                document.getElementById('chatMessages');
+            if (!chat) return;
+
+            // нативный плавный скролл, без блоков и перехвата
+            chat.style.pointerEvents = 'auto';
+            chat.style.overflowY = 'auto';
+            chat.style.webkitOverflowScrolling = 'touch';
+
+            // wheel не перехватываем, только даем приоритет чату
+            chat.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+            }, { passive: true });
+        })();
 
         // === Desktop: click on right free area opens chat ===
         (function enableRightClickChatOpen() {
@@ -5344,12 +5363,35 @@ const orbLearning = {
             ) <= threshold;
         }
 
-        // Utility: scroll chat to bottom
+        // Utility: scroll chat to bottom (smooth)
+        let chatScrollRAF = null;
+
         function scrollChatToBottom() {
             if (userScrolling) return;
-            const chatContainer = document.getElementById('chatMessages');
-            if (!chatContainer) return;
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            const c = document.getElementById('chatMessages');
+            if (!c) return;
+
+            const start = c.scrollTop;
+            const end = c.scrollHeight - c.clientHeight;
+            const duration = 240;
+            const t0 = performance.now();
+
+            if (chatScrollRAF) cancelAnimationFrame(chatScrollRAF);
+
+            function easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            function step(now) {
+                const t = Math.min(1, (now - t0) / duration);
+                c.scrollTop = start + (end - start) * easeOutCubic(t);
+                if (t < 1) {
+                    chatScrollRAF = requestAnimationFrame(step);
+                }
+            }
+
+            chatScrollRAF = requestAnimationFrame(step);
         }
 
         // ===== Chat Panel Management =====
@@ -5665,6 +5707,11 @@ const orbLearning = {
                     opacity: 1;
                     transform: translateY(0) scale(1);
                     filter: blur(0);
+                }
+                #chatMessages {
+                  scroll-behavior: smooth;
+                  overscroll-behavior: contain;
+                  -webkit-overflow-scrolling: touch;
                 }
             `;
             document.head.appendChild(style);
