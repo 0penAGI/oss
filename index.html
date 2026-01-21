@@ -1039,11 +1039,57 @@ let isActiveTab = true;
             }
 
             vec3 palette(float t) {
-                vec3 a = vec3(0.32, 0.24, 0.55);
-                vec3 b = vec3(0.48, 0.58, 0.68);
-                vec3 c = vec3(1.0, 1.0, 1.0);
-                vec3 d = vec3(0.15, 0.25, 0.45);
-                return a + b * cos(6.28318 * (c * t + d));
+                // базовое медленное время
+                float time = t * 0.25;
+
+                // дыхания (несинхронные)
+                float breathe =
+                    sin(time * 0.7) * 0.4 +
+                    sin(time * 1.1 + 1.7) * 0.35 +
+                    sin(time * 0.43 + 4.2) * 0.25;
+                breathe = breathe * 0.5 + 0.5;
+
+                // слои
+                float layerT = time + breathe * 0.6;
+                float layer = floor(layerT * 2.5) / 2.5;
+                float micro = fract(layerT * 2.5);
+
+                // волновая фаза (края)
+                float wavePhase =
+                    sin(layerT * 1.4 + micro * 6.28318) *
+                    sin(layerT * 0.6);
+
+                // "частицы" вдоль волны
+                float particles =
+                    smoothstep(0.6, 1.0,
+                        fract(sin((layer + micro) * 37.2) * 43758.5453)
+                    );
+
+                // базовые цвета
+                vec3 base = vec3(0.18, 0.22, 0.38);
+                vec3 mid  = vec3(0.40, 0.46, 0.62);
+                vec3 high = vec3(0.82, 0.86, 0.92);
+
+                vec3 col = mix(base, mid, layer);
+
+                // внутренняя текстура
+                float softness = smoothstep(0.0, 0.8, micro);
+                col = mix(col, col * (0.7 + 0.6 * breathe), softness);
+
+                // волны по краям
+                float edgeWave = smoothstep(0.45, 0.95, micro);
+                col += mid * wavePhase * edgeWave * 0.35;
+
+                // частицы, доезжающие до края
+                col = mix(col, high, particles * edgeWave * 0.35);
+
+                // пустоты — мягкие
+                col = mix(col, col * 0.35, smoothstep(0.6, 0.95, micro));
+
+                // финальное сглаживание
+                col = mix(col, vec3(dot(col, vec3(0.333))), 0.1);
+
+                return col;
             }
 
             // -------- Core look --------
@@ -3896,6 +3942,7 @@ void main() {
         }
 
         function startListening() {
+            if (isSpeaking || isThinking) return;
             isListening = true;
             if (isSpeaking || isThinking || isChatMode) return;
     
@@ -4184,6 +4231,10 @@ void main() {
 
                 await sendToBot(text);
                 await generateImageFromText(text);
+
+                // ⛔️ СРАЗУ СТОПАЕМ СЛУШАНИЕ ПОСЛЕ ФИНАЛЬНОЙ ФРАЗЫ
+                isListening = false;
+                try { recognition.stop(); } catch(e){}
             }
         };
         // === Web/Telegram Session ID (unified) ===
@@ -4258,10 +4309,9 @@ void main() {
         };
         
         recognition.onend = () => {
+            if (isSpeaking || isThinking || isChatMode) return;
             orb.classList.remove('listening');
-            if (!isSpeaking && !isThinking && !isChatMode) {
-                setTimeout(startListening, 1000);
-            }
+            startListening();
         };
         
         // Глобальная переменная для буфера речи
@@ -4354,8 +4404,8 @@ void main() {
     }
 
     async function sendToBot(text) {
-        isChatMode = true;
         isListening = false;
+        isChatMode = true;
         try { recognition.abort(); } catch(e){}
         stopListeningVibration(); // отключаем дыхание, когда ИИ думает или говорит
         if (window.recognition && recognition.abort) {
@@ -4579,7 +4629,7 @@ window.__aiTypingLock = true;
         if (responseContainer) {
             responseContainer.classList.remove("typing-cursor");
         }
-        status.innerText = "speaking";
+        status.innerText = "answering";
         // One strong vibration at the end of receiving
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
         else if (navigator.vibrate) navigator.vibrate([60]);
@@ -4610,7 +4660,6 @@ window.__aiTypingLock = true;
         if (window._chatStreamMsg && fullAIText) {
             window._chatStreamMsg.textContent = fullAIText;
         }
-        isChatMode = false;
     }
 }
 
@@ -4848,6 +4897,9 @@ window.__aiTypingLock = true;
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
             // === 2) Защита от overlap TTS ===
+            isSpeaking = true;
+            isListening = false;
+            try { recognition.abort(); } catch(e){}
             if (window.recognition && recognition.abort) {
                 try { recognition.abort(); } catch(e){}
             }
@@ -5024,24 +5076,20 @@ window.__aiTypingLock = true;
                     const waitForSpeechEnd = setInterval(() => {
                         if (!speechSynthesis.speaking && !speechSynthesis.pending) {
                             clearInterval(waitForSpeechEnd);
-                            requestAnimationFrame(() => {
-                                orb.classList.remove('speaking');
-                                isSpeaking = false;
-                                stopSpeakingVibration();
-                                status.innerText = "listening";
-                                if (tg?.HapticFeedback) {
-                                    tg.HapticFeedback.impactOccurred('light');
-                                }
-                                setTimeout(() => {
-                                    if (window.recognition && recognition.start) {
-                                        try { recognition.start(); } catch(e){}
-                                    } else {
-                                        startListening();
-                                    }
-                                }, 400);
-                            });
+
+                            orb.classList.remove('speaking');
+                            stopSpeakingVibration();
+
+                            isSpeaking = false;
+                            isChatMode = false;
+
+                            status.innerText = "listening";
+
+                            setTimeout(() => {
+                                startListening();
+                            }, 250);
                         }
-                    }, 120);
+                    }, 80);
                     return;
                 }
                 let s = enhancedFragments[idx];
