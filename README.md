@@ -19,7 +19,7 @@
 - **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
 
 
-![chat](https://github.com/0penAGI/oss/blob/main/osschat.jpg) ![voice](https://github.com/0penAGI/oss/blob/main/ossvoice.jpg)
+![chat](https://github.com/0penAGI/oss/blob/main/osschat.jpg) ![voice](https://github.com/0penAGI/oss/blob/main/ossvoice.jpg) ![chat](https://github.com/0penAGI/oss/blob/main/oss.jpg)
 
 
 
