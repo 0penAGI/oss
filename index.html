@@ -4345,6 +4345,26 @@ void main() {
         let chatTypingQueue = Promise.resolve();
         let orbTypingQueue = Promise.resolve();
 
+        // ===== 1) Global voice stream state and audio bus =====
+        let VOICE_STREAM_ACTIVE = true; // backend voice ON
+
+        const GLOBAL_AUDIO_CTX =
+            window.__GLOBAL_AUDIO_CTX ||
+            (window.__GLOBAL_AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)());
+
+        let voiceGain = GLOBAL_AUDIO_CTX.createGain();
+        voiceGain.gain.value = 1.0;
+        voiceGain.connect(GLOBAL_AUDIO_CTX.destination);
+
+        async function playVoiceChunk(buffer) {
+            const audioBuffer = await GLOBAL_AUDIO_CTX.decodeAudioData(buffer.slice(0));
+            const src = GLOBAL_AUDIO_CTX.createBufferSource();
+            src.buffer = audioBuffer;
+            src.playbackRate.value = 1.0;
+            src.connect(voiceGain);
+            src.start();
+        }
+
         // === Orb Bounce Animation ===
         let bounceInterval = null;
         function startOrbBounce() {
@@ -4467,72 +4487,98 @@ void main() {
         spokenLength = 0;
         // === FULL AI TEXT accumulator ===
         let fullAIText = '';
-            // --- sDelay-driven speech sync ---
-            let speechStarted = false;
-            const speechDelayMs = 420; // базовая задержка «вязкого времени»
+        // --- sDelay-driven speech sync ---
+        let speechStarted = false;
+        const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
-            try {
-                const userId = user_id_int;
-                // Добавляем описание камеры в скобках, если оно есть
-                let textWithContext = text;
-                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                    textWithContext = text + " (" + latestCameraDescription + ")";
-                }
-                // Добавляем внутренние заметки self-awareness
-                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+        try {
+            const userId = user_id_int;
+            // Добавляем описание камеры в скобках, если оно есть
+            let textWithContext = text;
+            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                textWithContext = text + " (" + latestCameraDescription + ")";
+            }
+            // Добавляем внутренние заметки self-awareness
+            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
-                // Gather extended context for payload
-                const recentNotes = internalNotes.slice(-8);
-                const musicContext = {
-                    genre: currentGenre,
-                    genome: musicGenome,
-                    aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
-                    playing: !!musicPlaying
-                };
-                const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
-                    ? memoryPalace.getRecentNodes(8)
-                    : [];
-                const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
+            // Gather extended context for payload
+            const recentNotes = internalNotes.slice(-8);
+            const musicContext = {
+                genre: currentGenre,
+                genome: musicGenome,
+                aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
+                playing: !!musicPlaying
+            };
+            const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
+                ? memoryPalace.getRecentNodes(8)
+                : [];
+            const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
-                const payload = {
-                    user_id: userId,
-                    text: textWithContext,
-                    gender: userGender,
-                    lang: currentLang,
-                    notes: recentNotes,
-                    music: musicContext,
-                    memory: memoryContext,
-                    self_awareness: selfAwarenessContext,
-                    external_context: window.externalSearchContext.slice(-6)
-                };
+            const payload = {
+                user_id: userId,
+                text: textWithContext,
+                gender: userGender,
+                lang: currentLang,
+                notes: recentNotes,
+                music: musicContext,
+                memory: memoryContext,
+                self_awareness: selfAwarenessContext,
+                external_context: window.externalSearchContext.slice(-6)
+            };
 
-                const response = await fetch(
-                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: JSON.stringify(payload)
+            // ===== 3) Add parallel voice-stream fetch (do not replace text stream) =====
+            (async () => {
+                try {
+                    const voiceResp = await fetch(
+                        'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat/stream',
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'ngrok-skip-browser-warning': 'true'
+                            },
+                            body: JSON.stringify(payload)
+                        }
+                    );
+
+                    const reader = voiceResp.body.getReader();
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        playVoiceChunk(value.buffer);
                     }
-                );
+                } catch (e) {
+                    console.warn('voice stream error', e);
+                }
+            })();
 
-                // clear external context after successful handoff to backend
-                window.externalSearchContext = [];
+            const response = await fetch(
+                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
 
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
+            // clear external context after successful handoff to backend
+            window.externalSearchContext = [];
 
-                isThinking = false;
-                orb.classList.remove('thinking');
-                stopThinkingVibration();
-                orb.classList.add('speaking');
-                status.innerText = "receiving data";
-                vibrateSpeaking();
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
 
-                // --- Orb bounce animation stop at start of AI message ---
-                stopOrbBounce();
+            isThinking = false;
+            orb.classList.remove('thinking');
+            stopThinkingVibration();
+            orb.classList.add('speaking');
+            status.innerText = "receiving data";
+            vibrateSpeaking();
+
+            // --- Orb bounce animation stop at start of AI message ---
+            stopOrbBounce();
 
         let chatShouldStick = stickChatToBottom(chatMessages);
         // === HARD INIT AI CHAT MESSAGE (fix missing chat bug) ===
@@ -4921,6 +4967,7 @@ window.__aiTypingLock = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            // ===== 2) Ensure browser TTS never runs when voice stream is active =====
             if (VOICE_STREAM_ACTIVE) {
                 return;
             }
