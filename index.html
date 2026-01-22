@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -619,30 +618,6 @@ let isActiveTab = true;
 
         const transcriptDiv = document.getElementById('transcript');
 
-
-        // ===== GLOBAL AUDIO STATE (MODULE-SAFE) =====
-        globalThis.VOICE_STREAM_ACTIVE = true;
-
-        globalThis.GLOBAL_AUDIO_CTX =
-            globalThis.GLOBAL_AUDIO_CTX ||
-            new (globalThis.AudioContext || globalThis.webkitAudioContext)();
-
-        // === GLOBAL VOICE BUS ===
-        const voiceGain = globalThis.GLOBAL_AUDIO_CTX.createGain();
-        voiceGain.gain.value = 1.0;
-        voiceGain.connect(globalThis.GLOBAL_AUDIO_CTX.destination);
-
-        async function playChunk(buffer) {
-            const audioBuffer =
-                await globalThis.GLOBAL_AUDIO_CTX.decodeAudioData(buffer.slice(0));
-
-            const src = globalThis.GLOBAL_AUDIO_CTX.createBufferSource();
-            src.buffer = audioBuffer;
-            src.playbackRate.value = 1.0;
-            src.connect(voiceGain);
-            src.start();
-        }
-
         transcriptDiv.addEventListener('click', () => {
             const text = transcriptDiv.innerText;
             if (!text) return;
@@ -770,16 +745,16 @@ let isActiveTab = true;
             feedbackMaterial.uniforms.plasticity.value =
                     0.15 + selfAwareness.focus * 0.4;
 
-        // --- micro‑hesitation: сомнение вместо лага ---
-        // усталость замедляет отклик, curiosity делает его нервным
-        const fatigueVal = selfAwareness.fatigue ?? 0.0;
-        const curiosityJitter = (Math.random() - 0.5) * 0.02 * (selfAwareness.curiosity ?? 0.0);
+            // --- micro‑hesitation: сомнение вместо лага ---
+            // усталость замедляет отклик, curiosity делает его нервным
+            const fatigueVal = selfAwareness.fatigue ?? 0.0;
+            const curiosityJitter = (Math.random() - 0.5) * 0.02 * (selfAwareness.curiosity ?? 0.0);
 
-        responseInertia =
-            0.04 +                 // минимальный живой отклик
-            (1.0 - fatigueVal) * 0.06; // уставший — медленнее
+            responseInertia =
+                0.04 +                 // минимальный живой отклик
+                (1.0 - fatigueVal) * 0.06; // уставший — медленнее
 
-        responseInertia = Math.max(0.02, Math.min(0.12, responseInertia + curiosityJitter));
+            responseInertia = Math.max(0.02, Math.min(0.12, responseInertia + curiosityJitter));
         }
 
         // === Feedback RenderTarget initialization ===
@@ -1842,7 +1817,7 @@ void main() {
             chatRenderer.setSize(width, height, false);
             // feedbackMaterial.uniforms.resolution.value.set(width, height); // 
         }
-        
+
         
         // --- animation XDust chat
         function animateChatShader() {
@@ -3221,7 +3196,7 @@ void main() {
         const generatedImg = document.getElementById('img');
 
         // ===== Ambient Nature Sounds (только по клику) =====
-        const audioCtx = GLOBAL_AUDIO_CTX;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let currentAmbient = null;
         let ambientInterval = null;
 
@@ -3406,7 +3381,7 @@ void main() {
 }
 
         let granularEngine = null;
-        let musicCtx = GLOBAL_AUDIO_CTX;
+        let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
         // === Общий lowpass фильтр для всего микса ===
@@ -4414,16 +4389,6 @@ void main() {
     }
 
     // === External Search Context Buffer (from frontend search) ===
-    // ====== GLOBALS: VOICE STREAM & AUDIO CONTEXT ======
-    let VOICE_STREAM_ACTIVE = true;
-    const GLOBAL_AUDIO_CTX =
-      window.__GLOBAL_AUDIO_CTX ||
-      (window.__GLOBAL_AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)());
-
-    const voiceGain = GLOBAL_AUDIO_CTX.createGain();
-    voiceGain.gain.value = 1.0;
-    voiceGain.connect(GLOBAL_AUDIO_CTX.destination);
-
     window.externalSearchContext = [];
 
     function pushExternalSearchContext(entry) {
@@ -4473,230 +4438,230 @@ void main() {
             responseContainer.innerHTML = '';
             responseContainer.classList.add('typing-cursor');
         }
+        audioBuffer = "";
+        spokenLength = 0;
         // === FULL AI TEXT accumulator ===
         let fullAIText = '';
-        try {
-            const userId = user_id_int;
-            // Добавляем описание камеры в скобках, если оно есть
-            let textWithContext = text;
-            if (latestCameraDescription && latestCameraDescription.trim() !== "") {
-                textWithContext = text + " (" + latestCameraDescription + ")";
-            }
-            // Добавляем внутренние заметки self-awareness
-            if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
+            // --- sDelay-driven speech sync ---
+            let speechStarted = false;
+            const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
-            // Gather extended context for payload
-            const recentNotes = internalNotes.slice(-8);
-            const musicContext = {
-                genre: currentGenre,
-                genome: musicGenome,
-                aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
-                playing: !!musicPlaying
-            };
-            const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
-                ? memoryPalace.getRecentNodes(8)
-                : [];
-            const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
-
-            const payload = {
-                user_id: userId,
-                text: textWithContext,
-                gender: userGender,
-                lang: currentLang,
-                notes: recentNotes,
-                music: musicContext,
-                memory: memoryContext,
-                self_awareness: selfAwarenessContext,
-                external_context: window.externalSearchContext.slice(-6)
-            };
-
-            // --- STREAM PCM VOICE PLAYBACK ---
-            (async () => {
-                try {
-                    const voiceResp = await fetch(
-                        'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat/stream',
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'ngrok-skip-browser-warning': 'true'
-                            },
-                            body: JSON.stringify(payload)
-                        }
-                    );
-                    const reader = voiceResp.body.getReader();
-                    const SAMPLE_RATE = 22050;
-                    async function playPCMChunk(chunk) {
-                        const pcm = new Float32Array(chunk.buffer);
-                        const audioBuffer = GLOBAL_AUDIO_CTX.createBuffer(1, pcm.length, SAMPLE_RATE);
-                        audioBuffer.copyToChannel(pcm, 0);
-                        const src = GLOBAL_AUDIO_CTX.createBufferSource();
-                        src.buffer = audioBuffer;
-                        src.playbackRate.value = 1.0;
-                        src.connect(voiceGain);
-                        src.start();
-                    }
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        if (value) {
-                            await playPCMChunk(value);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('voice stream error', e);
+            try {
+                const userId = user_id_int;
+                // Добавляем описание камеры в скобках, если оно есть
+                let textWithContext = text;
+                if (latestCameraDescription && latestCameraDescription.trim() !== "") {
+                    textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-            })();
+                // Добавляем внутренние заметки self-awareness
+                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
 
-            const response = await fetch(
-                'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat/stream',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
-                    },
-                    body: JSON.stringify(payload)
-                }
-            );
+                // Gather extended context for payload
+                const recentNotes = internalNotes.slice(-8);
+                const musicContext = {
+                    genre: currentGenre,
+                    genome: musicGenome,
+                    aiNotes: (typeof currentAINotes !== 'undefined') ? currentAINotes.slice(-12) : [],
+                    playing: !!musicPlaying
+                };
+                const memoryContext = (typeof memoryPalace !== 'undefined' && typeof memoryPalace.getRecentNodes === 'function')
+                    ? memoryPalace.getRecentNodes(8)
+                    : [];
+                const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
-            // clear external context after successful handoff to backend
-            window.externalSearchContext = [];
+                const payload = {
+                    user_id: userId,
+                    text: textWithContext,
+                    gender: userGender,
+                    lang: currentLang,
+                    notes: recentNotes,
+                    music: musicContext,
+                    memory: memoryContext,
+                    self_awareness: selfAwarenessContext,
+                    external_context: window.externalSearchContext.slice(-6)
+                };
 
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
+                const response = await fetch(
+                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify(payload)
+                    }
+                );
 
-            isThinking = false;
-            orb.classList.remove('thinking');
-            stopThinkingVibration();
-            orb.classList.add('speaking');
-            status.innerText = "receiving data";
-            vibrateSpeaking();
+                // clear external context after successful handoff to backend
+                window.externalSearchContext = [];
 
-            // --- Orb bounce animation stop at start of AI message ---
-            stopOrbBounce();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
 
-            let chatShouldStick = stickChatToBottom(chatMessages);
-            // === HARD INIT AI CHAT MESSAGE (fix missing chat bug) ===
-            if (!window._chatStreamMsg) {
-                const msgDiv = document.createElement('div');
-                msgDiv.className = 'chat-message ai';
-                msgDiv.innerHTML = `
-                  <div class="sender">AI</div>
-                  <div class="text"></div>
-                `;
-                chatMessages.appendChild(msgDiv);
-                window._chatStreamMsg = msgDiv.querySelector('.text');
-                window._chatStreamPrinted = 0;
-            }
-            // === STREAM TO CHAT (AI) ===
-            // --- GLOBAL AI TYPING LOCK ---
-            if (window.__aiTypingLock) {
-                // жёстко сбрасываем предыдущие очереди
-                chatTypingQueue = Promise.resolve();
-                orbTypingQueue = Promise.resolve();
-            }
-            window.__aiTypingLock = true;
-            window._chatStreamBuffer = '';
-            // window._chatStreamMsg is now pre-initialized above
-            window._chatStreamHasText = false;
+                isThinking = false;
+                orb.classList.remove('thinking');
+                stopThinkingVibration();
+                orb.classList.add('speaking');
+                status.innerText = "receiving data";
+                vibrateSpeaking();
+
+                // --- Orb bounce animation stop at start of AI message ---
+                stopOrbBounce();
+
+        let chatShouldStick = stickChatToBottom(chatMessages);
+        // === HARD INIT AI CHAT MESSAGE (fix missing chat bug) ===
+        if (!window._chatStreamMsg) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message ai';
+            msgDiv.innerHTML = `
+              <div class="sender">AI</div>
+              <div class="text"></div>
+            `;
+            chatMessages.appendChild(msgDiv);
+            window._chatStreamMsg = msgDiv.querySelector('.text');
             window._chatStreamPrinted = 0;
+        }
+        // === STREAM TO CHAT (AI) ===
+// --- GLOBAL AI TYPING LOCK ---
+if (window.__aiTypingLock) {
+    // жёстко сбрасываем предыдущие очереди
+    chatTypingQueue = Promise.resolve();
+    orbTypingQueue = Promise.resolve();
+}
+window.__aiTypingLock = true;
+        window._chatStreamBuffer = '';
+        // window._chatStreamMsg is now pre-initialized above
+        window._chatStreamHasText = false;
+        window._chatStreamPrinted = 0;
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                fullAIText += chunk;
-                window._chatStreamBuffer += chunk;
+            const chunk = decoder.decode(value, { stream: true });
+            fullAIText += chunk;
+            window._chatStreamBuffer += chunk;
 
-                const printed = window._chatStreamPrinted || 0;
-                const full = window._chatStreamBuffer;
-                const delta = full.slice(printed);
+            const printed = window._chatStreamPrinted || 0;
+            const full = window._chatStreamBuffer;
+            const delta = full.slice(printed);
 
-                // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
-                // (no need to create .chat-message here anymore, handled above)
+            // считаем ЛЮБОЙ текст, даже если это пробелы или переносы
+            // (no need to create .chat-message here anymore, handled above)
 
-                if (delta.length > 0) {
-                    window._chatStreamHasText = true;
-                }
+            if (delta.length > 0) {
+                window._chatStreamHasText = true;
+            }
 
-                if (delta.length > 0 && window._chatStreamMsg) {
-                    const nextPrinted = full.length;
-                    chatShouldStick = stickChatToBottom(chatMessages);
-                    chatTypingQueue = chatTypingQueue.then(() => {
-                        return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
-                            window._chatStreamPrinted = nextPrinted;
-                            if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
-                        });
+            if (delta.length > 0 && window._chatStreamMsg) {
+                const nextPrinted = full.length;
+                chatShouldStick = stickChatToBottom(chatMessages);
+                chatTypingQueue = chatTypingQueue.then(() => {
+                    return typeWriterWordsEffect(window._chatStreamMsg, delta).then(() => {
+                        window._chatStreamPrinted = nextPrinted;
+                        if (chatShouldStick) chatMessages.scrollTop = chatMessages.scrollHeight;
                     });
-                }
-
-                // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
-                if (responseContainer) {
-                    orbTypingQueue = orbTypingQueue.then(() =>
-                        typeWriterEffect(responseContainer, chunk, {
-                            charDelay: 6,
-                            wordPause: 0
-                        })
-                    );
-                    // Микропаузa на границах фраз
-                    if (/[.!?\n]/.test(chunk)) {
-                        orbTypingQueue = orbTypingQueue.then(() =>
-                            new Promise(r => setTimeout(r, 40 + Math.random() * 40))
-                        );
-                    }
-                }
+                });
             }
 
-            // === FINAL FLUSH: железобетонный commit ===
-            await chatTypingQueue;
-
-            if (window._chatStreamMsg) {
-                const printed = window._chatStreamPrinted || 0;
-                const tail = fullAIText.slice(printed);
-                if (tail && tail.length > 0) {
-                    window._chatStreamMsg.textContent += tail;
-                    window._chatStreamPrinted = fullAIText.length;
-                }
-            }
-            window._chatStreamHasText = false;
-            window._chatStreamBuffer = '';
-            window._chatStreamMsg = null;
-            window._chatStreamPrinted = 0;
-            orbTypingQueue = Promise.resolve();
-
-            window.__aiTypingLock = false;
-
+            // Печатание текста: теперь печатаем по словам целиком с помощью typeWriterEffect
             if (responseContainer) {
-                responseContainer.classList.remove("typing-cursor");
+                orbTypingQueue = orbTypingQueue.then(() =>
+                    typeWriterEffect(responseContainer, chunk, {
+                        charDelay: 6,
+                        wordPause: 0
+                    })
+                );
+                // Микропаузa на границах фраз
+                if (/[.!?\n]/.test(chunk)) {
+                    orbTypingQueue = orbTypingQueue.then(() =>
+                        new Promise(r => setTimeout(r, 40 + Math.random() * 40))
+                    );
+                }
             }
-            status.innerText = "answering";
-            // One strong vibration at the end of receiving
-            if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
-            else if (navigator.vibrate) navigator.vibrate([60]);
-        } catch (e) {
-            console.error(e);
-            status.innerText = "stream error";
-            orb.classList.remove('thinking');
-            orb.classList.remove('speaking');
-            isThinking = false;
-            isSpeaking = false;
-            stopThinkingVibration();
-            stopSpeakingVibration();
-            stopOrbBounce();
-            setTimeout(startListening, 2000);
-        } finally {
-            clearTimeout(processingTimeout);
-            clearTimeout(researchingTimeout);
-            // just in case, stop bounce
-            stopOrbBounce();
-            // === Last-resort commit of fullAIText ===
-            if (window._chatStreamMsg && fullAIText) {
-                window._chatStreamMsg.textContent = fullAIText;
+
+            // Копим для озвучки
+            audioBuffer += chunk;
+
+            if (!speechStarted) {
+                speechStarted = true;
+
+                // считаем первый чанк уже озвученным,
+                // чтобы он не попал в delta и не сказалcя второй раз
+                spokenLength = audioBuffer.length;
+
+                setTimeout(() => {
+                    speak(chunk);
+                }, 120);
+            }
+
+            if (speechStarted) {
+                const delta = audioBuffer.slice(spokenLength);
+
+                // говорим всё, не ждём пунктуацию
+                if (delta.length > 6) {
+                    spokenLength = audioBuffer.length;
+                    speak(delta);
+                }
             }
         }
+
+        // === FINAL FLUSH: железобетонный commit ===
+        await chatTypingQueue;
+
+        if (window._chatStreamMsg) {
+            const printed = window._chatStreamPrinted || 0;
+            const tail = fullAIText.slice(printed);
+            if (tail && tail.length > 0) {
+                window._chatStreamMsg.textContent += tail;
+                window._chatStreamPrinted = fullAIText.length;
+            }
+        }
+        window._chatStreamHasText = false;
+        window._chatStreamBuffer = '';
+        window._chatStreamMsg = null;
+        window._chatStreamPrinted = 0;
+        orbTypingQueue = Promise.resolve();
+
+        window.__aiTypingLock = false;
+
+        if (responseContainer) {
+            responseContainer.classList.remove("typing-cursor");
+        }
+        status.innerText = "answering";
+        // One strong vibration at the end of receiving
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+        else if (navigator.vibrate) navigator.vibrate([60]);
+
+        // договариваем хвост, если он остался
+        const tail = audioBuffer.slice(spokenLength);
+        if (tail.trim().length > 0) {
+            speak(tail);
+        }
+
+    } catch (e) {
+        console.error(e);
+        status.innerText = "stream error";
+        orb.classList.remove('thinking');
+        orb.classList.remove('speaking');
+        isThinking = false;
+        isSpeaking = false;
+        stopThinkingVibration();
+        stopSpeakingVibration();
+        stopOrbBounce();
+        setTimeout(startListening, 2000);
+    } finally {
+        clearTimeout(processingTimeout);
+        clearTimeout(researchingTimeout);
+        // just in case, stop bounce
+        stopOrbBounce();
+        // === Last-resort commit of fullAIText ===
+        if (window._chatStreamMsg && fullAIText) {
+            window._chatStreamMsg.textContent = fullAIText;
+        }
     }
+}
 
 //
 // Новый typeWriterEffect: печатает по буквам с анимацией, блюром и автоскроллом
@@ -4929,10 +4894,295 @@ void main() {
             return Math.max(-1, Math.min(1, t));
         }
 
-        // Говорит текст, но browser TTS полностью запрещён
-        function speak(_) {
-            // browser TTS полностью запрещён
-            return;
+        // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
+        function speak(text) {
+            // === 2) Защита от overlap TTS ===
+            isSpeaking = true;
+            isListening = false;
+            try { recognition.abort(); } catch(e){}
+            if (window.recognition && recognition.abort) {
+                try { recognition.abort(); } catch(e){}
+            }
+            if (speechSynthesis.speaking || speechSynthesis.pending) {
+                speechSynthesis.cancel();
+                setTimeout(() => {}, 30);
+            }
+            if (!text || !text.trim()) return;
+
+            updateSessionResonance();
+
+            // Остановить все текущие вибрации и процессы
+            stopListeningVibration();
+            stopThinkingVibration();
+            stopSpeakingVibration();
+            // recognition.abort();
+
+            // Плавное визуальное переключение с анимацией
+            orb.classList.remove('listening', 'thinking');
+            requestAnimationFrame(() => {
+                orb.classList.add('speaking');
+                status.innerText = "speaking";
+                setTimeout(() => {
+                    vibrateSpeaking();
+                }, 50);
+            });
+            isSpeaking = true;
+
+            // === Vocal temperature tuning ===
+            const vocalTemperature = computeVocalTemperature();
+            const resonanceBias = sessionResonance * 0.25;
+            let rate = 1.08;
+            let pitch = 0.95;
+            if (userGender === 'female') pitch += 0.15;
+            if (userGender === 'male') pitch -= 0.05;
+            if (vocalTemperature < -0.3) {
+                rate += Math.abs(vocalTemperature) * 0.18;
+                pitch -= Math.abs(vocalTemperature) * 0.04;
+            }
+            if (vocalTemperature > 0.3) {
+                rate -= vocalTemperature * 0.22;
+                pitch += vocalTemperature * 0.06;
+            }
+            rate *= 1.0 - resonanceBias * 0.15;
+            pitch *= 1.0 - resonanceBias * 0.08;
+
+            // === TTS warmup to avoid crackle after pause ===
+            if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                const warmup = new SpeechSynthesisUtterance(' ');
+                warmup.volume = 0.01;
+                warmup.rate = rate;
+                warmup.pitch = pitch;
+                if (currentVoice) warmup.voice = currentVoice;
+                speechSynthesis.speak(warmup);
+            }
+
+            // Гуманизация текста + разбиение на фрагменты
+            let cleanedForSpeech = humanizeText(text)
+                .replace(/\\+/g, '')
+                // убираем запятые и двоеточия из TTS (иначе говорит "запятая")
+                .replace(/[,;:]/g, ' ')
+                // точки, ! и ? оставляем как паузы
+                .replace(/[^\wа-яА-ЯёЁa-zA-Z0-9.!? ]+/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            // Разбиваем на предложения
+            let sentences = cleanedForSpeech.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanedForSpeech];
+            sentences = sentences.flatMap(s => {
+                if (s.length <= 120) return [s];
+
+                const words = s.split(/\s+/);
+                let out = [];
+                let buf = '';
+
+                for (let w of words) {
+                    if ((buf + ' ' + w).trim().length > 80) {
+                        if (buf) out.push(buf.trim());
+                        buf = w;
+                    } else {
+                        buf += ' ' + w;
+                    }
+                }
+                if (buf.trim()) out.push(buf.trim());
+                return out;
+            });
+
+            // Массив междометий и "дыхательных" вставок
+            const interjectionsByLang = {
+                'ru-RU': ['мм...', 'ээ...', 'ну...', 'эм...', 'гм...', 'хм...', 'угу...', 'а...', 'так...', 'да...', 'кстати...'],
+                'en-US': ['um...', 'uh...', 'hmm...', 'well...', 'so...', 'ah...', 'okay...', 'right...', 'huh...', 'hmm...'],
+                'de-DE': ['äh...', 'hm...', 'nun...', 'also...', 'tja...', 'hmm...', 'ja...', 'gut...', 'ach...'],
+                'fr-FR': ['euh...', 'ben...', 'alors...', 'hum...', 'ah...', 'ok...', 'bon...', 'hein...'],
+                'es-ES': ['eh...', 'bueno...', 'mmm...', 'ajá...', 'vale...', 'pues...', 'ah...', 'ok...'],
+                'zh-CN': ['嗯...', '啊...', '这个...', '呃...', '哦...', '唔...']
+            };
+            const breathingUtterances = [
+                '', // обычная пауза
+                '(вдох)', '(выдох)', // ru
+                '(inhale)', '(exhale)', // en
+                '(pause)', // универсально
+                '', '', // больше пустых для редкости
+            ];
+            function getInterjection() {
+                let arr = interjectionsByLang[currentLang] || interjectionsByLang['en-US'];
+                return arr[Math.floor(Math.random() * arr.length)];
+            }
+            function getBreath() {
+                return breathingUtterances[Math.floor(Math.random() * breathingUtterances.length)];
+            }
+
+            // Разбиваем предложения на фрагменты с микропаузами и вставками
+            let fragments = [];
+            for (let i = 0; i < sentences.length; ++i) {
+                let s = sentences[i].trim();
+                if (!s) continue;
+                // Дополнительное дробление по запятым, двоеточиям и т.п.
+                let parts = s.split(/([,;:—-])/g).filter(Boolean);
+                let buf = '';
+                for (let p of parts) {
+                    buf += p;
+                    if (/[,;:—-]$/.test(p) || buf.length > 45) {
+                        fragments.push(buf.trim());
+                        buf = '';
+                    }
+                }
+                if (buf.trim()) fragments.push(buf.trim());
+                // Иногда после предложения вставить дыхание или междометие
+                if (Math.random() < 0.11) {
+                    if (Math.random() < 0.55) {
+                        fragments.push(getBreath());
+                    } else {
+                        fragments.push(getInterjection());
+                    }
+                }
+            }
+
+            // Дополнительные микропаузи для живости
+            let enhancedFragments = [];
+            for (let i = 0; i < fragments.length; ++i) {
+                let frag = fragments[i];
+                // Вставляем случайно междометие или дыхание между фрагментами, иногда пропускаем
+                if (frag && frag.length > 0) {
+                    enhancedFragments.push(frag);
+                    // Вероятность паузы или вставки зависит от усталости, температуры, резонанса
+                    let pauseChance = 0.08
+                        + Math.max(0, selfAwareness?.fatigue || 0) * 0.2
+                        + (vocalTemperature < 0 ? Math.abs(vocalTemperature) * 0.12 : 0)
+                        + sessionResonance * 0.14;
+                    if (Math.random() < pauseChance) {
+                        if (Math.random() < 0.5) {
+                            enhancedFragments.push(getBreath());
+                        } else {
+                            enhancedFragments.push(getInterjection());
+                        }
+                    }
+                } else if (frag && frag.length === 0) {
+                    // пустая пауза
+                    enhancedFragments.push('');
+                }
+            }
+
+            // Удаляем лишние пустые элементы
+            enhancedFragments = enhancedFragments.filter((f, idx, arr) =>
+                f && f.trim() || idx === 0 || (arr[idx - 1] && arr[idx - 1].trim())
+            );
+
+            let idx = 0;
+            let utterQueue = [];
+
+            function speakNext() {
+                if (idx >= enhancedFragments.length) {
+                    // Ждём реального окончания TTS
+                    const waitForSpeechEnd = setInterval(() => {
+                        if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                            clearInterval(waitForSpeechEnd);
+
+                            orb.classList.remove('speaking');
+                            stopSpeakingVibration();
+
+                            isSpeaking = false;
+                            isChatMode = false;
+
+                            status.innerText = "listening";
+
+                            setTimeout(() => {
+                                startListening();
+                            }, 250);
+                        }
+                    }, 80);
+                    return;
+                }
+                let s = enhancedFragments[idx];
+                idx++;
+                // Пауза: если междометие или дыхание в скобках, то пауза, иначе говорим
+                if (!s || !s.trim()) {
+                    setTimeout(speakNext, 80 + Math.random() * 100);
+                    return;
+                }
+                // Если это "дыхание" или междометие, озвучиваем с особым тембром или тишиной
+                let isBreath = /\((вдох|выдох|inhale|exhale|pause)\)/i.test(s);
+                let isInterjection = false;
+                for (const arr of Object.values(interjectionsByLang)) {
+                    if (arr.includes(s)) { isInterjection = true; break; }
+                }
+                if (isBreath) {
+                    // "Тихая" пауза — короткий utterance с rate/pitch
+                    const utter = new SpeechSynthesisUtterance('');
+                    utter.lang = currentLang;
+                    utter.rate = rate * 0.82 + (Math.random() - 0.5) * 0.08;
+                    utter.pitch = pitch * 0.98 + (Math.random() - 0.5) * 0.05;
+                    utter.volume = 0.0;
+                    utter.onend = () => setTimeout(speakNext, 120 + Math.random() * 140);
+                    utter.onerror = () => setTimeout(speakNext, 100);
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 16);
+                    utterQueue.push(utter);
+                    return;
+                }
+                if (isInterjection) {
+                    // Для междометия — чуть быстрее, чуть выше pitch, чуть тише
+                    let interjRate = rate * (1.06 + (Math.random() - 0.5) * 0.09);
+                    let interjPitch = pitch * (1.07 + (Math.random() - 0.5) * 0.12);
+                    let interjVol = 0.82 + (Math.random() - 0.5) * 0.13;
+                    const utter = new SpeechSynthesisUtterance(s);
+                    utter.lang = currentLang;
+                    utter.rate = interjRate;
+                    utter.pitch = interjPitch;
+                    utter.volume = Math.max(0.01, Math.min(1.0, interjVol));
+                    if (currentVoice) utter.voice = currentVoice;
+                    utter.onstart = () => {
+                        if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
+                        speakingVibrationInterval = setInterval(() => {
+                            if (tg?.HapticFeedback) {
+                                tg.HapticFeedback.impactOccurred('light');
+                            }
+                        }, 320);
+                    };
+                    utter.onend = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 80 + Math.random() * 120);
+                    };
+                    utter.onerror = () => {
+                        stopSpeakingVibration();
+                        setTimeout(speakNext, 100);
+                    };
+                    setTimeout(() => synth.speak(utter), utterQueue.length * 18);
+                    utterQueue.push(utter);
+                    return;
+                }
+             
+                let jitter = Math.min(0.025, Math.abs(vocalTemperature) * 0.04);
+                jitter *= (1.0 - sessionResonance * 0.6);
+                let localRate = rate * (1.0 + (Math.random() - 0.5) * jitter);
+                let localPitch = pitch * (1.0 + (Math.random() - 0.5) * jitter);
+              
+                let localVol = 0.88 + (Math.random() - 0.5) * 0.05;
+                localVol = Math.max(0.01, Math.min(1.0, localVol));
+                const utter = new SpeechSynthesisUtterance(s);
+                utter.lang = currentLang;
+                utter.rate = localRate;
+                utter.pitch = localPitch;
+                utter.volume = localVol;
+                if (currentVoice) utter.voice = currentVoice;
+                utter.onstart = () => {
+                    if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
+                    speakingVibrationInterval = setInterval(() => {
+                        if (tg?.HapticFeedback) {
+                            tg.HapticFeedback.impactOccurred('light');
+                        }
+                    }, 300);
+                };
+                utter.onend = () => {
+                    stopSpeakingVibration();
+                    setTimeout(speakNext, 60 + Math.random() * 110);
+                };
+                utter.onerror = () => {
+                    stopSpeakingVibration();
+                    setTimeout(speakNext, 100);
+                };
+                setTimeout(() => synth.speak(utter), utterQueue.length * 20);
+                utterQueue.push(utter);
+            }
+            setTimeout(speakNext, 100);
         }
         
         
