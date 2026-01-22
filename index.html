@@ -1,3 +1,26 @@
+// === GLOBAL AUDIO CONTEXT & VOICE STREAM FLAG ===
+const GLOBAL_AUDIO_CTX =
+    window.__GLOBAL_AUDIO_CTX ||
+    (window.__GLOBAL_AUDIO_CTX =
+        new (window.AudioContext || window.webkitAudioContext)());
+
+let VOICE_STREAM_ACTIVE = true;
+
+// === GLOBAL VOICE BUS ===
+const voiceGain = GLOBAL_AUDIO_CTX.createGain();
+voiceGain.gain.value = 1.0;
+voiceGain.connect(GLOBAL_AUDIO_CTX.destination);
+
+async function playChunk(buffer) {
+    const audioBuffer =
+        await GLOBAL_AUDIO_CTX.decodeAudioData(buffer.slice(0));
+
+    const src = GLOBAL_AUDIO_CTX.createBufferSource();
+    src.buffer = audioBuffer;
+    src.playbackRate.value = 1.0;
+    src.connect(voiceGain);
+    src.start();
+}
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -3196,7 +3219,7 @@ void main() {
         const generatedImg = document.getElementById('img');
 
         // ===== Ambient Nature Sounds (только по клику) =====
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const audioCtx = GLOBAL_AUDIO_CTX;
         let currentAmbient = null;
         let ambientInterval = null;
 
@@ -3381,7 +3404,7 @@ void main() {
 }
 
         let granularEngine = null;
-        let musicCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let musicCtx = GLOBAL_AUDIO_CTX;
         let masterGain = musicCtx.createGain();
         masterGain.gain.value = 0.2;
         // === Общий lowpass фильтр для всего микса ===
@@ -4896,6 +4919,9 @@ window.__aiTypingLock = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            if (VOICE_STREAM_ACTIVE) {
+                return;
+            }
             // === 2) Защита от overlap TTS ===
             isSpeaking = true;
             isListening = false;
