@@ -1,26 +1,4 @@
-// === GLOBAL AUDIO CONTEXT & VOICE STREAM FLAG ===
-const GLOBAL_AUDIO_CTX =
-    window.__GLOBAL_AUDIO_CTX ||
-    (window.__GLOBAL_AUDIO_CTX =
-        new (window.AudioContext || window.webkitAudioContext)());
 
-let VOICE_STREAM_ACTIVE = true;
-
-// === GLOBAL VOICE BUS ===
-const voiceGain = GLOBAL_AUDIO_CTX.createGain();
-voiceGain.gain.value = 1.0;
-voiceGain.connect(GLOBAL_AUDIO_CTX.destination);
-
-async function playChunk(buffer) {
-    const audioBuffer =
-        await GLOBAL_AUDIO_CTX.decodeAudioData(buffer.slice(0));
-
-    const src = GLOBAL_AUDIO_CTX.createBufferSource();
-    src.buffer = audioBuffer;
-    src.playbackRate.value = 1.0;
-    src.connect(voiceGain);
-    src.start();
-}
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -640,6 +618,30 @@ let isActiveTab = true;
         let responseInertia = 0.03; // базовая инерция реакции (чем меньше — тем медленнее)
 
         const transcriptDiv = document.getElementById('transcript');
+
+        // === GLOBAL AUDIO CONTEXT & VOICE STREAM FLAG ===
+        const GLOBAL_AUDIO_CTX =
+            window.__GLOBAL_AUDIO_CTX ||
+            (window.__GLOBAL_AUDIO_CTX =
+                new (window.AudioContext || window.webkitAudioContext)());
+
+        let VOICE_STREAM_ACTIVE = true;
+
+        // === GLOBAL VOICE BUS ===
+        const voiceGain = GLOBAL_AUDIO_CTX.createGain();
+        voiceGain.gain.value = 1.0;
+        voiceGain.connect(GLOBAL_AUDIO_CTX.destination);
+
+        async function playChunk(buffer) {
+            const audioBuffer =
+                await GLOBAL_AUDIO_CTX.decodeAudioData(buffer.slice(0));
+
+            const src = GLOBAL_AUDIO_CTX.createBufferSource();
+            src.buffer = audioBuffer;
+            src.playbackRate.value = 1.0;
+            src.connect(voiceGain);
+            src.start();
+        }
 
         transcriptDiv.addEventListener('click', () => {
             const text = transcriptDiv.innerText;
