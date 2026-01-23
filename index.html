@@ -4238,17 +4238,15 @@ void main() {
             }
         };
         // === Web/Telegram Session ID (unified) ===
-        const WEB_SESSION_KEY = 'web_fake_user_id';
+        const WEB_SESSION_KEY = 'web_user_id_final';
 
-        function resolveUserId() {
-          if (
-            window.Telegram &&
-            window.Telegram.WebApp &&
-            window.Telegram.WebApp.initDataUnsafe &&
-            window.Telegram.WebApp.initDataUnsafe.user &&
-            window.Telegram.WebApp.initDataUnsafe.user.id
-          ) {
-            return String(window.Telegram.WebApp.initDataUnsafe.user.id);
+        function resolveStableUserId() {
+          const tgId =
+            window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+
+          if (tgId) {
+            localStorage.setItem(WEB_SESSION_KEY, String(tgId));
+            return String(tgId);
           }
 
           let id = localStorage.getItem(WEB_SESSION_KEY);
@@ -4259,18 +4257,7 @@ void main() {
           return id;
         }
 
-        let user_id = resolveUserId();
-
-        // 🔁 Telegram может проинициализироваться позже
-        setTimeout(() => {
-          const tgId =
-            window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-
-          if (tgId && String(user_id) !== String(tgId)) {
-            user_id = String(tgId);
-            console.log('[sync] Telegram userID synced:', user_id);
-          }
-        }, 800);
+        const user_id = resolveStableUserId();
 
         function stringToIntId(str) {
             let hash = 0;
