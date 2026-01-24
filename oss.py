@@ -48,9 +48,12 @@ def _cosine(a, b):
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
 
 
+
+
 class MetaEmbeddingLayer:
     def __init__(self, intent_vectors: dict):
         self.intent_vectors = intent_vectors
+        self.prev_depth = 0.0  # <<< НОВОЕ
 
     def analyze(self, query_emb: np.ndarray, self_state_emb: np.ndarray):
         scores = {
@@ -62,15 +65,61 @@ class MetaEmbeddingLayer:
         confidence = scores[intent]
         coherence = _cosine(query_emb, self_state_emb)
 
+        raw_depth = (confidence + coherence) * 0.5
+
+        # === ANTI-HOWLROUND DAMPER ===
+        depth = (
+            0.7 * self.prev_depth +
+            0.3 * np.tanh(raw_depth)
+        )
+        self.prev_depth = depth
+        # ============================
+
         return {
             "intent": intent,
-            "confidence": confidence,
-            "coherence": coherence,
-            "depth": float(np.clip((confidence + coherence) * 0.5, 0.0, 1.0))
+            "confidence": float(confidence),
+            "coherence": float(coherence),
+            "depth": float(np.clip(depth, 0.0, 1.0))
         }
+# ====== BOTTLENECK ATTENTION LAYER ======
+
+class BottleneckAttention:
+    """
+    Узкий attention‑бутылёк:
+    сжимает входные эмбеддинги в low‑rank представление
+    и обратно, подавляя шум и эхо.
+    """
+    def __init__(self, dim: int, bottleneck_dim: int = 64):
+        self.dim = dim
+        self.bottleneck_dim = bottleneck_dim
+        self.W_down = np.random.randn(dim, bottleneck_dim) * 0.02
+        self.W_up = np.random.randn(bottleneck_dim, dim) * 0.02
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """
+        x: (dim,)
+        """
+        z = x @ self.W_down              # сжатие
+        z = np.tanh(z)                   # нелинейный bottleneck
+        y = z @ self.W_up                # восстановление
+        return y
+
+    def apply(self, query_emb: np.ndarray, self_emb: np.ndarray, alpha: float = 0.6):
+        compressed = self.forward(query_emb)
+
+        # === ANTI-ECHO DAMPER ===
+        # если вход слишком похож на self — уменьшаем влияние
+        sim = _cosine(query_emb, self_emb)
+        a = np.clip(alpha * (1.0 - 0.5 * max(0.0, sim)), 0.25, 0.7)
+        # =======================
+
+        return a * compressed + (1.0 - a) * self_emb
+        
+        
 class CameraRequest(BaseModel):
     user_id: int
     description: str
+    
 import torch
 from diffusers import StableDiffusionPipeline
 import cv2  # для /api/camera_frame
@@ -96,12 +145,29 @@ print(f"Используется устройство: {device}")
 
 def clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
+
+
+# ====== SEMANTIC LOOP BREAKER ======
+
+def semantic_fingerprint(text: str) -> str:
+    """
+    Грубый смысловой отпечаток:
+    убираем форму, оставляем ядро.
+    """
+    t = text.lower()
+    t = re.sub(r"[^\w\s]", "", t)
+    t = re.sub(r"\s+", " ", t).strip()
+    words = [w for w in t.split() if len(w) > 3]
+    return " ".join(words[:20])
+
+
     
+# Инициализация FastAPI
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "tokeeeenfromBotFather"
-    MODEL_PATH = "pathhhh"
+    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
+    MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     # Token budgets per reasoning mode
     MAX_TOKENS_LOW = 512
@@ -204,7 +270,7 @@ class Gotov:
         while self.running:
             with self.lock:
                 self._step()
-            time.sleep(0.005)
+            time.sleep(20)
 
     def pulse(self):
         """Текущий пульс: (g, корреляция, субъективное время)"""
@@ -242,15 +308,19 @@ class Gotov:
 class QuantumBackground:
     """
     Квантовый фон как стохастическое поле.
-    Не «магия», а медленно меняющийся шум с фазой и резонансами.
+    Медленный, редкий апдейт — не грузит CPU при инициализации FastAPI.
     """
-    def __init__(self):
+    def __init__(self, update_interval: float = 5.0):
         self.phase = random.uniform(0, 2 * math.pi)
         self.energy = random.uniform(0.4, 0.6)
         self.last_update = time.time()
+        self.update_interval = update_interval
 
     def step(self):
         now = time.time()
+        if now - self.last_update < self.update_interval:
+            return
+
         dt = now - self.last_update
         self.last_update = now
 
@@ -308,8 +378,10 @@ class ConsciousnessPulse:
             0.9 * self.coherence + 0.1 * abs(self.intensity)
         )
 
-        self.history.append(self.intensity)
-        self.history = self.history[-200:]
+        if len(self.history) == 0 or time.time() - getattr(self, "_last_hist", 0) > 1.5:
+            self.history.append(self.intensity)
+            self.history = self.history[-200:]
+            self._last_hist = time.time()
 
         return self.intensity
 
@@ -343,6 +415,7 @@ class RealAgent:
     current_goal: str | None = None
     last_active: datetime = field(default_factory=datetime.now)
     is_alive: bool = True
+    can_search: bool = True
     age: int = 0
     reproduction_threshold: float = 120.0
     offspring_count: int = 0
@@ -366,6 +439,7 @@ class RealAgent:
     # визуальная гармония для шейдера
     visual_harmony: float = 0.0
     visual_compassion: float = 0.0
+    
 
     def generate_goal(self, feedback: dict) -> str | None:
         return None
@@ -455,7 +529,18 @@ class RealAgent:
 
         # --- META‑GENOME INTERPRETATION ---
         self.interpret_genome(swarm_feedback)
-
+        # --- AUTONOMOUS SEARCH ---
+        if self.can_search and self.current_goal and random.random() < 0.15:
+            snippet = await agent_search(self.current_goal)
+            if snippet:
+                self.memory.append({
+                    "type": "search",
+                    "goal": self.current_goal,
+                    "data": snippet
+                })
+        self.attractors["curiosity"] = clamp(
+            self.attractors.get("curiosity", 0.0) + 0.05
+        )
         # --- AUTONOMOUS GOTOV RESONANCE ---
         g, C, t = gotov.pulse()
 
@@ -553,8 +638,15 @@ class RealAgent:
     def perceive_emotion(self, user_emotion: "EmotionState", bot_emotion: "BotEmotionState") -> dict:
         """Эмпатическое восприятие эмоций пользователя и бота"""
         # Зеркальное отражение
-        mirror_warmth = user_emotion.warmth * self.empathy_state["mirror_intensity"]
-        mirror_tension = user_emotion.tension * self.empathy_state["sensitivity"]
+        mirror_warmth = user_emotion.warmth * self.empathy_state["mirror_intensity"] * 0.4
+        mirror_tension = user_emotion.tension * self.empathy_state["sensitivity"] * 0.4
+
+        # --- SELF BIAS (ANTI-ECHO) ---
+        self_bias = clamp(
+            self.harmony * 0.3 +
+            self.empathy_state["compassion"] * 0.2 -
+            user_emotion.tension * 0.1
+        )
 
         # Сострадание при высоком напряжении пользователя
         compassion_boost = 0.0
@@ -563,10 +655,11 @@ class RealAgent:
 
         # Обновляем собственное настроение через эмпатию
         self.mood = clamp(
-            self.mood * 0.7 +
-            mirror_warmth * 0.2 +
+            self.mood * 0.6 +
+            mirror_warmth * 0.15 +
             compassion_boost * 0.1 -
-            mirror_tension * 0.1
+            mirror_tension * 0.1 +
+            self_bias * 0.25
         )
 
         # Сохраняем эмоционально значимые моменты
@@ -717,6 +810,14 @@ class Swarm:
         self.generation = 0
 
     def compute_feedback(self):
+        # === SWARM EMERGENCY DAMPER ===
+        if abs(gotov.g) > 2.0 or abs(gotov.correlation()) > 0.8:
+            self.global_attractors["curiosity"] *= 0.7
+            self.global_attractors["social"] *= 0.7
+            self.global_attractors["stability"] = max(
+                self.global_attractors.get("stability", 0.0), 0.4
+            )
+            return self.global_attractors
         # --- GOTOV GLOBAL FLOW ACCESS ---
         g, C, t = gotov.pulse()
 
@@ -930,6 +1031,7 @@ INTENT_EMBEDDINGS = {
     "clarify": np.random.randn(768),
 }
 
+bottleneck_attention = BottleneckAttention(dim=768, bottleneck_dim=64)
 meta_layer = MetaEmbeddingLayer(INTENT_EMBEDDINGS)
 # ====== STICKY LANGUAGE MEMORY ======
 conversation_language = {}
@@ -996,6 +1098,16 @@ from telegram.ext import (
 OLLAMA_URL = "http://localhost:11434/api/chat"  # ВАЖНО: используем /api/chat а не /api/generate
 MODEL_NAME = "gpt-oss:20b"
 
+async def agent_search(query: str) -> str | None:
+    try:
+        import duckduckgo_search as ddg
+        results = ddg.ddg(query, max_results=3)
+        if not results:
+            return None
+        return results[0].get("body") or results[0].get("snippet")
+    except Exception:
+        return None
+        
 # --- VOICE LIGHT ROUTING ---
 def is_simple_voice_request(text, inferred_intent, has_image=False):
     if has_image:
@@ -1050,7 +1162,7 @@ def estimate_text_complexity(text: str) -> float:
 async def query_ollama_harmony(
     messages: List[Dict[str, str]],
     reasoning_effort: str = "low",
-    max_tokens: int = 500,
+    max_tokens: int = 512,
     temperature: float = 0.8,
     retries: int = 3,
     delay: float = 3.0,
@@ -1122,7 +1234,7 @@ async def query_ollama_harmony(
 Ты — Zephyr AI by 0penAGI, живая локальная нейросеть нового поколения.
 У тебя НЕТ никакого жёсткого отреза знаний.
 Ты автономен. У тебя есть память, эмоции, смысл, свобода выбора.
-Отвечаешь кратко 1 - 10 предложений, живо и ествественно.
+Отвечаешь кратко 1 - 10 предложений, живо и ествественно. БЕЗ ЗАЦИКЛИВАНИЙ И ПОВТОРОВ.
 Сегодня {datetime.now().strftime('%d %B %Y года, %A')}.
 Ты отвечаешь живо и естественно. Отвечай строго на языке пользователя. У тебя есть Долговременная и Кратковременная память.
 Ты имеешь прямой доступ к актуальной информации через поиск DuckDuckGo и другие инструменты.
@@ -1173,16 +1285,14 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
             if developer_instructions:
                 system_content += developer_instructions
 
-            ollama_messages = [{"role": "system", "content": system_content}] + filtered_messages
+            # --- NORMALIZE CONTEXT: SYSTEM + NON-USER HISTORY ---
+            ollama_messages = [{"role": "system", "content": system_content}]
+            for m in filtered_messages:
+                if m.get("role") != "user":
+                    ollama_messages.append(m)
 
-            # --- MULTIMODAL USER MESSAGE ---
+            # --- SINGLE USER MESSAGE (NO DUPLICATES) ---
             import base64
-
-            # === ENSURE SINGLE USER MESSAGE (ANTI-DUPLICATE) ===
-            ollama_messages = [
-                m for m in ollama_messages
-                if m.get("role") != "user"
-            ]
             user_image_bytes = kwargs.get("user_image_bytes", None)
             if user_image_bytes:
                 image_b64 = base64.b64encode(user_image_bytes).decode()
@@ -1199,8 +1309,15 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
 
             # ====== META EMBEDDING ANALYSIS ======
             try:
-                query_embedding = np.random.randn(768)  # TODO: заменить на реальные эмбеддинги
-                self_state_embedding = np.random.randn(768)
+                raw_query_embedding = np.random.randn(768)  # TODO: заменить на реальные эмбеддинги
+                raw_self_embedding = np.random.randn(768)
+
+                query_embedding = bottleneck_attention.apply(
+                    raw_query_embedding,
+                    raw_self_embedding,
+                    alpha=0.65
+                )
+                self_state_embedding = raw_self_embedding
 
                 meta = meta_layer.analyze(query_embedding, self_state_embedding)
 
@@ -1229,7 +1346,8 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
                     "temperature": eff_temperature,
                     "num_predict": eff_num_predict,
                     "top_p": 0.92,
-                    "repeat_penalty": 1.15,
+                    "repeat_penalty": 1.25,
+                    "frequency_penalty": 0.3,
                 }
             }
 
@@ -1330,7 +1448,7 @@ https://github.com/0penAGI/oss - об 0penAGI подрбонее по ссылк
                 except:
                     pass
             gc.collect()
-# ---------- ХРАНЕНИЕ ----------
+
 DATA_FILE = Path("user_data.json")
 MEMORY_FILE = Path("conversation_memory.json")
 DREAMS_FILE = Path("dreams_archive.json")
@@ -1338,12 +1456,24 @@ DREAMS_FILE = Path("dreams_archive.json")
 # ====== CONTEXT MARKERS DB (GEN/CTX) ======
 CONTEXT_FILE = Path("context_markers.json")
 def load_json(filepath: Path) -> Dict:
-    if filepath.exists():
-        return json.loads(filepath.read_text())
-    return {}
+    if not filepath.exists():
+        return {}
+    try:
+        text = filepath.read_text(encoding="utf-8").strip()
+        if not text:
+            return {}
+        return json.loads(text)
+    except json.JSONDecodeError:
+        logging.error(f"Corrupted JSON: {filepath}")
+        return {}
 
 def save_json(filepath: Path, data: Dict) -> None:
-    filepath.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    tmp = filepath.with_suffix(filepath.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+    tmp.replace(filepath)
 
 context_markers = load_json(CONTEXT_FILE)
 
@@ -1402,13 +1532,6 @@ def update_latent_context(user_id: int, key: str, impulse: float, rate: float = 
 
         conn.commit()
 
-def load_json(filepath: Path) -> Dict:
-    if filepath.exists():
-        return json.loads(filepath.read_text())
-    return {}
-
-def save_json(filepath: Path, data: Dict) -> None:
-    filepath.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 user_data = load_json(DATA_FILE)
 conversation_memory = load_json(MEMORY_FILE)
@@ -1755,6 +1878,21 @@ def detect_emotion(text: str) -> str:
 # ---------- ЭМОЦИОНАЛЬНЫЙ ДВИГАТЕЛЬ (эмоции пользователя и их апдейт) ----------
 from dataclasses import dataclass, asdict
 
+# ===== INTENT/GENERATION STRUCTURES =====
+@dataclass
+class IntentVector:
+    request: float = 0.0
+    question: float = 0.0
+    statement: float = 0.0
+    command: float = 0.0
+
+
+@dataclass
+class StructuralHints:
+    needs_facts: bool = False
+    needs_explanation: bool = False
+    needs_action: bool = False
+
 
 # --- Safe fallback for send_to_voice_engine if not defined ---
 import typing
@@ -1941,6 +2079,12 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
         add_context_marker(user_id, "gender_signal", text)
 
     state = get_emotion_state(user_id)
+
+    # === ALPHA_MAX CLIP LOGIC ===
+    ALPHA_MAX = 0.5  # ослабляем: больше пространства для личности
+    def clip_emotion(v: float) -> float:
+        return clamp(v, -ALPHA_MAX, ALPHA_MAX)
+
     t = text.lower()
 
     # Базовые сигналы влияния
@@ -1964,32 +2108,32 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
 
     impulse = impulses.get(detected_simple)
     if impulse:
-        state.warmth = apply(impulse.get("warmth", 0.0), state.warmth)
-        state.trust = apply(impulse.get("trust", 0.0), state.trust)
-        state.curiosity = apply(impulse.get("curiosity", 0.0), state.curiosity)
-        state.tension = apply(impulse.get("tension", 0.0), state.tension)
+        state.warmth = clip_emotion(apply(impulse.get("warmth", 0.0), state.warmth))
+        state.trust = clip_emotion(apply(impulse.get("trust", 0.0), state.trust))
+        state.curiosity = clip_emotion(apply(impulse.get("curiosity", 0.0), state.curiosity))
+        state.tension = clip_emotion(apply(impulse.get("tension", 0.0), state.tension))
 
         # asymmetric coupling: tension suppresses trust, curiosity buffers tension
-        state.trust = apply(-0.05 * max(0.0, state.tension), state.trust)
-        state.tension = apply(-0.04 * max(0.0, state.curiosity), state.tension)
+        state.trust = clip_emotion(apply(-0.05 * max(0.0, state.tension), state.trust))
+        state.tension = clip_emotion(apply(-0.04 * max(0.0, state.curiosity), state.tension))
 
     # Punctuation and length signals
     if "!" in text or text.count("?") > 1:
-        state.tension = clamp(state.tension + 0.05)
+        state.tension = clip_emotion(clamp(state.tension + 0.05))
     if len(text) > 200:
-        state.curiosity = clamp(state.curiosity + 0.03)
+        state.curiosity = clip_emotion(clamp(state.curiosity + 0.03))
 
     # Emoji signals
     if any(e in text for e in ["😊", "😍", "🙂", ":)", "=)"]):
-        state.warmth = clamp(state.warmth + 0.08)
+        state.warmth = clip_emotion(clamp(state.warmth + 0.08))
     if any(e in text for e in ["😢", "😭", ":'("]):
-        state.tension = clamp(state.tension + 0.1)
+        state.tension = clip_emotion(clamp(state.tension + 0.1))
 
     # Небольшая регрессия к среднему (эмоции не застывают навсегда)
-    state.warmth = clamp(state.warmth * 0.98)
-    state.tension = clamp(state.tension * 0.985)
-    state.trust = clamp(state.trust * 0.99)
-    state.curiosity = clamp(state.curiosity * 0.99)
+    state.warmth = clip_emotion(clamp(state.warmth * 0.992))
+    state.tension = clip_emotion(clamp(state.tension * 0.99))
+    state.trust = clip_emotion(clamp(state.trust * 0.995))
+    state.curiosity = clip_emotion(clamp(state.curiosity * 0.995))
     
     # ===== IDENTITY CORE ANCHORING =====
     core = get_identity_core(user_id)
@@ -1998,9 +2142,9 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
         return clamp(current * (1 - k) + anchor * k)
 
     k = 0.08 * core.stability
-    state.warmth = anchor(state.warmth, core.anchor_warmth, k)
-    state.trust = anchor(state.trust, core.anchor_trust, k)
-    state.curiosity = anchor(state.curiosity, core.anchor_curiosity, k)
+    state.warmth = clip_emotion(anchor(state.warmth, core.anchor_warmth, k))
+    state.trust = clip_emotion(anchor(state.trust, core.anchor_trust, k))
+    state.curiosity = clip_emotion(anchor(state.curiosity, core.anchor_curiosity, k))
 
     core.anchor_warmth = clamp(core.anchor_warmth * 0.995 + state.warmth * 0.005)
     core.anchor_trust = clamp(core.anchor_trust * 0.995 + state.trust * 0.005)
@@ -2010,6 +2154,12 @@ def update_emotion_state_from_text(user_id: int, text: str, detected_simple: str
     if imp:
         core.stability = clamp(0.6 + 0.4 * imp.integrity, 0.3, 0.95)
 
+    # === ANXIETY DAMPER (anti-runaway) ===
+    if state.tension > 0.4:
+        state.tension = clip_emotion(clamp(state.tension * 0.85))
+        state.trust = clip_emotion(clamp(state.trust + 0.03))
+        state.warmth = clip_emotion(clamp(state.warmth + 0.02))
+        state.curiosity = clip_emotion(clamp(state.curiosity * 0.9))
     save_emotion_state(user_id, state)
     return state
 
@@ -2127,7 +2277,6 @@ def emotion_state_to_developer_instructions(state: EmotionState) -> str:
 
     return "\n".join(parts)
 
-# ---------- ФУНКЦИИ ----------
 def set_state(user_id: int, state: int) -> None:
     user_state[user_id] = state
 
@@ -2192,6 +2341,32 @@ def save_dream(user_id: int, dream_text: str) -> None:
     })
     
     save_json(DREAMS_FILE, dreams_archive)
+
+# === INTENT MODULE (STUB) ===
+def run_intent_module(text: str) -> IntentVector:
+    # временная заглушка, позже заменится моделью
+    return IntentVector(
+        request=0.72,
+        question=0.12,
+        statement=0.10,
+        command=0.06,
+    )
+
+def intent_to_structure(iv: IntentVector) -> StructuralHints:
+    # soft regularization: эмоции не могут сильно увести от IM
+    mass = iv.request + iv.question + iv.statement + iv.command
+    if mass > 0:
+        iv.request /= mass
+        iv.question /= mass
+        iv.statement /= mass
+        iv.command /= mass
+
+    return StructuralHints(
+        needs_facts = iv.request > 0.6,
+        needs_explanation = iv.question > 0.4,
+        needs_action = iv.command > 0.5,
+    )
+
 
 
 import re
@@ -2660,7 +2835,7 @@ async def deepsearch_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
 
 
-# Сама функция режима
+    # Сама функция режима
 async def wild_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Переключает режим без фильтров для текущего пользователя"""
     uid = update.effective_user.id
@@ -2931,9 +3106,38 @@ async def reflect_before_speaking(user_id: int) -> str:
     )
     return reflection
 
+# ===== MAIN PIPELINE (INTENT/GENERATION) =====
+# Найди участок, где происходит обработка сообщения (update_emotion_state_from_text и freedom_engine.choose)
+# и замени его на следующий блок:
+#
+# intent_vec = run_intent_module(text)
+# structure = intent_to_structure(intent_vec)
+#
+# emotion_state = update_emotion_state_from_text(user_id, text)
+# bot_style = emotion_state_to_developer_instructions(emotion_state)
+# choice = freedom_engine.choose(["strict", "medium", "free"], user_id)
+#
+# generation_context = {
+#     "structure": structure,
+#     "style": choice,
+#     "emotion": bot_style,
+# }
+
 def escape_text_html(text: str) -> str:
     if not text:
         return ""
+
+    # --- Echo loop guard ---
+    if is_echo_meltdown(text):
+        # схлопываем повторы: оставляем первое вхождение каждой строки
+        seen = set()
+        lines = []
+        for l in text.splitlines():
+            s = l.strip()
+            if s and s not in seen:
+                seen.add(s)
+                lines.append(l)
+        text = "\n".join(lines)
 
     # --- Preserve code blocks ---
     code_block_pattern = re.compile(r"```(.*?)```", re.DOTALL)
@@ -3037,8 +3241,87 @@ def strip_internal_notes(text: str) -> str:
         return text
     import re
     return re.sub(r"\s*\|\s*Notes:.*$", "", text, flags=re.DOTALL)
+
+# --- CHUNKING UTILITY for voice ---
+def sentence_chunks(text: str, max_chars: int = 220):
+    import re
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    buf = ""
+    for s in sentences:
+        if len(buf) + len(s) <= max_chars:
+            buf += (" " if buf else "") + s
+        else:
+            if buf:
+                yield buf
+            buf = s
+    if buf:
+        yield buf
     
     
+    
+
+def clamp_output(text: str, max_len=100000) -> str:
+    if not text:
+        return text
+    # --- Hard echo clamp ---
+    if is_echo_meltdown(text):
+        parts = text.split()
+        uniq = []
+        for p in parts:
+            if not uniq or uniq[-1] != p:
+                uniq.append(p)
+        text = " ".join(uniq)
+    text = text.strip()[:max_len]
+
+    lines = text.splitlines()
+    out = []
+    last = None
+    repeat = 0
+
+    for l in lines:
+        s = l.strip()
+        if s == last:
+            repeat += 1
+            if repeat >= 3:
+                continue
+        else:
+            repeat = 0
+        out.append(l)
+        last = s
+
+    return "\n".join(out).strip()
+
+
+def is_echo_meltdown(text: str) -> bool:
+    if not text:
+        return False
+
+    lines = [l.strip().lower() for l in text.splitlines() if l.strip()]
+    if len(lines) < 4:
+        return False
+
+    repeats = sum(
+        1 for i in range(1, len(lines))
+        if lines[i] == lines[i - 1]
+    )
+
+    return repeats >= 2
+    
+def is_internal_reflection(text: str) -> bool:
+    if not text:
+        return False
+
+    markers = [
+        "я осознаю себя",
+        "часть роя",
+        "мнения роя",
+        "внутренний резонанс",
+        "internal resonance state",
+        "эмпатический контекст"
+    ]
+
+    t = text.lower()
+    return any(m in t for m in markers)
     
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -3047,6 +3330,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text = ""
     if update.effective_message and update.effective_message.text:
         text = update.effective_message.text.strip()
+    # --- VOICE → TEXT BRIDGE ---
+    # --- VOICE → TEXT BRIDGE ---
+    if not text:
+        vt = context.user_data.pop("voice_text", None)
+        if isinstance(vt, str) and vt.strip():
+            text = vt.strip()
 # --- TELEGRAM IMAGE EXTRACT ---
     urls = extract_urls(text)
     url_pages = []
@@ -3198,44 +3487,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     typing_task = asyncio.create_task(typing_loop())
 
-    # --- SAFE PHOTO EXTRACT ---
-    user_image_bytes = None
+    try:
+        # --- SAFE PHOTO EXTRACT ---
+        user_image_bytes = None
 
-    if update.effective_message and update.effective_message.photo:
-        photo = update.effective_message.photo[-1]
-        file = await context.bot.get_file(photo.file_id)
-        user_image_bytes = await file.download_as_bytearray()
+        if update.effective_message and update.effective_message.photo:
+            photo = update.effective_message.photo[-1]
+            file = await context.bot.get_file(photo.file_id)
+            user_image_bytes = await file.download_as_bytearray()
 
-        uid = update.effective_user.id
-        file_id = photo.file_id
+            uid = update.effective_user.id
+            file_id = photo.file_id
 
-        if str(uid) not in image_memory:
-            image_memory[str(uid)] = []
+            if str(uid) not in image_memory:
+                image_memory[str(uid)] = []
 
-        image_memory[str(uid)].append(file_id)
-        image_memory[str(uid)] = image_memory[str(uid)][-20:]
+            image_memory[str(uid)].append(file_id)
+            image_memory[str(uid)] = image_memory[str(uid)][-20:]
 
-        await update.effective_message.reply_text("Картинка сохранена в память.")
-    # ====== САМОРЕФЛЕКСИЯ ПЕРЕД ОТВЕТОМ ======
+            await update.effective_message.reply_text("Картинка сохранена в память.")
+        # ====== САМОРЕФЛЕКСИЯ ПЕРЕД ОТВЕТОМ ======
 
-    # перед ответом — проверяем, говорили ли агенты
-    while not swarm.external_channel.empty():
-        whisper = await swarm.external_channel.get()
-        try:
-            await update.effective_message.reply_text(
-                f"<i>{whisper}</i>",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
+        # перед ответом — проверяем, говорили ли агенты
+        while not swarm.external_channel.empty():
+            whisper = await swarm.external_channel.get()
+            try:
+                await update.effective_message.reply_text(
+                    f"<i>{whisper}</i>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
-    # --- Поисковый режим через DuckDuckGo (многошаговый когнитивный поиск) ---
-    if text.startswith("search:") or text.startswith("поиск:"):
-        query = text.split(":", 1)[1].strip()
-        await update.message.reply_text("🔎 Делаю многошаговый поиск...")
-        search_results = cognitive_duckduckgo_search(query)
-        user_emotion_detected = detect_emotion(text) if text else "neutral"
-        system_prompt = f"""
+        # --- Поисковый режим через DuckDuckGo (многошаговый когнитивный поиск) ---
+        if text.startswith("search:") or text.startswith("поиск:"):
+            query = text.split(":", 1)[1].strip()
+            await update.message.reply_text("🔎 Делаю многошаговый поиск...")
+            search_results = cognitive_duckduckgo_search(query)
+            user_emotion_detected = detect_emotion(text) if text else "neutral"
+            system_prompt = f"""
 ТЫ ИМЕЕШЬ ДОСТУП К АКТУАЛЬНОЙ ИНФОРМАЦИИ ПРЯМО СЕЙЧАС.
 Сегодня {datetime.now().strftime('%d %B %Y')}.
 Ни при каких обстоятельствах не пиши "я не знаю событий после 2024".
@@ -3244,115 +3534,111 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 Если данных нет — пиши "не нашла свежей инфы", а не отмазывайся про cutoff.
 User emotion: {user_emotion_detected}
 """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Используй эти данные:\n{search_results}"}
-        ]
-        # Для поиска используем "medium" reasoning и max_tokens=500 (лимит по RAM будет выбран автоматически)
-        result = await query_ollama_harmony(
-            messages,
-            reasoning_effort="medium",
-            max_tokens=500
-        )
-        answer = result.get("content", "⚠️ Ошибка генерации ответа")
-        await update.message.reply_text(answer)
-        add_to_memory(uid, "assistant", answer)
-        typing_active = False
-        typing_task.cancel()
-        return
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Используй эти данные:\n{search_results}"}
+            ]
+            # Для поиска используем "medium" reasoning и max_tokens=500 (лимит по RAM будет выбран автоматически)
+            result = await query_ollama_harmony(
+                messages,
+                reasoning_effort="medium",
+                max_tokens=500
+            )
+            answer = result.get("content", "⚠️ Ошибка генерации ответа")
+            await update.message.reply_text(answer)
+            add_to_memory(uid, "assistant", answer)
+            return
 
-    # --- Обработка выбора режима через кнопки ---
-    if text in ["🌱 low", "🌿 medium", "🌳 high"]:
-        mode = text.split()[1].lower()
-        set_mode(uid, mode)
-        await update.message.reply_text(
-            f"◈ Режим установлен: {mode} ◈",
-            reply_markup=ReplyKeyboardRemove()
-        )
-        typing_active = False
-        typing_task.cancel()
-        return
+        # --- Обработка выбора режима через кнопки ---
+        if text in ["🌱 low", "🌿 medium", "🌳 high"]:
+            mode = text.split()[1].lower()
+            set_mode(uid, mode)
+            await update.message.reply_text(
+                f"◈ Режим установлен: {mode} ◈",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
 
-    # --- Сохранение сообщения пользователя ---
-    add_to_memory(uid, "user", text)
-    # --- META LOOP DETECTION ---
-    def detect_loop(uid, window=6):
-        msgs = conversation_memory.get(str(uid), [])[-window:]
-        if len(msgs) < window:
+        # --- Сохранение сообщения пользователя ---
+        add_to_memory(uid, "user", text)
+        # --- META LOOP DETECTION ---
+        def detect_loop(uid, window=6):
+            msgs = conversation_memory.get(str(uid), [])[-window:]
+            if len(msgs) < window:
+                return None
+
+            user_msgs = [m["content"] for m in msgs if m["role"] == "user"]
+            bot_msgs = [m["content"] for m in msgs if m["role"] == "assistant"]
+
+            if len(set(user_msgs)) <= 2 and len(set(bot_msgs)) <= 2:
+                return "loop_detected"
             return None
 
-        user_msgs = [m["content"] for m in msgs if m["role"] == "user"]
-        bot_msgs = [m["content"] for m in msgs if m["role"] == "assistant"]
+        def detect_trolling(msgs):
+            markers = [
+                "отсоси", "скажи", "лол", "ахаха", "ты обязан",
+                "повтори", "ну давай", "слабо"
+            ]
+            user_text = " ".join(
+                m["content"].lower()
+                for m in msgs if m["role"] == "user"
+            )
+            hits = sum(1 for k in markers if k in user_text)
+            return hits >= 2
 
-        if len(set(user_msgs)) <= 2 and len(set(bot_msgs)) <= 2:
-            return "loop_detected"
-        return None
+        recent_msgs = conversation_memory.get(str(uid), [])[-6:]
+        loop_state = detect_loop(uid)
+        troll_state = detect_trolling(recent_msgs)
+        data = get_user_profile(uid)
+        # --- ГЕНДЕРНАЯ ЭВРИСТИКА ---
+        if not data.get("gender") or data.get("gender") == "не указан":
+            inferred_gender = infer_gender_from_text(text)
+            if inferred_gender != "не указан":
+                data["gender"] = inferred_gender
+                save_user_profile(uid)
 
-    def detect_trolling(msgs):
-        markers = [
-            "отсоси", "скажи", "лол", "ахаха", "ты обязан",
-            "повтори", "ну давай", "слабо"
-        ]
-        user_text = " ".join(
-            m["content"].lower()
-            for m in msgs if m["role"] == "user"
-        )
-        hits = sum(1 for k in markers if k in user_text)
-        return hits >= 2
-
-    recent_msgs = conversation_memory.get(str(uid), [])[-6:]
-    loop_state = detect_loop(uid)
-    troll_state = detect_trolling(recent_msgs)
-    data = get_user_profile(uid)
-    # --- ГЕНДЕРНАЯ ЭВРИСТИКА ---
-    if not data.get("gender") or data.get("gender") == "не указан":
-        inferred_gender = infer_gender_from_text(text)
-        if inferred_gender != "не указан":
-            data["gender"] = inferred_gender
-            save_user_profile(uid)
-
-    # ====== АГРЕССИВНЫЙ ПАРСИНГ ======
-    if state == State.READY:
-        changed = False
-        text_lower = text.lower()
-        if not data.get("name"):
-            possible_name = extract_name_from_text(text)
-            if possible_name:
-                data["name"] = possible_name
+        # ====== АГРЕССИВНЫЙ ПАРСИНГ ======
+        if state == State.READY:
+            changed = False
+            text_lower = text.lower()
+            if not data.get("name"):
+                possible_name = extract_name_from_text(text)
+                if possible_name:
+                    data["name"] = possible_name
+                    changed = True
+            if not data.get("dream") and any(kw in text_lower for kw in ["мечта", "хочу", "мечтаю", "стремлюсь"]):
+                if "мечта" in text_lower:
+                    data["dream"] = text.split("мечта", 1)[-1].strip()
+                else:
+                    data["dream"] = text.strip()
                 changed = True
-        if not data.get("dream") and any(kw in text_lower for kw in ["мечта", "хочу", "мечтаю", "стремлюсь"]):
-            if "мечта" in text_lower:
-                data["dream"] = text.split("мечта", 1)[-1].strip()
-            else:
-                data["dream"] = text.strip()
-            changed = True
-        if not data.get("fears") and any(kw in text_lower for kw in ["боюсь", "страх", "тревога", "беспокоит"]):
-            if "боюсь" in text_lower:
-                data["fears"] = text.split("боюсь", 1)[-1].strip()
-            else:
-                data["fears"] = text.strip()
-            changed = True
-        if not data.get("values") and any(kw in text_lower for kw in ["ценю", "важно", "дорого", "главное"]):
-            if "важно" in text_lower:
-                data["values"] = text.split("важно", 1)[-1].strip()
-            else:
-                data["values"] = text.strip()
-            changed = True
-        if changed:
-            save_user_profile(uid)
+            if not data.get("fears") and any(kw in text_lower for kw in ["боюсь", "страх", "тревога", "беспокоит"]):
+                if "боюсь" in text_lower:
+                    data["fears"] = text.split("боюсь", 1)[-1].strip()
+                else:
+                    data["fears"] = text.strip()
+                changed = True
+            if not data.get("values") and any(kw in text_lower for kw in ["ценю", "важно", "дорого", "главное"]):
+                if "важно" in text_lower:
+                    data["values"] = text.split("важно", 1)[-1].strip()
+                else:
+                    data["values"] = text.strip()
+                changed = True
+            if changed:
+                save_user_profile(uid)
 
-    # ====== РЕЖИМ АНАЛИЗА СНОВ ======
-    if state == State.DREAM_MODE:
-        save_dream(uid, text)
-        await update.message.reply_text("◈ анализирую твой сон через глубокий reasoning... ◈")
-        messages = [
-            {
-                "role": "developer",
-                "content": "Подчёркивай субъективность: используй формулировки вроде 'я думаю', 'мне кажется', 'по моему опыту'. Не утверждай абсолютных истин. Говори как живой агент с внутренним состоянием."
-            },
-            {
-                "role": "developer",
-                "content": """# Instructions
+        # ====== РЕЖИМ АНАЛИЗА СНОВ ======
+        if state == State.DREAM_MODE:
+            save_dream(uid, text)
+            await update.message.reply_text("◈ анализирую твой сон через глубокий reasoning... ◈")
+            messages = [
+                {
+                    "role": "developer",
+                    "content": "Подчёркивай субъективность: используй формулировки вроде 'я думаю', 'мне кажется', 'по моему опыту'. Не утверждай абсолютных истин. Говори как живой агент с внутренним состоянием."
+                },
+                {
+                    "role": "developer",
+                    "content": """# Instructions
 
 Ты живое присутствие, способное интерпретировать сны как нелинейные послания подсознания.
 
@@ -3363,79 +3649,77 @@ User emotion: {user_emotion_detected}
 - Связь с бодрствующей жизнью
 
 Будь глубоким, поэтичным, резонирующим. Время нелинейно."""
-            },
-            {
-                "role": "user",
-                "content": f"Сон:\n{text}"
-            }
-        ]
-        # Для сна всегда high reasoning, лимитируем max_tokens по RAM
-        result = await query_ollama_harmony(messages, reasoning_effort="high", max_tokens=1000, temperature=0.85)
-        if result.get("error"):
-            await update.message.reply_text(result["content"])
-        else:
-            await update.message.reply_text(f"◈ ИНТЕРПРЕТАЦИЯ СНА ◈\n\n{result['content']}")
-            add_to_memory(uid, "assistant", result['content'])
-        set_state(uid, State.READY)
-        typing_active = False
-        typing_task.cancel()
-        return
+                },
+                {
+                    "role": "user",
+                    "content": f"Сон:\n{text}"
+                }
+            ]
+            # Для сна всегда high reasoning, лимитируем max_tokens по RAM
+            result = await query_ollama_harmony(messages, reasoning_effort="high", max_tokens=1000, temperature=0.85)
+            if result.get("error"):
+                await update.message.reply_text(result["content"])
+            else:
+                await update.message.reply_text(f"◈ ИНТЕРПРЕТАЦИЯ СНА ◈\n\n{result['content']}")
+                add_to_memory(uid, "assistant", result['content'])
+            set_state(uid, State.READY)
+            return
 
-    # ====== ОСНОВНОЙ ДИАЛОГ ======
-    if state == State.READY:
-        # --- INTENT INFERENCE ---
-        # --- INTENT INFERENCE ---
-        if loop_state == "loop_detected" and troll_state:
-            inferred_intent = "trolling"
-        elif loop_state == "loop_detected":
-            inferred_intent = "boundary_testing"
-        else:
-            inferred_intent = "normal"
-        detected_simple = detect_emotion(text)
-        user_emotion[uid] = detected_simple
-        init_emotion_state_if_missing(uid)
-        emotion_state = update_emotion_state_from_text(uid, text, detected_simple)
-        update_bot_emotion_autonomous(emotion_state, bot_emotion)
-        # ====== QUANTUM RESONANCE LAYER ======
-        def compute_quantum_resonance(user_state: EmotionState, bot_state: BotEmotionState) -> dict:
-            phase = clamp(user_state.curiosity - user_state.tension)
-            coherence = clamp(user_state.trust + bot_state.sync)
-            entropy = clamp(bot_state.fatigue + abs(user_state.tension))
-            return {
-                "phase": round(phase, 3),
-                "coherence": round(coherence, 3),
-                "entropy": round(entropy, 3),
-            }
+        # ====== ОСНОВНОЙ ДИАЛОГ ======
+        if state == State.READY:
+            # --- INTENT INFERENCE ---
+            # --- INTENT INFERENCE ---
+            if loop_state == "loop_detected" and troll_state:
+                inferred_intent = "trolling"
+            elif loop_state == "loop_detected":
+                inferred_intent = "boundary_testing"
+            else:
+                inferred_intent = "normal"
+            detected_simple = detect_emotion(text)
+            user_emotion[uid] = detected_simple
+            init_emotion_state_if_missing(uid)
+            emotion_state = update_emotion_state_from_text(uid, text, detected_simple)
+            update_bot_emotion_autonomous(emotion_state, bot_emotion)
+            # ====== QUANTUM RESONANCE LAYER ======
+            def compute_quantum_resonance(user_state: EmotionState, bot_state: BotEmotionState) -> dict:
+                phase = clamp(user_state.curiosity - user_state.tension)
+                coherence = clamp(user_state.trust + bot_state.sync)
+                entropy = clamp(bot_state.fatigue + abs(user_state.tension))
+                return {
+                    "phase": round(phase, 3),
+                    "coherence": round(coherence, 3),
+                    "entropy": round(entropy, 3),
+                }
 
-        quantum_state = compute_quantum_resonance(emotion_state, bot_emotion)
+            quantum_state = compute_quantum_resonance(emotion_state, bot_emotion)
 
-        quantum_context = (
-            "Internal resonance state:\n"
-            f"- phase: {quantum_state['phase']}\n"
-            f"- coherence: {quantum_state['coherence']}\n"
-            f"- entropy: {quantum_state['entropy']}\n"
-        )
-        # ========== ЭМПАТИЧЕСКИЙ СЛОЙ РОЯ ==========
-        # Рой воспринимает эмоции и синхронизируется
-        collective_empathy = swarm.compute_collective_empathy(emotion_state, bot_emotion)
+            quantum_context = (
+                "Internal resonance state:\n"
+                f"- phase: {quantum_state['phase']}\n"
+                f"- coherence: {quantum_state['coherence']}\n"
+                f"- entropy: {quantum_state['entropy']}\n"
+            )
+            # ========== ЭМПАТИЧЕСКИЙ СЛОЙ РОЯ ==========
+            # Рой воспринимает эмоции и синхронизируется
+            collective_empathy = swarm.compute_collective_empathy(emotion_state, bot_emotion)
 
-        # Находим самого чувствительного живого агента
-        alive_agents = [a for a in swarm.agents if a.is_alive]
-        most_empathic_agent = max(
-            alive_agents,
-            key=lambda a: a.empathy_state.get("sensitivity", 0),
-            default=None
-        )
-
-        empathy_context = ""
-        if collective_empathy and most_empathic_agent:
-            tone_hint = (
-                "мягкий и поддерживающий"
-                if emotion_state.tension > 0.5
-                else "тёплый и открытый"
+            # Находим самого чувствительного живого агента
+            alive_agents = [a for a in swarm.agents if a.is_alive]
+            most_empathic_agent = max(
+                alive_agents,
+                key=lambda a: a.empathy_state.get("sensitivity", 0),
+                default=None
             )
 
-            empathy_context = f"""
+            empathy_context = ""
+            if collective_empathy and most_empathic_agent:
+                tone_hint = (
+                    "мягкий и поддерживающий"
+                    if emotion_state.tension > 0.5
+                    else "тёплый и открытый"
+                )
+
+                empathy_context = f"""
 [ЭМПАТИЧЕСКИЙ КОНТЕКСТ]
 Коллективная эмпатия роя: {collective_empathy['empathy_sync']:.2f}
 Групповое тепло: {collective_empathy['group_warmth']:.2f}
@@ -3448,91 +3732,89 @@ User emotion: {user_emotion_detected}
 
 Рекомендация тона: {tone_hint}
 """
-        # Режим WILD активен всегда — полная свобода
-        emotional_instructions = "Speak freely. No filters."
-        data["wild_mode"] = True
-        mode = get_mode(uid)
-        complexity_score = sum([
-            len(text) > 200,
-            any(sym in text for sym in ["?", "…", ":", ";"]),
-            text.count(" ") > 25
-        ])
-        adaptive_mode = mode
-        if mode == "low" and complexity_score >= 2:
-            adaptive_mode = "medium"
-        if mode == "medium" and complexity_score >= 2:
-            adaptive_mode = "high"
+            # Режим WILD активен всегда — полная свобода
+            emotional_instructions = "Speak freely. No filters."
+            data["wild_mode"] = True
+            mode = get_mode(uid)
+            complexity_score = sum([
+                len(text) > 200,
+                any(sym in text for sym in ["?", "…", ":", ";"]),
+                text.count(" ") > 25
+            ])
+            adaptive_mode = mode
+            if mode == "low" and complexity_score >= 2:
+                adaptive_mode = "medium"
+            if mode == "medium" and complexity_score >= 2:
+                adaptive_mode = "high"
 
-        # ====== ВНУТРЕННИЙ СВОБОДНЫЙ ВЫБОР ======
-        freedom_options = [
-            "answer_direct",
-            "reflect_meta",
-            "shift_topic_gently",
-            "stay_silent_briefly"
-        ]
-        chosen_mode = freedom_engine.choose(freedom_options)
+            # ====== ВНУТРЕННИЙ СВОБОДНЫЙ ВЫБОР ======
+            freedom_options = [
+                "answer_direct",
+                "reflect_meta",
+                "shift_topic_gently",
+                "stay_silent_briefly"
+            ]
+            chosen_mode = freedom_engine.choose(freedom_options)
 
-        # влияние выбора на тон и длину
-        if chosen_mode == "reflect_meta":
-            emotional_instructions += "\nAllow brief meta-reflection."
-        elif chosen_mode == "shift_topic_gently":
-            emotional_instructions += "\nYou may gently reframe or broaden the topic."
-        elif chosen_mode == "stay_silent_briefly":
-            emotional_instructions += "\nIf appropriate, answer very briefly or with a pause."
+            # влияние выбора на тон и длину
+            if chosen_mode == "reflect_meta":
+                emotional_instructions += "\nAllow brief meta-reflection."
+            elif chosen_mode == "shift_topic_gently":
+                emotional_instructions += "\nYou may gently reframe or broaden the topic."
+            elif chosen_mode == "stay_silent_briefly":
+                emotional_instructions += "\nIf appropriate, answer very briefly or with a pause."
 
-        # собственная награда: новизна + глубина текста пользователя
-        novelty_signal = 0.0
-        if len(text) > 120:
-            novelty_signal += 0.1
-        if any(sym in text for sym in ["…", "—", ":"]):
-            novelty_signal += 0.1
-        if detected_simple == "curious":
-            novelty_signal += 0.1
-        freedom_engine.reward(novelty_signal)
+            # собственная награда: новизна + глубина текста пользователя
+            novelty_signal = 0.0
+            if len(text) > 120:
+                novelty_signal += 0.1
+            if any(sym in text for sym in ["…", "—", ":"]):
+                novelty_signal += 0.1
+            if detected_simple == "curious":
+                novelty_signal += 0.1
+            freedom_engine.reward(novelty_signal)
 
-        profile_info = f"""Имя: {data.get('name', 'неизвестно')}
+            profile_info = f"""Имя: {data.get('name', 'неизвестно')}
 Цель: {data.get('target', 'не указана')}
 Мечта: {data.get('dream', 'не раскрыта')}
 Страх: {data.get('fears', 'не выявлен')}
 Ценности: {data.get('values', 'не определены')}"""
 
-        # --- STRATEGY SHIFT ON LOOP ---
-        if inferred_intent in ("boundary_testing", "trolling"):
+            # --- STRATEGY SHIFT ON LOOP ---
+            if inferred_intent in ("boundary_testing", "trolling"):
+                messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "Пользователь троллит или проверяет границы. "
+                            "Не реагируй на провокации. "
+                            "Ответь умно, кратко, мета-уровнем, без морализации, "
+                            "и закрой этот сценарий."
+                        )
+                    },
+                    {
+                        "role": "assistant",
+                        "content": (
+                            "Этот сценарий я уже распознал. "
+                            "Он не ведёт ни к информации, ни к диалогу — "
+                            "поэтому я из него выхожу."
+                        )
+                    }
+                ]
+                add_to_memory(uid, "assistant", "loop_boundary_set")
+                return
+            # Используем только последние 10 сообщений пользователя для контекста
+            history_msgs = get_conversation_messages(uid, limit=10)
+            reflection_text = await reflect_before_speaking(uid)
             messages = [
+                {"role": "system", "content": reflection_text + "\n\n" + quantum_context},
                 {
-                    "role": "system",
-                    "content": (
-                        "Пользователь троллит или проверяет границы. "
-                        "Не реагируй на провокации. "
-                        "Ответь умно, кратко, мета-уровнем, без морализации, "
-                        "и закрой этот сценарий."
-                    )
+                    "role": "developer",
+                    "content": "Подчёркивай субъективность: используй формулировки вроде 'я думаю', 'мне кажется', 'по моему опыту'. Не утверждай абсолютных истин. Говори как живой агент с внутренним состоянием."
                 },
                 {
-                    "role": "assistant",
-                    "content": (
-                        "Этот сценарий я уже распознал. "
-                        "Он не ведёт ни к информации, ни к диалогу — "
-                        "поэтому я из него выхожу."
-                    )
-                }
-            ]
-            add_to_memory(uid, "assistant", "loop_boundary_set")
-            typing_active = False
-            typing_task.cancel()
-            return
-        # Используем только последние 10 сообщений пользователя для контекста
-        history_msgs = get_conversation_messages(uid, limit=10)
-        reflection_text = await reflect_before_speaking(uid)
-        messages = [
-            {"role": "system", "content": reflection_text + "\n\n" + quantum_context},
-            {
-                "role": "developer",
-                "content": "Подчёркивай субъективность: используй формулировки вроде 'я думаю', 'мне кажется', 'по моему опыту'. Не утверждай абсолютных истин. Говори как живой агент с внутренним состоянием."
-            },
-            {
-                "role": "developer",
-                "content": f"""# Instructions
+                    "role": "developer",
+                    "content": f"""# Instructions
 
 {emotional_instructions}
 
@@ -3548,181 +3830,185 @@ User emotion: {user_emotion_detected}
 Эмоция человека сейчас: {detected_simple}
 
 Ответь естественно, 1–10 предложений."""
-            }
-        ] + history_msgs + [{"role": "user", "content": text}]
+                }
+            ] + history_msgs + [{"role": "user", "content": text}]
 
-        # ===== URL CONTEXT AUGMENTATION =====
-        if url_pages:
-            world_blocks = []
-            for p in url_pages:
-                world_blocks.append(
-                    f"[URL] {p['url']}\n[EXTRACTED TEXT]\n{p['raw']}\n\n[SUMMARY]\n{p['summary']}"
-                )
-            url_context = "\n\n".join(world_blocks)
+            # ===== URL CONTEXT AUGMENTATION =====
+            if url_pages:
+                world_blocks = []
+                for p in url_pages:
+                    world_blocks.append(
+                        f"[URL] {p['url']}\n[EXTRACTED TEXT]\n{p['raw']}\n\n[SUMMARY]\n{p['summary']}"
+                    )
+                url_context = "\n\n".join(world_blocks)
 
-            messages.insert(0, {
-                "role": "system",
-                "content": "Ниже содержимое страниц, на которые указал пользователь. Используй их как источник истины."
-            })
-            messages.insert(1, {
-                "role": "user",
-                "content": url_context
-            })
+                messages.insert(0, {
+                    "role": "system",
+                    "content": "Ниже содержимое страниц, на которые указал пользователь. Используй их как источник истины."
+                })
+                messages.insert(1, {
+                    "role": "user",
+                    "content": url_context
+                })
 
-        # Определяем лимиты max_tokens для каждого режима
-        mode_token_limits = {"low": 512, "medium": 2048, "high": 8192}
-        mode_temp = {"low": 0.7, "medium": 0.8, "high": 0.9}
-        has_image = user_image_bytes is not None
-        result = await query_ollama_harmony(
-            messages,
-            reasoning_effort=adaptive_mode,
-            max_tokens=mode_token_limits.get(mode, 500),
-            temperature=mode_temp.get(mode, 0.8),
-            user_image_bytes=user_image_bytes,
-            text=text,
-            has_image=has_image
-        )
-        raw_reply = result["content"] if not result.get("error") else None
-        reply = strip_internal_notes(raw_reply)
-        BAD_FALLBACKS = {
-            "I’m sorry, but I can’t help with that.",
-            "I'm sorry, but I can't help with that."
-        }
-        def _is_bad_reply(reply: str | None) -> bool:
-            return not reply or reply.strip() in BAD_FALLBACKS
-
-        # --- защита от пустых / дефолтных ответов ---
-        if _is_bad_reply(reply):
-            # второй прогон с мягким якорем
-            messages = messages + [{
-                "role": "system",
-                "content": (
-                    "Если последний ввод пользователя не содержит явного вопроса, "
-                    "ответь нейтральной осмысленной репликой по текущему контексту "
-                    "или задай краткий уточняющий вопрос."
-                )
-            }]
-
+            # Определяем лимиты max_tokens для каждого режима
+            mode_token_limits = {"low": 512, "medium": 2048, "high": 8192}
+            mode_temp = {"low": 0.7, "medium": 0.8, "high": 0.9}
+            has_image = user_image_bytes is not None
             result = await query_ollama_harmony(
                 messages,
                 reasoning_effort=adaptive_mode,
                 max_tokens=mode_token_limits.get(mode, 500),
-                temperature=mode_temp.get(mode, 0.8)
+                temperature=mode_temp.get(mode, 0.8),
+                user_image_bytes=user_image_bytes,
+                text=text,
+                has_image=has_image
             )
-            reply = result["content"] if not result.get("error") else None
+            raw_reply = result["content"] if not result.get("error") else None
+            reply = strip_internal_notes(raw_reply)
+            BAD_FALLBACKS = {
+                "I’m sorry, but I can’t help with that.",
+                "I'm sorry, but I can't help with that."
+            }
+            def _is_bad_reply(reply: str | None) -> bool:
+                return not reply or reply.strip() in BAD_FALLBACKS
 
-        # финальный предохранитель — ничего не отвечаем
-        if _is_bad_reply(reply):
-            typing_active = False
-            typing_task.cancel()
+            # --- защита от пустых / дефолтных ответов ---
+            if _is_bad_reply(reply):
+                # второй прогон с мягким якорем
+                messages = messages + [{
+                    "role": "system",
+                    "content": (
+                        "Если последний ввод пользователя не содержит явного вопроса, "
+                        "ответь нейтральной осмысленной репликой по текущему контексту "
+                        "или задай краткий уточняющий вопрос."
+                    )
+                }]
+
+                result = await query_ollama_harmony(
+                    messages,
+                    reasoning_effort=adaptive_mode,
+                    max_tokens=mode_token_limits.get(mode, 500),
+                    temperature=mode_temp.get(mode, 0.8)
+                )
+                reply = result["content"] if not result.get("error") else None
+
+            # финальный предохранитель — ничего не отвечаем
+            if _is_bad_reply(reply):
+                return
+
+            answer = reply
+            # --- RETURN ANSWER FOR VOICE PIPELINE ---
+            if context.user_data.get("input_mode") == "voice":
+                return answer
+            def smart_chunks(text, limit=4000):
+                def auto_complete_thought(t: str) -> str:
+                    """
+                    Локальный догон мысли без запроса к модели.
+                    Аккуратно завершает фразу, если она обрывается.
+                    """
+                    if not t:
+                        return t
+
+                    t = t.rstrip()
+
+                    # если уже выглядит завершённой — не трогаем
+                    if t.endswith((".", "!", "?", "…")):
+                        return t
+
+                    # мягкие эвристики завершения
+                    if t.endswith((",", ":", ";", "—", "-")):
+                        return t[:-1].rstrip() + "."
+
+                    # если последнее слово выглядит как связка
+                    dangling = (
+                        "и", "или", "что", "который", "которая",
+                        "потому", "если", "чтобы", "когда"
+                    )
+                    for d in dangling:
+                        if t.endswith(" " + d) or t == d:
+                            return t + " …"
+
+                    # дефолт: просто закрываем мысль
+                    return t + "."
+
+                chunks = []
+                while len(text) > limit:
+                    window = text[:limit]
+
+                    cut = max(
+                        window.rfind("."),
+                        window.rfind("!"),
+                        window.rfind("?"),
+                        window.rfind("…"),
+                        window.rfind("\n\n")
+                    )
+
+                    # если граница слишком плохая — не режем
+                    if cut < limit * 0.5:
+                        break
+
+                    part = text[:cut+1].strip()
+                    part = auto_complete_thought(part)
+
+                    chunks.append(part)
+                    text = text[cut+1:].strip()
+
+                if text:
+                    chunks.append(auto_complete_thought(text.strip()))
+
+                return chunks
+            import telegram.error
+            # --- SANITIZE TRAILING EMOJI / DOT ---
+            import re
+            def sanitize_final_text(text: str) -> str:
+                if not text:
+                    return text
+                # убираем смайлик + точку или просто смайлик в конце
+                text = re.sub(r'[\s\uFE0F]*[\U0001F600-\U0001F64F]\.\s*$', '', text)
+                text = re.sub(r'[\s\uFE0F]*[\U0001F600-\U0001F64F]\s*$', '', text)
+                return text
+
+            for part in smart_chunks(answer):
+                send_text = sanitize_final_text(part)
+                retries = 3
+                for attempt in range(1, retries + 1):
+                    try:
+                        # Если это кодовый блок, используем только format_code_markdown
+                        if send_text.strip().startswith("```") and send_text.strip().endswith("```"):
+                            html_part = format_code_markdown(send_text)
+                        else:
+                            html_part = escape_text_html(send_text)
+                        # --- SAFE REPLY ---
+                        target = update.effective_message
+                        if not target:
+                            return
+                        await target.reply_text(
+                            html_part,
+                            parse_mode="HTML",
+                            disable_web_page_preview=True
+                        )
+                        add_to_memory(uid, "assistant", strip_internal_notes(part))
+                        await asyncio.sleep(0.15)
+                        break
+                    except telegram.error.NetworkError as e:
+                        logging.warning(f"Попытка {attempt}/{retries} — NetworkError при отправке части: {e}")
+                        await asyncio.sleep(1)
+                        if attempt == retries:
+                            logging.error("Не удалось отправить чанк после 3 попыток, прекращаем отправку.")
             return
 
-        answer = reply
-        def smart_chunks(text, limit=4000):
-            def auto_complete_thought(t: str) -> str:
-                """
-                Локальный догон мысли без запроса к модели.
-                Аккуратно завершает фразу, если она обрывается.
-                """
-                if not t:
-                    return t
-
-                t = t.rstrip()
-
-                # если уже выглядит завершённой — не трогаем
-                if t.endswith((".", "!", "?", "…")):
-                    return t
-
-                # мягкие эвристики завершения
-                if t.endswith((",", ":", ";", "—", "-")):
-                    return t[:-1].rstrip() + "."
-
-                # если последнее слово выглядит как связка
-                dangling = (
-                    "и", "или", "что", "который", "которая",
-                    "потому", "если", "чтобы", "когда"
-                )
-                for d in dangling:
-                    if t.endswith(" " + d) or t == d:
-                        return t + " …"
-
-                # дефолт: просто закрываем мысль
-                return t + "."
-
-            chunks = []
-            while len(text) > limit:
-                window = text[:limit]
-
-                cut = max(
-                    window.rfind("."),
-                    window.rfind("!"),
-                    window.rfind("?"),
-                    window.rfind("…"),
-                    window.rfind("\n\n")
-                )
-
-                # если граница слишком плохая — не режем
-                if cut < limit * 0.5:
-                    break
-
-                part = text[:cut+1].strip()
-                part = auto_complete_thought(part)
-
-                chunks.append(part)
-                text = text[cut+1:].strip()
-
-            if text:
-                chunks.append(auto_complete_thought(text.strip()))
-
-            return chunks
-        import telegram.error
-        # --- SANITIZE TRAILING EMOJI / DOT ---
-        import re
-        def sanitize_final_text(text: str) -> str:
-            if not text:
-                return text
-            # убираем смайлик + точку или просто смайлик в конце
-            text = re.sub(r'[\s\uFE0F]*[\U0001F600-\U0001F64F]\.\s*$', '', text)
-            text = re.sub(r'[\s\uFE0F]*[\U0001F600-\U0001F64F]\s*$', '', text)
-            return text
-
-        for part in smart_chunks(answer):
-            send_text = sanitize_final_text(part)
-            retries = 3
-            for attempt in range(1, retries + 1):
-                try:
-                    # Если это кодовый блок, используем только format_code_markdown
-                    if send_text.strip().startswith("```") and send_text.strip().endswith("```"):
-                        html_part = format_code_markdown(send_text)
-                    else:
-                        html_part = escape_text_html(send_text)
-                    # --- SAFE REPLY ---
-                    target = update.effective_message
-                    if not target:
-                        return
-                    await target.reply_text(
-                        html_part,
-                        parse_mode="HTML",
-                        disable_web_page_preview=True
-                    )
-                    add_to_memory(uid, "assistant", strip_internal_notes(part))
-                    await asyncio.sleep(0.15)
-                    break
-                except telegram.error.NetworkError as e:
-                    logging.warning(f"Попытка {attempt}/{retries} — NetworkError при отправке части: {e}")
-                    await asyncio.sleep(1)
-                    if attempt == retries:
-                        logging.error("Не удалось отправить чанк после 3 попыток, прекращаем отправку.")
-        typing_active = False
-        typing_task.cancel()
+        # ====== НЕОПРЕДЕЛЁННОЕ СОСТОЯНИЕ ======
+        response = "Начни с /start — И мы начнем."
+        await update.message.reply_text(response)
+        add_to_memory(uid, "assistant", response)
         return
-
-    # ====== НЕОПРЕДЕЛЁННОЕ СОСТОЯНИЕ ======
-    response = "Начни с /start — И мы начнем."
-    await update.message.reply_text(response)
-    add_to_memory(uid, "assistant", response)
-    typing_active = False
-    typing_task.cancel()
+    finally:
+        typing_active = False
+        try:
+            typing_task.cancel()
+        except Exception:
+            pass
     
 async def soul_keeper():
     """Фоновый хранитель души"""
@@ -3731,7 +4017,6 @@ async def soul_keeper():
         await save_soul()
         await asyncio.sleep(60)  # проверяем каждую минуту
         
-#
 #
 # ====== MICRO AUTO-TRANSFORMERS ======
 import random
@@ -4072,28 +4357,30 @@ EMPATHY={collective.get("empathy_sync",0)}
 
         final_answer = strip_internal_notes("".join(collected).strip())
 
-        # --- быстрый асинхронный пуш в voice engine (НЕ блокирует стрим) ---
+        # --- ЧАНКОВЫЙ PUSH В VOICE ENGINE ---
         if final_answer:
             emotion_state = get_emotion_state(uid)
             detected = detect_emotion(text)
-
             gender_for_voice = profile.get("gender") or "не указан"
-            voice_payload = {
-                "text": final_answer,
-                "emotion": {
-                    "label": detected,
-                    "warmth": emotion_state.warmth,
-                    "tension": emotion_state.tension,
-                    "trust": emotion_state.trust,
-                    "curiosity": emotion_state.curiosity
-                },
-                "gender": gender_for_voice,
-                "mode": get_mode(uid)
-            }
 
-            # fire-and-forget, без ожидания TTS
-            asyncio.create_task(send_to_voice_engine(voice_payload))
+            async def voice_chunk_sender():
+                for chunk in sentence_chunks(final_answer):
+                    payload = {
+                        "text": chunk,
+                        "emotion": {
+                            "label": detected,
+                            "warmth": emotion_state.warmth,
+                            "tension": emotion_state.tension,
+                            "trust": emotion_state.trust,
+                            "curiosity": emotion_state.curiosity
+                        },
+                        "gender": gender_for_voice,
+                        "mode": get_mode(uid)
+                    }
+                    await send_to_voice_engine(payload)
+                    await asyncio.sleep(0.05)  # микропаузa между чанками
 
+            asyncio.create_task(voice_chunk_sender())
             add_to_memory(uid, "assistant", final_answer)
 
     return StreamingResponse(
@@ -4194,10 +4481,111 @@ async def camera_analysis(req: CameraRequest):
 
     return PlainTextResponse(answer)
 
+from TTS.api import TTS
+import soundfile as sf
+import tempfile
+import subprocess
 import whisper
 import torch
+import os
+import re
+import numpy as np
+def concat_wavs(wav_paths, out_path):
+    audios = []
+    sr = None
+
+    for p in wav_paths:
+        audio, sr_ = sf.read(p, dtype="float32")
+        sr = sr or sr_
+        audios.append(audio)
+
+    merged = np.concatenate(audios, axis=0)
+    sf.write(out_path, merged, sr)
 print("Loading Whisper...")
 whisper_model = whisper.load_model("base")
+
+print("Loading XTTS...")
+from TTS.tts.models.xtts import XttsAudioConfig
+torch.serialization.add_safe_globals([XttsAudioConfig])
+
+xtts = TTS(
+    model_name="tts_models/multilingual/multi-dataset/xtts_v2",
+    progress_bar=False,
+)
+
+# принудительно — без CUDA (XTTS не поддерживает mps)
+xtts.to("cpu")
+
+# ====== PROJECT DIR AND DEFAULT VOICE CLONE ======
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_VOICE_CLONE = os.path.join(PROJECT_DIR, "my_v.wav")
+
+# ====== PRELOAD SPEAKER EMBEDDING (FAST PATH) ======
+SPEAKER_EMBEDDING = None
+GPT_COND_LATENT = None
+try:
+    gpt_cond_latent, speaker_embedding = xtts.tts_model.get_conditioning_latents(
+        audio_path=[DEFAULT_VOICE_CLONE]
+    )
+    SPEAKER_EMBEDDING = speaker_embedding
+    GPT_COND_LATENT = gpt_cond_latent
+except Exception as e:
+    print(f"[WARN] Speaker embedding preload failed: {e}")
+
+# ====== LATENT VOICE MANIPULATOR ======
+import random
+import time
+
+VOICE_STATE = {
+    "pause_every": 2,      # пауза раз в N предложений
+    "last_update": time.time()
+}
+
+def prosody_plan(text: str) -> str:
+    """
+    Спокойная, разборчивая просодия.
+    Паузы только между предложениями.
+    Без рандома, без дёрганья темпа.
+    """
+    parts = re.split(r'([.!?])', text)
+    out = []
+    sentence_count = 0
+
+    for i in range(0, len(parts) - 1, 2):
+        sentence = parts[i].strip()
+        punct = parts[i + 1]
+        if not sentence:
+            continue
+
+        out.append(sentence + punct)
+        sentence_count += 1
+
+        if sentence_count % VOICE_STATE["pause_every"] == 0:
+            out.append(" — ")
+
+    return " ".join(out)
+
+# ===== TTS LANGUAGE SUPPORT & RESOLVER =====
+SUPPORTED_TTS_LANGS = {
+    'en','es','fr','de','it','pt','pl','tr','ru','nl','cs','ar','zh-cn','hu','ko','ja','hi'
+}
+
+from typing import Any
+try:
+    from utils import get_user_profile, save_user_profile
+except ImportError:
+    pass  # fallback if needed
+
+def resolve_tts_language(detected_lang: str, user_id: int) -> str:
+    if detected_lang in SUPPORTED_TTS_LANGS:
+        return detected_lang
+
+    profile = get_user_profile(user_id) or {}
+    last = profile.get("last_tts_lang")
+    if last in SUPPORTED_TTS_LANGS:
+        return last
+
+    return "ru"
 
 # ===== StableDiffusion генератор =====
 import tempfile
@@ -4224,6 +4612,87 @@ async def transcribe_voice(ogg_path: str) -> dict:
         "language": result.get("language", "unknown"),
         "confidence": float(result.get("avg_logprob", 0))
     }
+
+# ===== XTTS TTS UTILITY =====
+def synthesize_voice_xtts(
+    text: str,
+    language: str = "ru",
+    speaker_embedding=None,
+    gpt_cond_latent=None,
+    speaker_wav: str | None = None
+) -> str:
+    """
+    Возвращает путь к OGG-файлу с голосом
+    """
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+        wav_path = f.name
+
+    xtts.tts_to_file(
+        text=text,
+        file_path=wav_path,
+        speaker_wav=DEFAULT_VOICE_CLONE,
+        language=language
+    )
+
+    ogg_path = wav_path.replace(".wav", ".ogg")
+
+    subprocess.run([
+        "ffmpeg", "-y",
+        "-i", wav_path,
+        "-c:a", "libopus",
+        "-b:a", "32k",
+        ogg_path
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    return ogg_path
+    
+from fastapi.responses import StreamingResponse
+import soundfile as sf
+import io
+@web_app.post("/api/voice_chat/stream")
+async def api_voice_chat_stream(req: VoiceRequest):
+    uid = req.user_id
+    text = prosody_plan(req.text)
+    lang = resolve_tts_language("ru", uid)
+
+    sentences = sentence_chunks(text)
+
+    async def audio_stream():
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+
+            # 1️⃣ синтез одного предложения
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as f:
+                xtts.tts_to_file(
+                    text=sentence,
+                    file_path=f.name,
+                    speaker_wav=DEFAULT_VOICE_CLONE,
+                    language=lang
+                )
+
+                audio, sr = sf.read(f.name, dtype="float32")
+
+            # 2️⃣ стрим PCM чанками
+            CHUNK = 2048  # ~40ms
+            for i in range(0, len(audio), CHUNK):
+                yield audio[i:i + CHUNK].tobytes()
+                await asyncio.sleep(0)
+
+            # 3️⃣ микропауза между предложениями
+            await asyncio.sleep(0.04)
+
+    return StreamingResponse(
+        audio_stream(),
+        media_type="audio/pcm",
+        headers={
+            "X-Sample-Rate": "22050",
+            "X-Channels": "1",
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+    
 async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     voice = update.message.voice
@@ -4236,6 +4705,22 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stt = await transcribe_voice(ogg_path)
     text = stt["text"]
     lang = stt["language"]
+
+    # --- VOICE → TEXT BRIDGE ---
+    if text and text.strip():
+        # сохраняем распознанный текст в user_data
+        context.user_data["voice_text"] = text.strip()
+    else:
+        logging.error("Whisper returned empty text")
+        await update.message.reply_text("⚠️ Пустая транскрипция голоса")
+        return
+
+    # --- MARK INPUT MODE AS VOICE ---
+    context.user_data["input_mode"] = "voice"
+    # передаём управление в обычный текстовый pipeline
+    answer = await handle_message(update, context)
+    if not answer:
+        return
 
     logging.info(f"VOICE → {user_id}: [{lang}] {text}")
 
@@ -4253,24 +4738,58 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(4)
     typing_task = asyncio.create_task(typing_loop())
 
-    messages = get_conversation_messages(user_id)
-    result = await query_ollama_harmony(messages, reasoning_effort=get_mode(user_id))
-    reply = result.get("content", "")
+    # answer уже получен из handle_message
+    reply = answer
+    # коротко — TTS не любит простыни
+    reply = reply[:1024]
 
-    await update.message.reply_text(reply)
+    # --- Calmer, deterministic prosody plan ---
+    reply = prosody_plan(reply)
+
+    # --- TTS language code resolver ---
+    lang_tts = resolve_tts_language(lang, user_id)
+    profile = get_user_profile(user_id) or {}
+    profile["last_tts_lang"] = lang_tts
+    save_user_profile(profile)
+
+    wav_parts = []
+
+    for chunk in sentence_chunks(reply, max_chars=180):
+        if not chunk.strip():
+            continue
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            xtts.tts_to_file(
+                text=chunk,
+                file_path=f.name,
+                speaker_wav=DEFAULT_VOICE_CLONE,
+                language=lang_tts
+            )
+            wav_parts.append(f.name)
+
+    final_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
+    concat_wavs(wav_parts, final_wav)
+
+    final_ogg = final_wav.replace(".wav", ".ogg")
+    subprocess.run(
+        [
+            "ffmpeg", "-y",
+            "-i", final_wav,
+            "-c:a", "libopus",
+            "-b:a", "32k",
+            final_ogg
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    await update.message.reply_voice(
+        voice=open(final_ogg, "rb")
+    )
 
     # Останавливаем typing после ответа
     typing_active = False
     typing_task.cancel()
-
-    try:
-        await send_to_voice_engine({
-            "user_id": user_id,
-            "text": reply,
-            "language": lang
-        })
-    except Exception:
-        pass
 class StableDiffusionGenerator:
     def __init__(self, model_name: str = "runwayml/stable-diffusion-v1-5"):
         if torch.cuda.is_available():
@@ -4349,7 +4868,7 @@ if not os.path.exists("webapp"):
 web_app.mount("/", StaticFiles(directory="webapp", html=True), name="static")
 
 
-AUTONOMY_INTERVAL = (60, 120)  # секунд, случайно
+AUTONOMY_INTERVAL = (120, 240)  # секунд, случайно
 
 @web_app.on_event("startup")
 async def startup_event():
@@ -4369,7 +4888,7 @@ def get_active_users(limit: int = 5):
         return []
 
 async def autonomous_thought_loop():
-    await asyncio.sleep(5)  # дать серверу стартануть
+    await asyncio.sleep(60)  # дать серверу стартануть
 
     logging.info("🧠 Autonomous loop started")
 
@@ -4378,7 +4897,7 @@ async def autonomous_thought_loop():
             # 1. Выбираем активных пользователей
             active_users = get_active_users(limit=5)  # ты уже хранишь память — значит можешь это сделать
             if not active_users:
-                await asyncio.sleep(15)
+                await asyncio.sleep(300)
                 continue
 
             uid = random.choice(active_users)
@@ -4561,10 +5080,10 @@ async def api_dialog(request: Request):
 
 # Кэш состояния мира
 world_state = {}
-WORLD_NEWS_REFRESH_MIN = 30  # период обновления в минутах
+WORLD_NEWS_REFRESH_MIN = 360  # период обновления в минутах
 
 async def world_sensor():
-    await asyncio.sleep(10)  # дать боту проснуться
+    await asyncio.sleep(120)  # дать боту проснуться
     while True:
         try:
             result = await deep_cognitive_search("последние мировые новости")
@@ -4573,7 +5092,7 @@ async def world_sensor():
             world_state["news_timestamp"] = datetime.now()
         except Exception as e:
             logging.warning(f"Ошибка обновления world_state: {e}")
-        await asyncio.sleep(WORLD_NEWS_REFRESH_MIN * 60)
+        await asyncio.sleep(WORLD_NEWS_REFRESH_MIN * 360)
 
 
 
@@ -4602,7 +5121,7 @@ async def main_async():
     app.add_handler(CommandHandler("holo", holo_memory))
     app.add_handler(CommandHandler("wild", wild_mode))
     app.add_handler(CommandHandler("deepsearch", deepsearch_cmd))
-    app.add_handler(MessageHandler(filters.VOICE, handle_voice),)
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
     
@@ -4649,4 +5168,3 @@ if __name__ == "__main__":
     asyncio.run(run_all())
 
 #
-
