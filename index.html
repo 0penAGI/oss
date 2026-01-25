@@ -4273,12 +4273,15 @@ void main() {
         }, 800);
 
 
-        const user_id_int = Number(user_id); // ВСЕГДА int: TG или Web
 
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
             try {
-                const userId = user_id_int;
+                let userId = Number(user_id);
+                if (!Number.isInteger(userId)) {
+                  user_id = resolveUserId();
+                  userId = Number(user_id);
+                }
                 const response = await fetch("/api/generate_image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -4436,7 +4439,11 @@ void main() {
             const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
             try {
-                const userId = user_id_int;
+                let userId = Number(user_id);
+                if (!Number.isInteger(userId)) {
+                  user_id = resolveUserId();
+                  userId = Number(user_id);
+                }
                 // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
