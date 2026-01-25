@@ -4259,7 +4259,16 @@ void main() {
           return id;
         }
 
-        let user_id = resolveUserId();
+let user_id = resolveUserId();
+
+function getSafeUserId() {
+  let uid = Number(user_id);
+  if (!Number.isInteger(uid)) {
+    user_id = resolveUserId();
+    uid = Number(user_id);
+  }
+  return uid;
+}
 
         // 🔁 Telegram может проинициализироваться позже
         setTimeout(() => {
@@ -4277,15 +4286,10 @@ void main() {
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
             try {
-                let userId = Number(user_id);
-                if (!Number.isInteger(userId)) {
-                  user_id = resolveUserId();
-                  userId = Number(user_id);
-                }
                 const response = await fetch("/api/generate_image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ user_id: userId, prompt: text })
+                    body: JSON.stringify({ user_id: getSafeUserId(), prompt: text })
                 });
                 const data = await response.json();
                 generatedImg.src = "data:image/png;base64," + data.image_base64;
@@ -4439,11 +4443,6 @@ void main() {
             const speechDelayMs = 420; // базовая задержка «вязкого времени»
 
             try {
-                let userId = Number(user_id);
-                if (!Number.isInteger(userId)) {
-                  user_id = resolveUserId();
-                  userId = Number(user_id);
-                }
                 // Добавляем описание камеры в скобках, если оно есть
                 let textWithContext = text;
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
@@ -4466,7 +4465,7 @@ void main() {
                 const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
                 const payload = {
-                    user_id: userId,
+                    user_id: getSafeUserId(),
                     text: textWithContext,
                     gender: userGender,
                     lang: currentLang,
