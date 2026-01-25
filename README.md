@@ -16,7 +16,15 @@
 
 
 
-- **TRY IN Telegram**: [@gpzerobot](https://t.me/gpzerobot)
+- **TRY IN Telegram**:
+
+-   [@gpzerobot](https://t.me/gpzerobot)
+
+- **TRY IN Web (no long memory about you)**:
+
+-   [@ZephyrAI](https://0penagi.github.io/oss/)
+
+-   
 ![chat](https://github.com/0penAGI/oss/blob/main/oss.jpg)
 ![voice](https://github.com/0penAGI/oss/blob/main/ossv.jpg) 
 ![chat](https://github.com/0penAGI/oss/blob/main/osschat.jpg) 
