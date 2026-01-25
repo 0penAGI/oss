@@ -4263,10 +4263,16 @@ let user_id = resolveUserId();
 
 function getSafeUserId() {
   let uid = Number(user_id);
-  if (!Number.isInteger(uid)) {
-    user_id = resolveUserId();
-    uid = Number(user_id);
-  }
+  if (Number.isInteger(uid)) return uid;
+
+  // жёсткий fallback для browser
+  uid = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+  user_id = String(uid);
+
+  try {
+    localStorage.setItem(WEB_SESSION_KEY, user_id);
+  } catch (e) {}
+
   return uid;
 }
 
