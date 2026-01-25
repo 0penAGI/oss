@@ -4241,19 +4241,19 @@ void main() {
         const WEB_SESSION_KEY = 'web_fake_user_id';
 
         function resolveUserId() {
-          if (
-            window.Telegram &&
-            window.Telegram.WebApp &&
-            window.Telegram.WebApp.initDataUnsafe &&
-            window.Telegram.WebApp.initDataUnsafe.user &&
-            window.Telegram.WebApp.initDataUnsafe.user.id
-          ) {
-            return String(window.Telegram.WebApp.initDataUnsafe.user.id);
+          // 1) Telegram → сразу число
+          const tgId =
+            window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+          if (tgId) {
+            return String(tgId); // строка с числом, ок
           }
 
+          // 2) Web → генерим ЧИСЛО и сохраняем
           let id = localStorage.getItem(WEB_SESSION_KEY);
           if (!id) {
-            id = 'web_' + crypto.randomUUID();
+            id = String(
+              Date.now() * 1000 + Math.floor(Math.random() * 1000)
+            ); // ВСЕГДА ЧИСЛО
             localStorage.setItem(WEB_SESSION_KEY, id);
           }
           return id;
@@ -4272,19 +4272,8 @@ void main() {
           }
         }, 800);
 
-        function stringToIntId(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0;
-            }
-            return Math.abs(hash);
-        }
 
-        const user_id_int =
-            typeof user_id === 'string'
-                ? stringToIntId(user_id)
-                : Number(user_id);
+        const user_id_int = Number(user_id);
 
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
