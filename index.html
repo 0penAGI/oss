@@ -4260,6 +4260,7 @@ void main() {
         }
 
         let user_id = resolveUserId();
+        const IS_TELEGRAM = !!window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 
         // 🔁 Telegram может проинициализироваться позже
         setTimeout(() => {
@@ -4273,7 +4274,7 @@ void main() {
         }, 800);
 
 
-        const user_id_int = Number(user_id);
+        const user_id_int = IS_TELEGRAM ? Number(user_id) : null;
 
         async function generateImageFromText(text) {
             if (!text || !text.trim()) return;
@@ -4282,7 +4283,11 @@ void main() {
                 const response = await fetch("/api/generate_image", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ user_id: userId, prompt: text })
+                    body: JSON.stringify(
+                      userId !== null
+                        ? { user_id: userId, prompt: text }
+                        : { prompt: text }
+                    )
                 });
                 const data = await response.json();
                 generatedImg.src = "data:image/png;base64," + data.image_base64;
@@ -4459,7 +4464,7 @@ void main() {
                 const selfAwarenessContext = (typeof selfAwareness !== 'undefined') ? selfAwareness : {};
 
                 const payload = {
-                    user_id: userId,
+                    ...(userId !== null ? { user_id: userId } : {}),
                     text: textWithContext,
                     gender: userGender,
                     lang: currentLang,
