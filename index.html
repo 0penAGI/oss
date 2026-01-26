@@ -1810,47 +1810,85 @@ void main() {
                 cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
             );
         }
-
 // ===== UI CONTROLS =====
 const toggleShaders = document.getElementById('toggleShaders');
-const toggleVoice   = document.getElementById('toggleVoice');
-const uiScale       = document.getElementById('uiScale');
-const root          = document.documentElement;
+const toggleVoice = document.getElementById('toggleVoice');
+const uiScale = document.getElementById('uiScale');
+const root = document.documentElement;
+
+// Глобальная переменная для отслеживания состояния голосового режима
+let voiceModeEnabled = true;
 
 // --- UI scale init (ZERO = 1.0, NO BREAKAGE) ---
 if (uiScale) {
-  uiScale.min = 0;
-  uiScale.max = 100;
-  uiScale.value = 3;
-  root.style.setProperty('--ui-scale', 1);
+    uiScale.min = 0;
+    uiScale.max = 100;
+    uiScale.value = 3;
+    root.style.setProperty('--ui-scale', 1);
 }
 
 // --- Shaders ---
 toggleShaders?.addEventListener('change', () => {
-  if (toggleShaders.checked) {
-    renderer.setAnimationLoop(animate);
-  } else {
-    renderer.setAnimationLoop(null);
-    orbEnergy = 0;
-    targetEnergy = 0;
-    renderer.clear(true, true, true);
-  }
+    if (toggleShaders.checked) {
+        renderer.setAnimationLoop(animate);
+    } else {
+        renderer.setAnimationLoop(null);
+        orbEnergy = 0;
+        targetEnergy = 0;
+        renderer.clear(true, true, true);
+    }
 });
 
 // --- Voice ---
 toggleVoice?.addEventListener('change', () => {
-  if (!toggleVoice.checked) {
-    try { speechSynthesis.cancel(); } catch {}
-    if (audioContext?.state === 'running') audioContext.suspend();
-  } else {
-    if (audioContext?.state === 'suspended') audioContext.resume();
-  }
+    voiceModeEnabled = toggleVoice.checked;
+    
+    if (!voiceModeEnabled) {
+        // Полное выключение голосового режима
+        try {
+            speechSynthesis.cancel();
+            recognition.stop();
+            recognition.abort();
+        } catch (e) {}
+        
+        // Остановка вибраций
+        stopListeningVibration();
+        stopThinkingVibration();
+        stopSpeakingVibration();
+        
+        // Сброс состояний
+        isListening = false;
+        isSpeaking = false;
+        isThinking = false;
+        
+        // Визуальный сброс орба
+        orb.classList.remove('listening', 'thinking', 'speaking');
+        status.innerText = "voice off";
+        
+        // Установка состояния мозга в IDLE
+        if (typeof setBrainState !== 'undefined') {
+            setBrainState(BrainState.IDLE);
+        }
+        
+        // Приостановка аудиоконтекста если он активен
+        if (audioContext?.state === 'running') {
+            audioContext.suspend();
+        }
+    } else {
+        // Включение голосового режима
+        status.innerText = "ready";
+        
+        // Возобновление аудиоконтекста если приостановлен
+        if (audioContext?.state === 'suspended') {
+            audioContext.resume();
+        }
+    }
 });
 
 // --- UI scale ---
 uiScale?.addEventListener('input', () => {
-  const scale = 1 + (uiScale.value / 100);
-  root.style.setProperty('--ui-scale', scale);
+    const scale = 1 + (uiScale.value / 100);
+    root.style.setProperty('--ui-scale', scale);
 });
 
         animate();
@@ -4113,29 +4151,41 @@ uiScale?.addEventListener('input', () => {
         }
 
         function startListening() {
-            if (isSpeaking || isThinking) return;
+            if (!voiceModeEnabled) {
+                console.log('[startListening blocked] voice OFF');
+                return;
+            }
+
+            if (isSpeaking || isThinking || isChatMode || isListening) return;
+
             isListening = true;
-            if (isSpeaking || isThinking || isChatMode) return;
-    
-            // Плавное переключение визуального состояния
+
+            // визуал
             orb.classList.remove('speaking', 'thinking');
-    
+
             requestAnimationFrame(() => {
                 orb.classList.add('listening');
                 status.innerText = "listening";
             });
-    
-            // Задержка перед запуском вибрации для плавности
+
             setTimeout(() => {
+                if (!voiceModeEnabled) return;
+
                 startListeningVibration();
 
-                // Запуск распознавания с задержкой
                 setTimeout(() => {
+                    if (!voiceModeEnabled) return;
+
+                    try {
+                        recognition.abort(); // сброс возможного залипа
+                    } catch(e){}
+
                     try {
                         recognition.start();
                     } catch (e) {
-                        // Если ошибка, пробуем снова через 1 секунду
-                        setTimeout(startListening, 1000);
+                        console.warn('[recognition start failed]', e);
+                        isListening = false;
+                        disableVoiceMode('recognition-error');
                     }
                 }, 50);
             }, 150);
@@ -4482,6 +4532,7 @@ uiScale?.addEventListener('input', () => {
         };
         
         recognition.onend = () => {
+            if (!voiceModeEnabled) return;
             if (isSpeaking || isThinking || isChatMode) return;
             orb.classList.remove('listening');
             startListening();
@@ -5068,6 +5119,10 @@ window.__aiTypingLock = true;
 
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            if (!voiceModeEnabled) {
+                console.log('[speak blocked] voice OFF');
+                return;
+            }
             // === 2) Защита от overlap TTS ===
             isSpeaking = true;
             isListening = false;
