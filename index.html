@@ -503,7 +503,38 @@
       background: rgba(0,0,0,.25);
       backdrop-filter: blur(6px);
     }
+    /* ===== Settings checkboxes — monochrome ===== */
+    .settings-panel input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(255,255,255,0.6);
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-grid;
+    place-content: center;
+    }
 
+    .settings-panel input[type="checkbox"]::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      opacity: 0;
+      transition: opacity .12s ease;
+    }
+
+    .settings-panel input[type="checkbox"]:checked::before {
+      opacity: 1;
+    }
+
+    .settings-panel input[type="checkbox"]:focus {
+      outline: none;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.25);
+    }
+    
     .main-wrapper.settings-open .settings-panel {
       left: 0;
     }
