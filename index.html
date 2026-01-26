@@ -493,29 +493,43 @@
         mask-size: 100% 100%;
     }
     .settings-panel {
-      position: absolute;
-      left: -80%;
-      top: 0;
-      width: 80%;
-      height: 100%;
-      transition: left .4s cubic-bezier(.4,0,.2,1);
-      z-index: 2;
-      background: rgba(0,0,0,.25);
-      backdrop-filter: blur(6px);
-    }
-    /* ===== Settings checkboxes — monochrome ===== */
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80%;
+        height: 100%;
+        transform: translateX(-100%);
+        transition: transform .4s cubic-bezier(.4,0,.2,1);
+        z-index: 2;
+        background: rgba(0,0,0,.25);
+        backdrop-filter: blur(6px);
+        }
+
+        .main-wrapper.settings-open .settings-panel {
+          transform: translateX(0);
+        }
+
+        .settings-inner {
+          padding: 90px 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+          font-size: 13px;
+        }
+
+        /* ===== Settings checkboxes — monochrome ===== */
     .settings-panel input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border: 1px solid rgba(255,255,255,0.6);
-    background: transparent;
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-grid;
-    place-content: center;
-    }
+        appearance: none;
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border: 1px solid rgba(255,255,255,0.6);
+        background: transparent;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-grid;
+        place-content: center;
+        }
 
     .settings-panel input[type="checkbox"]::before {
       content: "";
@@ -535,17 +549,6 @@
       box-shadow: 0 0 0 1px rgba(255,255,255,0.25);
     }
     
-    .main-wrapper.settings-open .settings-panel {
-      left: 0;
-    }
-
-        .settings-inner {
-          padding: 90px 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 18px;
-          font-size: 13px;
-        }
     </style>
 
     </label>
@@ -1793,8 +1796,7 @@ toggleVoice?.addEventListener('change', () => {
 
 // --- UI scale ---
 uiScale?.addEventListener('input', () => {
-  const scale = 1 + Number(uiScale.value); // 0 → 1
-  root.style.setProperty('--ui-scale', scale);
+  root.style.setProperty('--ui-scale', uiScale.value);
 });
 
         animate();
