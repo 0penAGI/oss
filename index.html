@@ -658,7 +658,32 @@
         
         
         const canvas = document.getElementById('webgl-canvas');
-
+        // Добавьте в начале скрипта
+            document.addEventListener('DOMContentLoaded', () => {
+         // Исправление для Android touch
+            document.body.style.touchAction = 'manipulation';
+            document.body.style.webkitTapHighlightColor = 'transparent';
+    
+            // Принудительный обработчик для орба
+            const orb = document.getElementById('orb-interactive');
+             if (orb) {
+                orb.style.touchAction = 'manipulation';
+                orb.style.webkitTapHighlightColor = 'transparent';
+        
+                // Добавляем все типы событий
+                orb.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Touch start on orb');
+                    orbClickHandler();
+                }, { passive: false });
+        
+                orb.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, { passive: false });
+            }
+        });
         // ===== Жёсткий фикс: чат всегда доступен на ноуте =====
         const chat =
             document.querySelector('#chat') ||
