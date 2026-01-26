@@ -1838,35 +1838,14 @@ toggleShaders?.addEventListener('change', () => {
 });
 
 // --- Voice ---
-
-
-let voiceEnabled = true;
-
-function applyVoiceState(enabled) {
-  voiceEnabled = enabled;
-
-  if (!enabled) {
-    try { window.speechSynthesis?.cancel(); } catch {}
-
-    if (audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-    if (musicCtx && musicCtx.state === 'running') musicCtx.suspend();
-
-    isSpeaking = false;
-    isThinking = false;
-  } else {
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-    if (musicCtx && musicCtx.state === 'suspended') musicCtx.resume();
-  }
-}
-
 toggleVoice?.addEventListener('change', () => {
-  applyVoiceState(toggleVoice.checked);
+  if (!toggleVoice.checked) {
+    try { speechSynthesis.cancel(); } catch {}
+    if (audioContext?.state === 'running') audioContext.suspend();
+  } else {
+    if (audioContext?.state === 'suspended') audioContext.resume();
+  }
 });
-
-// init from UI state
-if (toggleVoice) {
-  applyVoiceState(toggleVoice.checked);
-}
 
 // --- UI scale ---
 uiScale?.addEventListener('input', () => {
