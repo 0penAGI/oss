@@ -33,8 +33,9 @@
           position: relative;
         }
         /* PATCH 4 FIX — layout-safe UI scale */
+        /* PATCH 4 FIX — clamp UI scale (no downscale) */
         body {
-          zoom: var(--ui-scale, 1);
+          zoom: max(1, var(--ui-scale, 1));
         }
         #webgl-canvas {
             position: fixed;
