@@ -487,6 +487,288 @@
         mask-repeat: no-repeat;
         mask-size: 100% 100%;
     }
+    <!-- Добавьте этот CSS в секцию <style> -->
+<style>
+    /* === Settings Panel === */
+    .settings-panel {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        transform: translateX(-100%);
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 100;
+        padding: 80px 24px 24px;
+        overflow-y: auto;
+        box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .main-wrapper.settings-open .settings-panel {
+        transform: translateX(0);
+    }
+
+    .main-wrapper.settings-open .main-content {
+        transform: translateX(80%);
+    }
+
+    .settings-header {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 30px;
+        color: #fff;
+        text-align: center;
+        letter-spacing: 1px;
+    }
+
+    .settings-group {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .settings-title {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .settings-option {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .settings-option:last-child {
+        border-bottom: none;
+    }
+
+    .option-label {
+        font-size: 15px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .option-description {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        margin-top: 4px;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 52px;
+        height: 26px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.2);
+        transition: .3s;
+        border-radius: 34px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+        background-color: #4CAF50;
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+
+    /* Size Selector */
+    .size-selector {
+        display: flex;
+        gap: 8px;
+    }
+
+    .size-btn {
+        flex: 1;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.7);
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: center;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .size-btn.active {
+        background: rgba(76, 175, 80, 0.3);
+        border-color: #4CAF50;
+        color: #fff;
+    }
+
+    /* Mode Selector */
+    .mode-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .mode-btn {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.7);
+        border-radius: 10px;
+        cursor: pointer;
+        text-align: center;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+        background: rgba(33, 150, 243, 0.3);
+        border-color: #2196F3;
+        color: #fff;
+    }
+
+    .mode-icon {
+        margin-right: 8px;
+        font-size: 16px;
+    }
+
+    /* Apply Button */
+    .apply-btn {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 30px;
+        transition: transform 0.2s;
+    }
+
+    .apply-btn:active {
+        transform: scale(0.98);
+    }
+
+    /* Shaders Disabled State */
+    body.shaders-disabled #webgl-canvas,
+    body.shaders-disabled #chatShaderCanvas {
+        display: none !important;
+    }
+
+    body.shaders-disabled .main-content {
+        background: #000 !important;
+    }
+
+    /* Interface Size States */
+    body.interface-small {
+        font-size: 12px;
+    }
+
+    body.interface-small .chat-input textarea {
+        min-height: 35px;
+        font-size: 13px;
+    }
+
+    body.interface-medium {
+        font-size: 14px;
+    }
+
+    body.interface-medium .chat-input textarea {
+        min-height: 45px;
+        font-size: 15px;
+    }
+
+    body.interface-large {
+        font-size: 16px;
+    }
+
+    body.interface-large .chat-input textarea {
+        min-height: 60px;
+        font-size: 17px;
+        padding: 15px;
+    }
+
+    body.interface-large .chat-message {
+        font-size: 15px;
+        padding: 12px 16px;
+    }
+
+    /* Text-only Mode */
+    body.text-only-mode #orb-interactive,
+    body.text-only-mode #orb,
+    body.text-only-mode .soul-container {
+        display: none !important;
+    }
+
+    body.text-only-mode .content {
+        top: 20%;
+        transform: translate(-50%, 0);
+    }
+
+    body.text-only-mode #transcript {
+        max-height: 70vh;
+        font-size: 15px;
+    }
+
+    /* Settings Icon */
+    .settings-icon {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        width: 44px;
+        height: 44px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        z-index: 50;
+        transition: all 0.3s;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .settings-icon:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+    }
+</style>
     </style>
 </head>
 <body>
@@ -526,6 +808,73 @@
             <button id="sendBtn">Send</button>
         </div>
     </div>
+    <!-- Добавьте эту HTML-разметку после закрывающего </div> для .chat-panel -->
+<div class="settings-icon" id="settingsIcon">⚙️</div>
+
+<div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">Настройки</div>
+    
+    <div class="settings-group">
+        <div class="settings-title">Визуальные эффекты</div>
+        <div class="settings-option">
+            <div>
+                <div class="option-label">Выключить шейдеры</div>
+                <div class="option-description">Черный фон вместо визуальных эффектов</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="shadersToggle">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    
+    <div class="settings-group">
+        <div class="settings-title">Размер интерфейса</div>
+        <div class="size-selector">
+            <div class="size-btn" data-size="small">Маленький</div>
+            <div class="size-btn active" data-size="medium">Средний</div>
+            <div class="size-btn" data-size="large">Большой</div>
+        </div>
+    </div>
+    
+    <div class="settings-group">
+        <div class="settings-title">Режим работы</div>
+        <div class="mode-selector">
+            <div class="mode-btn active" data-mode="voice">
+                <span class="mode-icon">🎤</span> Голосовой режим
+            </div>
+            <div class="mode-btn" data-mode="text">
+                <span class="mode-icon">⌨️</span> Текстовый режим
+            </div>
+        </div>
+    </div>
+    
+    <div class="settings-group">
+        <div class="settings-title">Дополнительно</div>
+        <div class="settings-option">
+            <div>
+                <div class="option-label">Вибрации</div>
+                <div class="option-description">Тактильная обратная связь</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="vibrationsToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+        <div class="settings-option">
+            <div>
+                <div class="option-label">Звуки интерфейса</div>
+                <div class="option-description">Звуковые эффекты</div>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="soundsToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+    
+    <button class="apply-btn" id="applySettings">Применить настройки</button>
+</div>
 
 </div>
 
@@ -6154,7 +6503,195 @@ window.__aiTypingLock = true;
           };
         }
 
+        <!-- Добавьте этот JavaScript в конец <script> -->
 
+    // ===== Settings Panel Logic =====
+    const settingsPanel = document.getElementById('settingsPanel');
+    const settingsIcon = document.getElementById('settingsIcon');
+    const shadersToggle = document.getElementById('shadersToggle');
+    const vibrationsToggle = document.getElementById('vibrationsToggle');
+    const soundsToggle = document.getElementById('soundsToggle');
+    const applyBtn = document.getElementById('applySettings');
+    
+    let settingsOpen = false;
+    let currentSettings = {
+        shaders: false,
+        interfaceSize: 'medium',
+        mode: 'voice',
+        vibrations: true,
+        sounds: true
+    };
+    
+    // Load saved settings
+    function loadSettings() {
+        const saved = localStorage.getItem('ai_settings');
+        if (saved) {
+            currentSettings = JSON.parse(saved);
+            
+            // Apply loaded settings to UI
+            shadersToggle.checked = currentSettings.shaders;
+            vibrationsToggle.checked = currentSettings.vibrations;
+            soundsToggle.checked = currentSettings.sounds;
+            
+            // Set active buttons
+            document.querySelectorAll('.size-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.size === currentSettings.interfaceSize);
+            });
+            
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === currentSettings.mode);
+            });
+            
+            // Apply immediately
+            applySettings(currentSettings);
+        }
+    }
+    
+    // Save settings
+    function saveSettings() {
+        localStorage.setItem('ai_settings', JSON.stringify(currentSettings));
+    }
+    
+    // Apply settings to the interface
+    function applySettings(settings) {
+        // Shaders
+        document.body.classList.toggle('shaders-disabled', settings.shaders);
+        
+        // Interface size
+        document.body.classList.remove('interface-small', 'interface-medium', 'interface-large');
+        document.body.classList.add(`interface-${settings.interfaceSize}`);
+        
+        // Mode
+        document.body.classList.toggle('text-only-mode', settings.mode === 'text');
+        if (settings.mode === 'text') {
+            isChatMode = true;
+            if (typeof stopListening === 'function') stopListening();
+        } else {
+            isChatMode = false;
+            if (!isSpeaking && !isThinking) {
+                setTimeout(startListening, 500);
+            }
+        }
+        
+        // Vibrations
+        window.vibrationsEnabled = settings.vibrations;
+        
+        // Sounds
+        window.soundsEnabled = settings.sounds;
+    }
+    
+    // Open/close settings panel
+    function toggleSettings() {
+        settingsOpen = !settingsOpen;
+        mainWrapper.classList.toggle('settings-open', settingsOpen);
+        
+        if (settingsOpen) {
+            // Close chat if open
+            mainWrapper.classList.remove('chat-open');
+        }
+        
+        vibrate('light');
+    }
+    
+    // Initialize settings
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSettings();
+        
+        // Settings icon click
+        settingsIcon.addEventListener('click', toggleSettings);
+        
+        // Size selector
+        document.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSettings.interfaceSize = btn.dataset.size;
+            });
+        });
+        
+        // Mode selector
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSettings.mode = btn.dataset.mode;
+            });
+        });
+        
+        // Apply button
+        applyBtn.addEventListener('click', () => {
+            // Update current settings
+            currentSettings.shaders = shadersToggle.checked;
+            currentSettings.vibrations = vibrationsToggle.checked;
+            currentSettings.sounds = soundsToggle.checked;
+            
+            // Apply and save
+            applySettings(currentSettings);
+            saveSettings();
+            
+            // Close panel
+            toggleSettings();
+            
+            // Feedback
+            if (window.soundsEnabled) {
+                // Play a subtle sound if you have audio context
+            }
+            if (window.vibrationsEnabled) {
+                vibrate('medium');
+            }
+        });
+    });
+    
+    // Swipe left to open settings
+    document.body.addEventListener('touchstart', (e) => {
+        if (settingsOpen || chatOpen) return;
+        
+        const touch = e.changedTouches[0];
+        const x = touch.clientX;
+        
+        // Only trigger from right edge (for settings open)
+        if (x > window.innerWidth * 0.8) {
+            touchStartX = x;
+            touchStartY = touch.clientY;
+            isDragging = true;
+            dragTranslateX = 0;
+        }
+    });
+    
+    document.body.addEventListener('touchmove', (e) => {
+        if (!isDragging || chatOpen || settingsOpen) return;
+        
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - touchStartX;
+        
+        // Swipe left (negative delta) from right edge opens settings
+        if (deltaX < -50) {
+            toggleSettings();
+            isDragging = false;
+        }
+    });
+    
+    // Swipe right to close settings
+    document.body.addEventListener('touchend', (e) => {
+        if (!settingsOpen) return;
+        
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - touchStartX;
+        
+        if (deltaX > 60) {
+            toggleSettings();
+        }
+    });
+    
+    // Close settings when clicking outside
+    document.addEventListener('click', (e) => {
+        if (settingsOpen && 
+            !settingsPanel.contains(e.target) && 
+            !settingsIcon.contains(e.target) &&
+            e.clientX > window.innerWidth * 0.2) {
+            toggleSettings();
+        }
+    });
     </script>
 
     
