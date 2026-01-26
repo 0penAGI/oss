@@ -525,7 +525,7 @@
         height: 18px;
         border: 1px solid rgba(255,255,255,0.6);
         background: transparent;
-        border-radius: 4px;
+        border-radius: 50%;
         cursor: pointer;
         display: inline-grid;
         place-content: center;
@@ -533,9 +533,10 @@
 
     .settings-panel input[type="checkbox"]::before {
       content: "";
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       background: #fff;
+      border-radius: 50%;
       opacity: 0;
       transition: opacity .12s ease;
     }
@@ -547,6 +548,50 @@
     .settings-panel input[type="checkbox"]:focus {
       outline: none;
       box-shadow: 0 0 0 1px rgba(255,255,255,0.25);
+    }
+
+    /* ===== UI scale range — monochrome ===== */
+    .settings-panel input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 120px;           /* компактная длина */
+      height: 2px;
+      background: rgba(255,255,255,0.25);
+      outline: none;
+      align-self: flex-start; /* не растягивается */
+    }
+
+    /* WebKit track */
+    .settings-panel input[type="range"]::-webkit-slider-runnable-track {
+      height: 2px;
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* WebKit thumb */
+    .settings-panel input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      margin-top: -6px;
+      cursor: pointer;
+    }
+
+    /* Firefox track */
+    .settings-panel input[type="range"]::-moz-range-track {
+      height: 2px;
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* Firefox thumb */
+    .settings-panel input[type="range"]::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      cursor: pointer;
     }
     
     </style>
@@ -1772,6 +1817,14 @@ const toggleVoice   = document.getElementById('toggleVoice');
 const uiScale       = document.getElementById('uiScale');
 const root          = document.documentElement;
 
+// --- UI scale init (ZERO = 1.0, NO BREAKAGE) ---
+if (uiScale) {
+  uiScale.min = 0;
+  uiScale.max = 100;
+  uiScale.value = 3;
+  root.style.setProperty('--ui-scale', 1);
+}
+
 // --- Shaders ---
 toggleShaders?.addEventListener('change', () => {
   if (toggleShaders.checked) {
@@ -1796,7 +1849,8 @@ toggleVoice?.addEventListener('change', () => {
 
 // --- UI scale ---
 uiScale?.addEventListener('input', () => {
-  root.style.setProperty('--ui-scale', uiScale.value);
+  const scale = 1 + (uiScale.value / 100);
+  root.style.setProperty('--ui-scale', scale);
 });
 
         animate();
