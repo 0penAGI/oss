@@ -1762,7 +1762,8 @@ toggleVoice?.addEventListener('change', () => {
 
 // --- UI scale ---
 uiScale?.addEventListener('input', () => {
-  root.style.setProperty('--ui-scale', uiScale.value);
+  const scale = 1 + Number(uiScale.value); // 0 → 1
+  root.style.setProperty('--ui-scale', scale);
 });
 
         animate();
