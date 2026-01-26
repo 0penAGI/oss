@@ -3510,20 +3510,22 @@ uiScale?.addEventListener('input', () => {
             // taps
             tapCount++;
             if (tapTimer) clearTimeout(tapTimer);
-            tapTimer = setTimeout(() => { tapCount = 0; }, 3000); // 
+            tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
 
             if (tapCount >= 5) {
-               
                 speak("Ouch!");
                 tapCount = 0;
                 return;
             }
 
-            if (typeof window.speechSynthesis?.resume === 'function') {
-                window.speechSynthesis.resume();
-            }
-            if (!isSpeaking && !isThinking) {
-                startListening();
+            // Проверка голосового режима перед запуском слушания
+            if (voiceModeEnabled) {
+                if (typeof window.speechSynthesis?.resume === 'function') {
+                    window.speechSynthesis.resume();
+                }
+                if (!isSpeaking && !isThinking) {
+                    startListening();
+                }
             }
         }
         orb.addEventListener('click', orbClickHandler);
@@ -4152,6 +4154,9 @@ uiScale?.addEventListener('input', () => {
 
         function startListening() {
             if (!voiceModeEnabled) {
+                orb.classList.remove('listening', 'speaking', 'thinking');
+                orb.classList.add('voice-off');
+                status.innerText = "voice off";
                 console.log('[startListening blocked] voice OFF');
                 return;
             }
