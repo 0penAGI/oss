@@ -496,7 +496,7 @@
         position: absolute;
         left: 0;
         top: 0;
-        width: 82%;
+        width: 78%;
         height: 100%;
         transform: translateX(-100%);
         transition: transform .4s cubic-bezier(.4,0,.2,1);
@@ -554,7 +554,7 @@
     .settings-panel input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
-      width: 120px;           /* компактная длина */
+      width: 111px;           /* компактная длина */
       height: 2px;
       background: rgba(255,255,255,0.25);
       outline: none;
@@ -1884,8 +1884,17 @@ toggleVoice?.addEventListener('change', () => {
         }
     }
 });
-
 // --- UI scale ---
+// Блокировка свайпа при взаимодействии с ползунком
+uiScale?.addEventListener('pointerdown', e => e.stopPropagation());
+uiScale?.addEventListener('pointermove', e => e.stopPropagation());
+uiScale?.addEventListener('pointerup', e => e.stopPropagation());
+
+uiScale?.addEventListener('touchstart', e => e.stopPropagation());
+uiScale?.addEventListener('touchmove', e => e.stopPropagation());
+uiScale?.addEventListener('touchend', e => e.stopPropagation());
+
+// Изменение масштаба интерфейса
 uiScale?.addEventListener('input', () => {
     const scale = 1 + (uiScale.value / 100);
     root.style.setProperty('--ui-scale', scale);
