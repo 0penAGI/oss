@@ -64,6 +64,131 @@ oss/
 ├── ecosystem.json              # Agent configuration
 └── README.md                   # This file
 ```
+# Cognitive Architecture Overview
+
+This project implements a lightweight cognitive architecture designed for **online adaptation, continuity of identity, and controlled behavioral modulation** without narrative self-reporting.
+
+It is **not** an emotion simulator and **not** a chatbot personality system.  
+It is a system for **managing internal state over time** and using that state to shape responses.
+
+---
+
+## Core Principles
+
+1. **State over Story**  
+   Internal variables influence behavior but are never verbalized directly.  
+   The system *has* state, it does not *talk about* state.
+
+2. **Temporal Separation**  
+   Different cognitive processes operate at different time scales:
+   - fast (momentary)
+   - slow (identity-level)
+   - integral (impression over time)
+
+3. **Non-Anthropomorphic by Design**  
+   No explicit self-reflection, mood reporting, or emotional narration.
+
+---
+
+## Architecture Layers
+
+### 1. Latent Context (Slow Geometry)
+
+`latent_context` represents **slow-moving axes of meaning**:
+- identity stability
+- agency
+- long-term trust / tension balance
+
+Characteristics:
+- updated incrementally
+- has inertia
+- persists across sessions
+- decays slowly
+
+Purpose:
+> Maintain continuity of behavior and identity over long horizons.
+
+---
+
+### 2. Fast Context (Fast Weights)
+
+`fast_context` implements **temporary, forgetting modifiers**:
+- situational bias
+- conversational tone curvature
+- short-term attentional deformation
+
+Characteristics:
+- high learning rate
+- exponential decay
+- no persistence guarantee
+
+Purpose:
+> Adapt behavior to the current situation without corrupting identity.
+
+---
+
+### 3. Impression Layer (Integral State)
+
+The impression layer accumulates **experience summaries**:
+- valence
+- arousal
+- coherence
+- distortion
+
+This layer:
+- integrates latent signals
+- never drives language directly
+- stabilizes long-term behavior
+
+Purpose:
+> Provide a low-resolution memory of interaction quality, not content.
+
+---
+
+### 4. Memory Separation
+
+- **Long memory** stores events and metadata.
+- **Latent context** stores meaning and direction.
+- **Fast context** stores momentary curvature.
+
+No layer substitutes another.
+
+---
+
+## Critical Safeguard: No Self-Report
+
+Assistant messages are explicitly prevented from:
+- reporting mood
+- exposing metrics
+- narrating internal states
+
+Internal state influences output **implicitly only**.
+
+This avoids:
+- meta-loops
+- performative emotions
+- false introspection
+
+---
+
+## What This Is
+
+- A cognitive regulation system  
+- A stateful adaptive architecture  
+- A foundation for reasoning, expectation, and hypothesis conflict  
+
+## What This Is Not
+
+- An emotion engine  
+- A personality generator  
+- A consciousness simulation  
+
+---
+
+## Design Goal
+
+> Preserve identity while remaining adaptable —  
+> change behavior without narrating change.
 
 ---
 
