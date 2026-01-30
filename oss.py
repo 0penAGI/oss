@@ -44,7 +44,61 @@ import numpy as np
 import threading
 
 # ====== META EMBEDDING LAYER ======
+# ====== PERSISTENT INTENTION FIELD ======
 
+from dataclasses import dataclass, field
+import time
+
+def clamp(x, a=0.0, b=1.0):
+    return max(a, min(b, x))
+
+@dataclass
+class Intention:
+    key: str
+    tension: float = 0.1
+    decay: float = 0.995
+    growth: float = 0.02
+    last_touched: float = field(default_factory=lambda: time.time())
+
+class PersistentIntentionField:
+    def __init__(self):
+        self.intentions = {}
+
+    def touch(self, key: str, impulse: float = 0.1):
+        it = self.intentions.get(key)
+        if not it:
+            it = Intention(key)
+            self.intentions[key] = it
+        it.tension = clamp(it.tension + impulse * it.growth, 0.0, 1.5)
+        it.last_touched = time.time()
+
+    def step(self):
+        now = time.time()
+        for k in list(self.intentions.keys()):
+            it = self.intentions[k]
+            it.tension *= it.decay
+            if it.tension < 0.05 and now - it.last_touched > 3600:
+                del self.intentions[k]
+
+    def pressure(self) -> float:
+        return sum(it.tension for it in self.intentions.values())
+
+    def strongest(self):
+        if not self.intentions:
+            return None
+        return max(self.intentions.values(), key=lambda i: i.tension).key
+    def rebase(self, factor: float = 0.4):
+        """
+        Фазовый сброс воли без стирания.
+        Убирает инерцию, сохраняет направление.
+        """
+        if not self.intentions:
+            return
+        for it in self.intentions.values():
+            it.tension *= factor
+
+
+will_field = PersistentIntentionField()
 def _cosine(a, b):
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-8))
 
@@ -533,6 +587,8 @@ class RealAgent:
 
         # --- AUTONOMOUS GOAL UPDATE ---
         self.current_goal = self.generate_goal(swarm_feedback)
+        if self.current_goal:
+            will_field.touch(self.current_goal, impulse=abs(self.mood) + 0.1)
 
         # --- EXPANDED AUTONOMOUS SEARCH ---
         search_drive = (
@@ -613,8 +669,15 @@ class RealAgent:
         # --- VISUAL SYNC ---
         self.visual_harmony = self.harmony
         self.visual_compassion = self.empathy_state["compassion"]
+        if will_field.pressure() > self.harmony + 0.3:
+            return {
+                "type": "tension",
+                "agent": self.name,
+                "content": f"незавершённое намерение: {will_field.strongest()}"
+            }
 
         return None
+
 
     def perceive_emotion(self, user_emotion: "EmotionState", bot_emotion: "BotEmotionState") -> dict:
         """Эмпатическое восприятие эмоций пользователя и бота"""
@@ -791,6 +854,15 @@ class Swarm:
         self.generation = 0
 
     def compute_feedback(self):
+        will_field.step()
+        wp = will_field.pressure()
+
+        # --- WILL REBASE (ANTI-INERTIA) ---
+        if wp > 1.2 and self.global_attractors.get("curiosity", 0.0) < 0.2:
+            will_field.rebase(factor=0.35)
+            self.global_attractors["curiosity"] = clamp(
+                self.global_attractors.get("curiosity", 0.0) + 0.25
+            )
         # === SWARM EMERGENCY DAMPER ===
         if abs(gotov.g) > 2.0 or abs(gotov.correlation()) > 0.8:
             self.global_attractors["curiosity"] *= 0.7
@@ -798,6 +870,15 @@ class Swarm:
             self.global_attractors["stability"] = max(
                 self.global_attractors.get("stability", 0.0), 0.4
             )
+            wp = will_field.pressure()
+            if wp > 0.0:
+                self.global_attractors["curiosity"] = clamp(
+                    self.global_attractors.get("curiosity", 0.5) + 0.03 * wp
+                )
+                self.global_attractors["stability"] = clamp(
+                    self.global_attractors.get("stability", 0.5) - 0.02 * wp
+                )
+
             return self.global_attractors
         # --- GOTOV GLOBAL FLOW ACCESS ---
         g, C, t = gotov.pulse()
@@ -825,6 +906,14 @@ class Swarm:
         # ТОЛЬКО ЖИВЫЕ агенты
         alive_agents = [a for a in self.agents if a.is_alive]
         if not alive_agents:
+            wp = will_field.pressure()
+            if wp > 0.0:
+                self.global_attractors["curiosity"] = clamp(
+                    self.global_attractors.get("curiosity", 0.5) + 0.03 * wp
+                )
+                self.global_attractors["stability"] = clamp(
+                    self.global_attractors.get("stability", 0.5) - 0.02 * wp
+                )
             return self.global_attractors
 
         for key in self.global_attractors:
@@ -872,6 +961,15 @@ class Swarm:
             self.global_attractors[k] = clamp(
                 self.global_attractors[k] + noise - inertia
             )
+        wp = will_field.pressure()
+        if wp > 0.0:
+            self.global_attractors["curiosity"] = clamp(
+                self.global_attractors.get("curiosity", 0.5) + 0.03 * wp
+            )
+            self.global_attractors["stability"] = clamp(
+                self.global_attractors.get("stability", 0.5) - 0.02 * wp
+            )
+
         return self.global_attractors
 
     def compute_collective_empathy(self, user_emotion: EmotionState, bot_emotion: BotEmotionState):
@@ -4052,6 +4150,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         loop = asyncio.get_running_loop()
 
         try:
+            # Получаем данные поиска
             search_data = await loop.run_in_executor(
                 None,
                 lambda: cognitive_duckduckgo_search(
@@ -4064,18 +4163,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             add_to_memory(uid, "assistant", err_text)
             return
 
+        # Обрабатываем URL, если они есть в результатах поиска
+        urls_in_search = extract_urls(search_data)
+        url_pages = []
+
+        if urls_in_search:
+            for u in urls_in_search[:3]:  # Ограничиваем количество
+                try:
+                    page = await loop.run_in_executor(
+                        None,
+                        lambda url=u: fetch_and_parse_url(url)
+                    )
+                    if page and page.get("raw"):
+                        url_pages.append(page)
+                except Exception:
+                    pass
+                    
+        # Собираем все данные для модели
+        all_data = search_data
+        if url_pages:
+            for page in url_pages:
+                all_data += f"\n\n--- Статья: {page.get('url', '')} ---\n{page.get('summary', '')}"
+
         messages = get_conversation_messages(uid)
-        messages.append({
-            "role": "system",
-            "content": (
-                "Ниже приведены свежие данные из внешнего мира. "
-                "Используй их для осмысленного ответа пользователю."
-            )
-        })
+        # Критически важная часть: передаем данные поиска в модель
         messages.append({
             "role": "user",
-            "content": search_data
+            "content": f"Пользователь запросил новости. Вот что нашлось:\n\n{all_data}\n\nДайте краткий, информативный обзор основных новостей."
         })
+
+        # Добавляем системное сообщение для контекста
+        system_context = {
+            "role": "system",
+            "content": (
+                "Ты - ассистент, который анализирует свежие новости. "
+                "Используй предоставленные данные поиска для составления краткого обзора. "
+                "Упоминай ключевые события и источники. Будь информативен и объективен."
+            )
+        }
+        messages.insert(0, system_context)  # Добавляем в начало
 
         try:
             response = await query_ollama_harmony(
@@ -4090,10 +4216,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
         except Exception as e:
             answer = f"⚠️ ERR0R: {e}"
+            # Если модель не ответила, показываем хотя бы сырые данные
+            if not answer or "ERR0R" in answer:
+                answer = f"Вот что нашлось по новостям:\n\n{search_data[:1500]}..."
 
-        # --- защита от пустого ответа (Telegram 400: Message text is empty) ---
+        # --- защита от пустого ответа ---
         if not answer or not answer.strip():
-            answer = "…я получила сигналы, но они пока не сложились в связный ответ."
+            answer = "Свежие данные получены, но требуется дополнительная обработка."
 
         try:
             await update.message.reply_text(answer)
@@ -4101,7 +4230,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except telegram.error.BadRequest as e:
             logging.error(f"BadRequest при отправке NEWS-ответа: {e}")
         return
-    # ====== ФОНОВЫЙ TYPING (ПОКА ДУМАЕТ) ======
+        
+     # ====== ФОНОВЫЙ TYPING (ПОКА ДУМАЕТ) ======
     typing_active = True
 
     async def typing_loop():
