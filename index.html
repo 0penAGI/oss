@@ -1296,36 +1296,7 @@ let shadersEnabled = true;
         soulOrbMesh.position.set(0, 0.8, 0);
         scene.add(soulOrbMesh);
 
-        // === Minimal Wire Orb (Shader OFF Mode) ===
-        const minimalOrbGroup = new THREE.Group();
-
-        const ringMat = new THREE.LineBasicMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.35
-        });
-
-        function createRing(radius, tiltX, tiltY) {
-            const geo = new THREE.CircleGeometry(radius, 128);
-            geo.vertices.shift(); // убираем центр
-
-            const ring = new THREE.LineLoop(geo, ringMat);
-            ring.rotation.x = tiltX;
-            ring.rotation.y = tiltY;
-
-            return ring;
-        }
-
-        // несколько слоёв
-        minimalOrbGroup.add(createRing(0.9, 0, 0));
-        minimalOrbGroup.add(createRing(0.92, Math.PI / 3, 0));
-        minimalOrbGroup.add(createRing(0.94, 0, Math.PI / 3));
-        minimalOrbGroup.add(createRing(0.96, Math.PI / 4, Math.PI / 4));
-
-        minimalOrbGroup.position.copy(soulOrbMesh.position);
-        minimalOrbGroup.visible = false;
-
-        scene.add(minimalOrbGroup);
+        
 
         // === Orb Boundary Flow Lines (chaotic shell patterns) ===
         const lineCount = 188;
@@ -1842,7 +1813,6 @@ void main() {
             agentChannels.ux.forEach(cb =>
                 cb({ interaction: touchMemory.length / Math.max(1, MAX_TOUCH_POINTS) })
             );
-            
         }
 // ===== UI CONTROLS =====
 const toggleShaders = document.getElementById('toggleShaders');
@@ -1874,7 +1844,6 @@ toggleShaders?.addEventListener('change', () => {
         soulOrbMesh.visible = true;
         orbLines.visible = true;
         liquidMesh.visible = true;
-        minimalOrbGroup.visible = false;
 
     } else {
 
@@ -1888,7 +1857,6 @@ toggleShaders?.addEventListener('change', () => {
         soulOrbMesh.visible = false;
         orbLines.visible = false;
         liquidMesh.visible = false;
-        minimalOrbGroup.visible = true;
 
         // чистим feedback
         renderer.setRenderTarget(feedbackRT1);
