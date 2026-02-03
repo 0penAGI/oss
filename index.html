@@ -1739,6 +1739,20 @@ void main() {
         // --- Animation loop with real LLM modeSmooth cycle ---
         let lastTime = performance.now();
         function animate() {
+
+            // === Idle orb subtle breathing (when shaders OFF) ===
+            if (!shadersEnabled && idleOrbGroup?.visible) {
+                const tIdle = performance.now() * 0.0004;
+
+                idleOrbGroup.children.forEach((ring, i) => {
+                    ring.material.opacity =
+                        0.12 + 0.08 * Math.sin(tIdle + i * 0.8);
+                });
+
+                // синхронизация с душой
+                idleOrbGroup.position.copy(soulOrbMesh.position);
+            }
+
             if (!shadersEnabled) return;
             if (!isActiveTab) return;
             const now = performance.now();
