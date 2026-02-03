@@ -2574,8 +2574,8 @@ uiScale?.addEventListener('input', () => {
             const ctx = markovContext.memory.slice(-markovContext.order).map(m=>m.text);
             const idea = markovContext.predictWithEmbedding(ctx);
             if(idea){
-              noteObservation("Autothought: "+idea);
-              speak(idea);
+              noteObservation("Autothought: "+idea, true);
+              speak(sanitizeUserOutput(idea));
             }
           }
         },4000 + Math.random()*2000);
@@ -2696,7 +2696,7 @@ uiScale?.addEventListener('input', () => {
 
                     // === Новый фильтр: не добавлять дублирующиеся заметки ===
                     // Проверяем последние 10 внутренних заметок и последние 5 observation-узлов
-                    let noteText = idea;
+                    let noteText = sanitizeUserOutput(idea);
                     let alreadyExists = false;
                     // Проверка в последних 10 внутренних заметках
                     for (let i = Math.max(0, internalNotes.length - 10); i < internalNotes.length; i++) {
@@ -2718,15 +2718,11 @@ uiScale?.addEventListener('input', () => {
                             }
                         }
                     }
-                    if (!alreadyExists) {
-                        noteObservation(noteText);
-                    }
-                    if (typeof idea === 'string' && !/^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(idea)) {
-                        let cleanText = idea;
-                        if (typeof cleanText === 'string') {
-                            cleanText = cleanText.replace(/\s*\|\s*Notes:\s*.*$/s, '');
-                        }
-                        speak(sanitizeUserOutput(cleanText));
+            if (!alreadyExists) {
+                noteObservation(noteText, true);
+            }
+                    if (typeof idea === 'string') {
+                        speak(sanitizeUserOutput(idea));
                     }
                     this.lastResponseTime = performance.now();
                 }
@@ -2784,7 +2780,7 @@ uiScale?.addEventListener('input', () => {
               }
             }
             if (!alreadyExists) {
-              noteObservation(reflection);
+              noteObservation(reflection, true);
             }
 
             // мягкое влияние на состояние
