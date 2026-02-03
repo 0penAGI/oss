@@ -676,6 +676,7 @@
 
 let renderer;
 let isActiveTab = true;
+let shadersEnabled = true;
 
         if (isApple && THREE.WebGPURenderer) {
             renderer = new THREE.WebGPURenderer({
@@ -1705,6 +1706,7 @@ void main() {
         // --- Animation loop with real LLM modeSmooth cycle ---
         let lastTime = performance.now();
         function animate() {
+            if (!shadersEnabled) return;
             if (!isActiveTab) return;
             const now = performance.now();
             const deltaTime = (now - lastTime) / 1000;
@@ -1829,12 +1831,39 @@ if (uiScale) {
 
 // --- Shaders ---
 toggleShaders?.addEventListener('change', () => {
-    if (toggleShaders.checked) {
+    shadersEnabled = toggleShaders.checked;
+
+    if (shadersEnabled) {
+
+        // ВКЛ
         renderer.setAnimationLoop(animate);
+
+        particles.visible = true;
+        soulOrbMesh.visible = true;
+        orbLines.visible = true;
+        liquidMesh.visible = true;
+
     } else {
+
+        // ВЫКЛ — жёстко
         renderer.setAnimationLoop(null);
+
         orbEnergy = 0;
         targetEnergy = 0;
+
+        particles.visible = false;
+        soulOrbMesh.visible = false;
+        orbLines.visible = false;
+        liquidMesh.visible = false;
+
+        // чистим feedback
+        renderer.setRenderTarget(feedbackRT1);
+        renderer.clear(true, true, true);
+
+        renderer.setRenderTarget(feedbackRT2);
+        renderer.clear(true, true, true);
+
+        renderer.setRenderTarget(null);
         renderer.clear(true, true, true);
     }
 });
