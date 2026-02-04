@@ -1297,6 +1297,59 @@ let shadersEnabled = true;
         soulOrbMesh.position.set(0, 0.8, 0);
         scene.add(soulOrbMesh);
 
+        // === Minimal fallback orb (white circle, no shader) ===
+        const minimalOrbGeometry = new THREE.CircleGeometry(0.9, 64);
+        const minimalOrbMaterial = new THREE.ShaderMaterial({
+            transparent: true,
+            depthWrite: false,
+            uniforms: {
+                opacity: { value: 0.9 },
+                pulse: { value: 0.0 },
+                time: { value: 0.0 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float opacity;
+                uniform float pulse;
+                uniform float time;
+                varying vec2 vUv;
+
+                void main() {
+
+                    vec2 p = vUv - 0.5;
+                    float r = length(p) * 2.0;
+
+                    // idle breathing
+                    float idle = sin(time * 0.8) * 0.015 + sin(time * 2.3) * 0.008;
+                    // радиус кольца
+                    float ring = 0.9 + pulse * 0.08 + idle;
+
+                    // толщина линии
+                    float thickness = 0.011 + pulse * 0.025 + abs(idle) * 0.4;
+
+                    // контур = расстояние до радиуса
+                    float d = abs(r - ring);
+
+                    // мягкая линия
+                    float alpha = smoothstep(thickness, 0.0, d);
+
+                    vec3 col = vec3(1.0);
+
+                    gl_FragColor = vec4(col, alpha * opacity);
+                }
+            `
+        });
+        const minimalOrbMesh = new THREE.Mesh(minimalOrbGeometry, minimalOrbMaterial);
+        minimalOrbMesh.position.copy(soulOrbMesh.position);
+        minimalOrbMesh.visible = false;
+        scene.add(minimalOrbMesh);
+
         
 
         // === Orb Boundary Flow Lines (chaotic shell patterns) ===
@@ -1708,6 +1761,7 @@ void main() {
         // --- Animate with Multi-Agent Pulses and Orb Visual State ---
         // --- Animation loop with real LLM modeSmooth cycle ---
         let lastTime = performance.now();
+        let minimalOrbTime = 0;
         function animate() {
             if (!shadersEnabled) return;
             if (!isActiveTab) return;
@@ -1715,6 +1769,13 @@ void main() {
             const deltaTime = (now - lastTime) / 1000;
             lastTime = now;
             updateModeSmooth(deltaTime);
+            // minimal orb idle breathing
+            // minimal orb idle breathing (local time, no catch-up)
+            minimalOrbTime += deltaTime;
+
+            if (minimalOrbMaterial?.uniforms?.time) {
+                minimalOrbMaterial.uniforms.time.value = minimalOrbTime;
+            }           
             requestAnimationFrame(animate);
 
             // --- Затухание телесной памяти ---
@@ -1731,6 +1792,8 @@ void main() {
             // Artistic Glowing Orb animation with mode interpolation
             orbMaterial.uniforms.time.value += 0.01;
             soulOrbMesh.rotation.y += 0.001;
+            // sync minimal orb position
+            minimalOrbMesh.position.copy(soulOrbMesh.position);
             lineMat.uniforms.time.value += 0.01;
             lineMat.uniforms.energy.value = orbEnergy;
             // orb uses smooth, lines use hard brain state
@@ -1764,9 +1827,15 @@ void main() {
 
             // envelope follower — вдох / выдох
             speechEnvelope += (raw - speechEnvelope) * (raw > speechEnvelope ? 0.18 : 0.05);
+            // minimal orb speech pulse
+            if (!shadersEnabled && minimalOrbMesh.visible) {
+                minimalOrbMaterial.uniforms.pulse.value =
+                    THREE.MathUtils.clamp(speechEnvelope, 0, 1);
+            }
 
             const scale = 1.0 + speechEnvelope * 0.45;
             soulOrbMesh.scale.set(scale, scale, scale);
+            minimalOrbMesh.scale.set(scale, scale, scale);
 
             // render particles to feedback buffer
             renderer.setRenderTarget(feedbackRT2);
@@ -1847,10 +1916,15 @@ toggleShaders?.addEventListener('change', () => {
         orbLines.visible = true;
         liquidMesh.visible = true;
 
+        // hide minimal orb
+        minimalOrbMesh.visible = false;
+
     } else {
 
         // ВЫКЛ — жёстко
-        renderer.setAnimationLoop(null);
+        renderer.setAnimationLoop(() => {
+            renderer.render(scene, camera);
+        });
 
         orbEnergy = 0;
         targetEnergy = 0;
@@ -1859,6 +1933,9 @@ toggleShaders?.addEventListener('change', () => {
         soulOrbMesh.visible = false;
         orbLines.visible = false;
         liquidMesh.visible = false;
+
+        // show minimal orb
+        minimalOrbMesh.visible = true;
 
         // чистим feedback
         renderer.setRenderTarget(feedbackRT1);
