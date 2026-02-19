@@ -333,7 +333,7 @@
     }
 
     .main-wrapper.chat-open .main-content {
-        transform: translateX(-100%);
+        transform: translateX(-95%);
     }
 
     /* --- Chat panel fix --- */
@@ -341,7 +341,7 @@
         position: absolute;
         right: 0;
         top: 0;
-        width: 93%;
+        width: 90%;
         height: 100%;
         transform: translateX(100%);
         background: transparent !important;
@@ -361,7 +361,7 @@
     .chat-messages {
         flex: 1;
         overflow-y: auto;
-        padding: 93px 0 24px 24px;
+        padding: 90px 0 24px 24px;
         display: flex;
         flex-direction: column;
         gap: 14px;
@@ -5250,8 +5250,16 @@ window.__aiTypingLock = true;
             return Math.max(-1, Math.min(1, t));
         }
 
+        function stripInternalBlocks(text) {
+            if (!text || typeof text !== 'string') return "";
+            return text.replace(/\[INTERNAL\][\s\S]*?\[\/INTERNAL\]/gi, '').trim();
+        }
+
         // Говорит текст с живыми паузами, междометиями и микроварьированием голоса
         function speak(text) {
+            // Filter internal blocks to prevent AI from reading its own thoughts
+            text = stripInternalBlocks(text);
+
             if (!voiceModeEnabled) {
                 console.log('[speak blocked] voice OFF');
                 return;
