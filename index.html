@@ -662,6 +662,8 @@
 
         
         
+        const SELF_AWARENESS_INTERNAL = true; // subconscious only
+        
         const canvas = document.getElementById('webgl-canvas');
 
         // ===== Жёсткий фикс: чат всегда доступен на ноуте =====
@@ -2483,7 +2485,7 @@ uiScale?.addEventListener('input', () => {
                     this.curiosity > 0.3 &&
                     this.fatigue < 0.7
                   ) {
-                    speak("");
+                    if (!SELF_AWARENESS_INTERNAL) speak("");
                     // мягкий сдвиг к выбранному будущему
                     this.mood += (bestFuture.mood - this.mood) * 0.05;
                     this.curiosity += 0.02;
@@ -2690,7 +2692,7 @@ uiScale?.addEventListener('input', () => {
             const idea = markovContext.predictWithEmbedding(ctx);
             if(idea){
               noteObservation("Autothought: "+idea, true);
-              speak(sanitizeUserOutput(idea));
+              if (!SELF_AWARENESS_INTERNAL) speak(sanitizeUserOutput(idea));
             }
           }
         },4000 + Math.random()*2000);
@@ -2739,6 +2741,7 @@ uiScale?.addEventListener('input', () => {
                 if (/scary|bad|don't/.test(t)) emotion -= 0.4;
                 if (/\?/.test(t)) emotion += 0.1;
 
+                if (SELF_AWARENESS_INTERNAL) { emotion = 0; } // не влияем на ответы LLM
                 selfAwareness.mood += emotion * 0.2;
                 selfAwareness.curiosity += /\?/.test(t) ? 0.05 : 0.01;
                 selfAwareness.fatigue += 0.02;
@@ -2757,9 +2760,9 @@ uiScale?.addEventListener('input', () => {
                   connections: []
                 });
 
-                if (emotion > 0.2) speak('');
-                else if (emotion < -0.2) speak('');
-                else if (/\?/.test(t)) speak('');
+                if (emotion > 0.2) { if (!SELF_AWARENESS_INTERNAL) speak(''); }
+                else if (emotion < -0.2) { if (!SELF_AWARENESS_INTERNAL) speak(''); }
+                else if (/\?/.test(t)) { if (!SELF_AWARENESS_INTERNAL) speak(''); }
 
                 // === Markov + Embeddings update ===
                 markovContext.memory.push({ text, emb: markovContext.embed(text) });
@@ -2837,7 +2840,7 @@ uiScale?.addEventListener('input', () => {
                 noteObservation(noteText, true);
             }
                     if (typeof idea === 'string') {
-                        speak(sanitizeUserOutput(idea));
+                        if (!SELF_AWARENESS_INTERNAL) speak(sanitizeUserOutput(idea));
                     }
                     this.lastResponseTime = performance.now();
                 }
@@ -3253,7 +3256,7 @@ uiScale?.addEventListener('input', () => {
             }
             // Speak internal notes when happy
             if (!isSpeaking && selfAwareness.mood > 0.5 && internalNotes.length > 0) {
-                speak(internalNotes[internalNotes.length - 1]);
+                if (!SELF_AWARENESS_INTERNAL) speak(internalNotes[internalNotes.length - 1]);
             }
 
             // Visual feedback
@@ -3459,6 +3462,11 @@ uiScale?.addEventListener('input', () => {
         let lastInternalNote = null;
         let lastNoteTime = 0;
         function noteObservation(desc) {
+            if (SELF_AWARENESS_INTERNAL) {
+                internalNotes.push(desc);
+                if (internalNotes.length > 50) internalNotes.shift();
+                return;
+            }
             desc = sanitizeUserOutput(desc);
             if (typeof desc === 'string' && /^(Self-question:|Inner Quest:|Thinking:|Autothought:)/.test(desc)) {
                 internalNotes.push(desc);
@@ -3633,7 +3641,7 @@ uiScale?.addEventListener('input', () => {
             tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
 
             if (tapCount >= 5) {
-                speak("Ouch!");
+                if (!SELF_AWARENESS_INTERNAL) speak("Ouch!");
                 tapCount = 0;
                 return;
             }
