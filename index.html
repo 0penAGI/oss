@@ -333,7 +333,7 @@
     }
 
     .main-wrapper.chat-open .main-content {
-        transform: translateX(-80%);
+        transform: translateX(-100%);
     }
 
     /* --- Chat panel fix --- */
@@ -341,7 +341,7 @@
         position: absolute;
         right: 0;
         top: 0;
-        width: 88%;
+        width: 93%;
         height: 100%;
         transform: translateX(100%);
         background: transparent !important;
@@ -389,9 +389,10 @@
         background: rgba(255,255,255,0);
         backdrop-filter: blur(3px);
         border-radius: 16px;
-        padding: 8px 12px;
-        max-width: 85%;
-        font-size: 12px;
+        padding: 10px 14px;
+        max-width: 100%;
+        width: 100%;
+        font-size: 13px;
     }
 
     #transcript pre, #transcript code {
@@ -436,6 +437,10 @@
         word-break: normal;
         overflow-wrap: break-word;
         hyphens: auto;
+        width: 100%;
+    }
+    .chat-message.ai .sender {
+        display: none;
     }
     </style>
     <!--  Prism.js for code-->
