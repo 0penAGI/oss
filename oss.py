@@ -153,7 +153,7 @@ def semantic_fingerprint(text: str) -> str:
 # Инициализация FastAPI
 import uvicorn
 class config:
-    TOKEN = "8578329623:AAEBl_uLTeYh19Qr7Jd3GYHxjejFi5Splfo"
+    TOKEN = "your token here"
     MODEL_PATH = "/Users/ellijaellija/Documents/quantum_chaos_ai/model"
 
     # Token budgets per reasoning mode
