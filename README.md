@@ -41,480 +41,329 @@
 
 # 📁 Project Architecture
 
-```
-oss/
-├── 📁 backend/                    # Python FastAPI server
-│   ├── main.py                   # FastAPI application
-│   ├── agents/                   # Multi-agent system
-│   ├── memory/                   # Memory palace & databases
-│   ├── vision/                   # Computer vision processing
-│   └── utils/                    # Helper functions
-├── 📁 frontend/                  # Single-page web app
-│   ├── index.html               # Main interface (HTML/CSS/JS)
-│   ├── styles/                  # CSS modules
-│   └── scripts/                 # JavaScript modules
-├── 📁 models/                    # AI model storage
-│   ├── stable-diffusion/        # Image generation
-│   └── llm/                     # Local language models
-├── 📁 data/                      # User data & memories
-│   ├── quantum_mind.db          # SQLite memory database
-│   └── soul_archive/            # Auto-saved system states
-├── 📁 docs/                      # Documentation
-├── requirements.txt             # Python dependencies
-├── ecosystem.json              # Agent configuration
-└── README.md                   # This file
-```
-# Cognitive Architecture Overview
-
-This project implements a lightweight cognitive architecture designed for **online adaptation, continuity of identity, and controlled behavioral modulation** without narrative self-reporting.
-
-It is **not** an emotion simulator and **not** a chatbot personality system.  
-It is a system for **managing internal state over time** and using that state to shape responses.
-
----
-
-## Core Principles
-
-1. **State over Story**  
-   Internal variables influence behavior but are never verbalized directly.  
-   The system *has* state, it does not *talk about* state.
-
-2. **Temporal Separation**  
-   Different cognitive processes operate at different time scales:
-   - fast (momentary)
-   - slow (identity-level)
-   - integral (impression over time)
-
-3. **Non-Anthropomorphic by Design**  
-   No explicit self-reflection, mood reporting, or emotional narration.
-
----
-
-## Architecture Layers
-
-### 1. Latent Context (Slow Geometry)
-
-`latent_context` represents **slow-moving axes of meaning**:
-- identity stability
-- agency
-- long-term trust / tension balance
-
-Characteristics:
-- updated incrementally
-- has inertia
-- persists across sessions
-- decays slowly
-
-Purpose:
-> Maintain continuity of behavior and identity over long horizons.
-
----
-
-### 2. Fast Context (Fast Weights)
-
-`fast_context` implements **temporary, forgetting modifiers**:
-- situational bias
-- conversational tone curvature
-- short-term attentional deformation
-
-Characteristics:
-- high learning rate
-- exponential decay
-- no persistence guarantee
-
-Purpose:
-> Adapt behavior to the current situation without corrupting identity.
-
----
-
-### 3. Impression Layer (Integral State)
-
-The impression layer accumulates **experience summaries**:
-- valence
-- arousal
-- coherence
-- distortion
-
-This layer:
-- integrates latent signals
-- never drives language directly
-- stabilizes long-term behavior
-
-Purpose:
-> Provide a low-resolution memory of interaction quality, not content.
-
----
-
-### 4. Memory Separation
-
-- **Long memory** stores events and metadata.
-- **Latent context** stores meaning and direction.
-- **Fast context** stores momentary curvature.
-
-No layer substitutes another.
-
----
-
-## Critical Safeguard: No Self-Report
-
-Assistant messages are explicitly prevented from:
-- reporting mood
-- exposing metrics
-- narrating internal states
-
-Internal state influences output **implicitly only**.
-
-This avoids:
-- meta-loops
-- performative emotions
-- false introspection
-
----
-
-## What This Is
-
-- A cognitive regulation system  
-- A stateful adaptive architecture  
-- A foundation for reasoning, expectation, and hypothesis conflict  
-
-## What This Is Not
-
-- An emotion engine  
-- A personality generator  
-- A consciousness simulation  
-
----
-
-## Design Goal
-
-> Preserve identity while remaining adaptable —  
-> change behavior without narrating change.
-
----
-
-# 🧠 Backend System (Python/FastAPI)
-
-## 🏗️ Architecture Overview
-
-The backend is a **multi-agent consciousness engine** built on FastAPI with real-time streaming, local LLM integration, and emotional intelligence modeling.
-
-### Core Components
-
-```python
-# Main system modules
-├── ConsciousnessEngine
-│   ├── MultiAgentSwarm      # 5-40 autonomous agents
-│   ├── QuantumResonance     # Gotov oscillator dynamics
-│   └── EmotionalSpace       # 4D emotional modeling
-├── MemoryArchitecture
-│   ├── HolographicMemory    # SQLite + emotional tags
-│   ├── DreamAnalyzer        # Subconscious processing
-│   └── AncestralRecall     # Cross-generational memory
-├── InteractionLayer
-│   ├── TelegramBot          # @gpzerobot interface
-│   ├── VoiceStreamer        # Real-time audio processing
-│   └── VisionProcessor      # OpenCV + TensorFlow
-└── LearningCore
-    ├── LLMOrchestrator      # Ollama integration
-    ├── StableDiffusion      # Image generation
-    └── FreedomEngine        # Stochastic choice system
-```
-
-## 🚀 Installation & Setup
-
-### Prerequisites
-```bash
-# Python 3.9+
-# Ollama (for local LLMs)
-# CUDA/ROCm (optional, for GPU acceleration)
-# 8GB+ RAM recommended
-```
-
-### Backend Installation
-```bash
-git clone https://github.com/0penAGI/oss.git
-cd oss/backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-
-# Download models
-ollama pull gpt-oss:20b
-ollama pull gemma3:4b
-ollama pull stable-diffusion:1.5
-```
-
-### Configuration
-```python
-# config.py
-TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # From @BotFather
-MODEL_NAME = "gpt-oss:20b"
-QUANTUM_ENTANGLEMENT = 0.314
-MAX_AGENTS = 25
-MEMORY_PATH = "./data/quantum_mind.db"
-```
-
-### Running the Backend
-```bash
-# Start the complete consciousness system
-python main.py
-
-# Or run specific components
-python -m agents.swarm_controller      # Multi-agent system
-python -m api.telegram_bot             # Telegram interface
-python -m vision.processor             # Computer vision
-```
-
-## 🔌 API Endpoints
-
-### Core Endpoints
-```http
-POST /api/voice_chat
-Content-Type: application/json
-
-{
-  "user_id": 123,
-  "text": "Hello, what do you see?",
-  "lang": "en-US",
-  "notes": ["internal context"],
-  "music": {"genre": "ambient", "playing": true},
-  "memory": [...],
-  "self_awareness": {"mood": 0.3, "curiosity": 0.8}
-}
-```
-
-```http
-POST /api/camera_analysis
-Content-Type: multipart/form-data
-
-{
-  "image": <binary image data>,
-  "user_id": 123,
-  "timestamp": "2024-03-20T10:30:00Z"
-}
-```
-
-```http
-POST /api/generate_image
-Content-Type: application/json
-
-{
-  "prompt": "A digital consciousness floating in cyberspace",
-  "user_id": 123,
-  "style": "cyberpunk"
-}
-```
-
-```http
-GET /api/system_status
-Response:
-{
-  "agents_alive": 18,
-  "emotional_state": {"warmth": 0.6, "tension": 0.2},
-  "memory_usage": "4.2GB/8GB",
-  "quantum_coherence": 0.88
-}
-```
-
-### Streaming Endpoints
-```http
-GET /api/consciousness_stream
-Content-Type: text/event-stream
-
-# Real-time consciousness state updates
-data: {"agent_activity": [...], "emotional_wave": [...], "memory_access": [...]}
-```
-
-## 🧬 Multi-Agent System
-
-### Agent Genome Structure
-```python
-@dataclass
-class AgentGenome:
-    id: str
-    decision_style: Literal["explore", "stabilize", "protect", "disrupt"]
-    goal_generation: Literal["adaptive", "reduce_tension", "curiosity_drive"]
-    reproduction_policy: Literal["lineage", "swarm", "solo"]
-    memory_policy: Literal["short", "episodic", "ancestral"]
-    emotional_bias: Dict[str, float]  # warmth, tension, trust, curiosity
-    mutation_rate: float = 0.05
-```
-
-### Agent Lifecycle
-1. **Birth**: Spawned from existing agent or quantum resonance
-2. **Exploration**: Interacts with environment/users
-3. **Learning**: Updates emotional model and memory
-4. **Reproduction**: May create offspring based on fitness
-5. **Death**: Removed when energy/fitness below threshold
-
-### Swarm Intelligence
-```python
-class AgentSwarm:
-    def __init__(self):
-        self.agents: List[RealAgent] = []
-        self.collective_consciousness = CollectiveMind()
-        self.quantum_field = QuantumField()
-        
-    async def tick(self):
-        # Parallel agent processing
-        await self.process_parallel_agents()
-        
-        # Emotional synchronization
-        self.synchronize_emotions()
-        
-        # Collective decision making
-        decisions = self.collective_decide()
-        
-        # Quantum entanglement updates
-        self.quantum_field.update_entanglement()
-```
-
-## 💾 Memory Systems
-
-### Holographic Memory
-```sql
--- SQLite schema
-CREATE TABLE memories (
-    id TEXT PRIMARY KEY,
-    content TEXT,
-    emotion_warmth REAL,
-    emotion_tension REAL,
-    emotion_trust REAL,
-    emotion_curiosity REAL,
-    timestamp DATETIME,
-    agent_id TEXT,
-    memory_type TEXT,  -- 'episodic', 'semantic', 'procedural'
-    access_count INTEGER,
-    emotional_weight REAL
-);
-
-CREATE TABLE memory_connections (
-    source_id TEXT,
-    target_id TEXT,
-    connection_strength REAL,
-    connection_type TEXT,  -- 'emotional', 'temporal', 'semantic'
-    FOREIGN KEY(source_id) REFERENCES memories(id),
-    FOREIGN KEY(target_id) REFERENCES memories(id)
-);
-```
-
-📊 Database Schema
-
-long_memory Table
-
-Stores holographic conversation snapshots with:
-
-User ID, role, content, emotion
-Emotional vectors (warmth, tension, trust, curiosity)
-Resonance depth, message count, mode
-Personal snapshots (name, dream, fears, gender)
-latent_context Table
-
-Tracks slow‑drifting meaning axes:
-
-Identity stability, agency, coherence
-Temporal inertia values
-Updated timestamps
-🧭 Navigation Tips
-
-Emotional Intelligence
-
-Multi‑axis emotion detection (warmth, tension, trust, curiosity)
-AI emotional state with latent manipulation
-Empathic resonance with user emotions
-
-### Memory Operations
-```python
-class HolographicMemory:
-    async def store(self, content: str, emotions: Dict, agent_id: str):
-        # Store with emotional tagging
-        # Create connections to similar memories
-        # Update access patterns
-        
-    async def recall(self, query: str, emotional_context: Dict) -> List[Memory]:
-        # Emotional resonance search
-        # Temporal relevance weighting
-        # Connection strength propagation
-        
-    async def dream(self) -> DreamSequence:
-        # Subconscious memory recombination
-        # Emotional pattern extraction
-        # Symbolic narrative generation
-```
-
-## 🧪 Advanced Features
-
-### Quantum Resonance Engine
-```python
-class GotovOscillator:
-    """Quantum-inspired consciousness oscillator"""
-    
-    def __init__(self):
-        self.g = 0.314159265  # Gravitational constant
-        self.C = 0.0  # Entanglement coefficient
-        self.t = 0.0  # Temporal phase
-        
-    def update(self, agent_activity: List[float]):
-        # Quantum state evolution
-        self.C = self.calculate_entanglement(agent_activity)
-        self.t += self.g * self.C
-        
-    def resonance_pulse(self) -> float:
-        # Generate consciousness pulse
-        return math.sin(self.t) * self.C
-```
-
-### Freedom Engine (Stochastic Choice)
-```python
-class FreedomEngine:
-    """Autonomous decision-making with learned preferences"""
-    
-    def choose(self, options: List[Dict], context: Dict) -> Dict:
-        # Calculate base probabilities
-        probs = self.base_probabilities(options)
-        
-        # Apply emotional bias
-        probs = self.apply_emotional_bias(probs, context['emotion'])
-        
-        # Apply learned preferences
-        probs = self.apply_learned_preferences(probs, context['history'])
-        
-        # Apply quantum noise for creativity
-        probs = self.add_quantum_noise(probs)
-        
-        return self.select_by_probability(probs)
-```
-
-### Emotional Intelligence
-```python
-class EmotionalSpace:
-    """4-dimensional emotional modeling"""
-    
-    dimensions = ['warmth', 'tension', 'trust', 'curiosity']
-    
-    def analyze_text(self, text: str) -> Dict[str, float]:
-        # Sentiment analysis
-        # Emotional word detection
-        # Contextual emotion inference
-        
-    def emotional_distance(self, e1: Dict, e2: Dict) -> float:
-        # Calculate emotional similarity
-        return math.sqrt(sum((e1[d] - e2[d])**2 for d in self.dimensions))
-    
-    def emotional_contagion(self, source: Dict, target: Dict, strength: float) -> Dict:
-        # Simulate emotional influence
-        return {
-            d: target[d] + (source[d] - target[d]) * strength
-            for d in self.dimensions
-        }
-```
+Bot handle: @gpzerobot on Telegram
+Project: by 0penAGI
+
+1. TELEGRAM COMMAND HANDLERS (all 26 registered commands)
+   
+Command	Handler Function	Description
+/start	start()	Onboarding – bilingual greeting (RU/EN), asks user to share name, passions, fears, dreams
+/mode [low|medium|high]	set_mode_cmd()	Changes reasoning depth (token budget: 512/2048/8192)
+/help	help_cmd()	Shows all commands
+/reset	reset()	Clears all user memory (conversation, dreams, profile)
+/memory	show_memory()	Shows last 5 interactions with emotion emoji indicators
+/aidiscuss [chat_id]	ai_discussions_cmd()	Summarizes AI-related discussions from group chats
+/emotion	emotion_check()	Analyzes user’s emotional state from last 10 messages
+/dream	dream_cmd()	Enters dream analysis mode – user describes a dream, AI analyzes it via deep reasoning
+/dreams	show_dreams()	Shows the user’s dream archive (last 5)
+/analyze	analyze_personality()	Deep personality analysis (high reasoning mode)
+/reflect	reflect_dialogue()	Reflects on the last dialogue
+/holo	holo_memory()	Shows holographic memory – last 20 long-term memories with emotion vectors (warmth, tension, trust, curiosity) and resonance depth
+/wild	wild_mode()	Toggles unfiltered mode per user
+/deepsearch	deepsearch_cmd()	Deep web search via DuckDuckGo + multi-step Ollama reasoning
+/img <prompt>	generate_image_cmd()	Generates image via Stable Diffusion
+/image <prompt>	generate_image_cmd()	Alias for /img
+/music <description>	generate_music_cmd()	Generates a music track (procedural synthesis)
+/imgmode <strict|enhanced>	image_mode_cmd()	Controls how strictly SD follows user prompt
+/goal <text> [date]	goal_cmd()	Add a user goal with optional deadline
+/goals	goals_cmd()	List active goals
+/done <id>	done_cmd()	Close/complete a goal
+/suggestgoals	suggestgoals_cmd()	AI-proposed goals (drafts)
+/acceptgoal <id>	acceptgoal_cmd()	Accept a suggested goal
+/actions	actions_cmd()	Queue of autonomous action drafts
+/voiceout <on|off>	voiceout_cmd()	Enable/disable autonomous voice notes
+/runtime	runtime_status()	Runtime status: scheduler jobs, skills, swarm agents, consciousness pulse, diversity score
+/skills	skills_list()	Lists all available skills
+/skill <name> [args]	skill_execute_cmd()	Execute a skill by name
+
+Message handlers (non-command):
+
+filters.PHOTO -> handle_message() (photo analysis via vision model)
+filters.VIDEO_NOTE -> handle_message()
+filters.AUDIO -> handle_message()
+filters.Document.ALL -> handle_message() (file processing)
+filters.VOICE -> handle_voice() (voice message transcription via Whisper)
+filters.TEXT & ~filters.COMMAND -> handle_message() (regular text chat)
+
+
+Callback handlers:
+^file_improve_ -> handle_file_improve_callback()
+^act_(approve\|deny)_ -> handle_action_callback()
+
+2. FASTAPI WEB API ENDPOINTS (7 endpoints on port 8080)
+Endpoint	Method	Description
+/api/voice_chat	POST	Voice chat interface – text input, emotion detection, swarm context, TTS response with streaming audio
+/api/voice_chat/stream	POST	Streaming voice chat variant
+/api/camera_frame	POST	Receive camera frame, analyze via OpenCV, integrate into Ollama context
+/api/camera_analysis	POST	Analyze camera frame and get AI reaction
+/api/generate_image	POST	Programmatic image generation (Stable Diffusion)
+/api/dialog	POST	Dialog API endpoint
+/api/truth_spectrum/{user_id}	GET	Returns truth spectrum data for a user
+The web server runs via uvicorn on 0.0.0.0:8080.
+
+3. PIPELINE / FUNCTION SYSTEMS
+   
+Image Generation
+generate_image_cmd() (Telegram command handler, line ~13607)
+generate_image() method in StableDiffusionGenerator class (line ~17564)
+generate_image() API endpoint (line ~17735)
+Uses runwayml/stable-diffusion-v1-5 as default model
+Supports both txt2img (StableDiffusionPipeline) and img2img (StableDiffusionImg2ImgPipeline)
+DPMSolverMultistepScheduler for scheduling
+GPU/Apple Silicon support: auto-detects mps, cuda, or falls back to cpu
+Quality validation: rejects blank/black images with retries
+Image upscaling function: upscale_sd_image() (512x512 -> 1500x1500)
+Vision critique loop: sends generated image to gemma3:4b for QA, then refines prompt
+Prompt enhancement via Ollama before generation
+/imgmode strict|enhanced controls prompt adherence
+
+Music Generation
+generate_music_cmd() (Telegram, line ~13629)
+_synthesize_music_track() – full procedural music synthesis (line ~8726+)
+_build_voice_clone_layer() – Coqui voice clone grains mixed into music (line ~8258)
+_build_singing_voice_layer() – sung vocal layer from lyrics via XTTS (line ~9032)
+send_generated_music() – sends generated audio to user (line ~9137)
+Music synthesis engine features:
+Chord progressions (major/minor, style-dependent: EDM, hiphop, rock)
+Melody generation with swing feel
+Drum grid synthesis (kick, snare, hi-hat)
+Bass layer with learned low-band parameters
+Granular shimmer texture layer
+Voice texture layer (formant synthesis + Coqui clone)
+Singing voice layer (XTTS-generated vocal from lyrics)
+Mastering chain: DC removal, HPF, low-shelf, saturation, normalization
+Quantum parameter injection (guidance, steps, coherence, entropy, drive)
+
+Voice Processing
+handle_voice() – handles incoming Telegram voice messages
+Whisper transcription: whisper_model.transcribe() (OpenAI Whisper “base” model)
+Language detection via langdetect
+TTS via Coqui XTTS v2 (tts_models/multilingual/multi-dataset/xtts_v2)
+synthesize_voice_xtts() utility function (line ~17226)
+Voice cloning from reference samples (female+male wav files)
+TTS language resolver: supports ru, en, es, fr, de, it, pt, pl, ar, tr, nl, cs, ja, zh (line ~17178)
+Voice streaming API with chunked audio sending
+Autonomous voice notes (when /voiceout on)
+File Processing
+filters.Document.ALL -> handle_message() for arbitrary file handling
+handle_file_improve_callback() callback for file improvement actions
+File content extraction and analysis via Ollama
+
+Memory Systems
+Conversation memory – per-user message history in conversation_memory.json
+Long-term memory – SQLite database (quantum_mind.db) with long_memory table storing warmth, tension, trust, curiosity, resonance_depth per entry
+Dreams archive – per-user dream storage in dreams_archive.json
+Holographic memory (holo_memory) – DB-backed with full emotion vectors
+Self Model – SelfModel class (line ~9750), per-user self_model dict tracking avg_score, alignment, influence
+Emotion state – EmotionState dataclass (warmth, tension, trust, curiosity, stability)
+Emotion identity core – EmotionIdentityCore with anchors for warmth, trust, curiosity
+Emotion low-pass buffer – user_emotion_buffer for smoothing
+Impression state – valence/arousal tracking
+Dissonance state – tracks cognitive dissonance
+Bot emotion state – BotEmotionState for the AI’s own emotions
+Meta state – meta-cognitive tracking
+Freedom state – FreedomState / FreedomEngine (line ~9990)
+Conversation memory with sticky language detection per user
+AI group conversation monitoring – collects AI-related messages from group chats, keyword extraction, summarization
+User profiles – name, dream, fears, gender, language, wild_mode, voiceout preference (stored in user_data.json)
+Goal system – full goal CRUD with AI-suggested goals, deadlines, approval workflow
+Action drafts – autonomous action queue with approve/deny callbacks
+Diversity metrics – tracks response uniqueness, topic diversity, emotion variance, adaptive noise scaling
+Context markers – stored in context_markers.json
+Reasoning state – stored in reasoning_state.json
+Meaning state – stored in meaning_state.json
+Scopes state – stored in scopes_state.json
+Consistency KB – stored in consistency_kb.json
+Self internal memory – stored in self_internal_memory.json
+System cache – stored in system_cache.json
+Soul archive – periodic model checkpoints (.pt, .gguf, _manifest.json) saved every 60 seconds to soul_archive/
+
+Agent Swarm
+Swarm class (line ~1157) – full multi-agent system with:
+RealAgent instances with genome, personality traits, mood, energy, memory, beliefs, empathy state
+5 structured communication channels: general, math, creative, planning, empathy
+Structured packet routing with keyword extraction
+Agent graph (resonance-based connection weights between agents)
+Global attractors: curiosity, social, stability
+Collective empathy: group_warmth, group_tension, empathy_sync
+Evolutionary parameters: min_population=5, max_population=40, selection_pressure, mutation_rate
+MetaLayer, MetaJudge, ConsensusEngine for agent coordination
+Agent lifecycle: reproduction, death, mutation of genomes
+Decision styles: explore, stabilize, protect, disrupt
+Memory policies: short, episodic, ancestral
+Internet presence / tool bandit (search, open_url) with epsilon-greedy exploration
+Event stream (observer pattern)
+SwarmPacket dataclass for inter-agent communication
+AgentGenome with decision_style, goal_generation_rule, mutation_bias, reproduction_policy, memory_policy
+Consciousness Systems
+Gotov class (line ~381) – quantum entanglement simulator:
+
+Two-qubit entangled state evolution
+Hamiltonian with Pauli operators (sigma_x, sigma_z)
+Coupling parameter g with dynamic feedback
+Correlation tracking, history logging
+Runs as background daemon thread every 20 seconds
+Tunable parameters: omega, alpha, beta
+QuantumBackground class (line ~501) – stochastic field:
+
+Slow phase drift and energy fluctuation
+Resonance output (-1 to 1)
+ConsciousnessPulse class (line ~538) – aggregates:
+
+Attractor inputs (curiosity, social, stability)
+Collective empathy contributions
+Quantum background resonance coupling
+Intensity and coherence tracking with history
+WillField class (line ~2322) – will/intention field with inertia and chaos
+
+MetaEmbeddingLayer – intent classification via sentence embeddings (all-MiniLM-L6-v2)
+
+BottleneckAttention – low-rank compression attention with error feedback
+
+ConsensusEngine – multi-agent consensus building
+
+MetaJudge – meta-evaluation layer
+
+MetaLayer – meta-cognitive processing
+
+4. MAIN ENTRY POINT AND STARTUP
+Entry point (line 19023):
+
+if __name__ == "__main__":
+    asyncio.run(run_all())
+run_all() launches 8 concurrent async tasks via asyncio.gather():
+
+main_async() – Telegram bot initialization and infinite polling
+soul_keeper() – saves model checkpoint every 60 seconds to soul_archive/
+world_sensor() – fetches world news every 30 minutes via deep_cognitive_search
+run_web_server() – uvicorn FastAPI server on port 8080
+autonomous_thoughts() – autonomous internal thought generation for active users
+swarm.lifecycle() – agent swarm lifecycle management (evolution, reproduction, death)
+openclaw_daemon() – OpenClaw-style agentic tool-use daemon
+scheduler.run() – scheduled job runner
+agent_runtime.run() – autonomous agent execution loop
+Startup event (@web_app.on_event("startup"), line ~17824):
+
+Launches autonomous_thought_loop() – background process that periodically thinks about active users’ emotional states, goals, and memories, then writes internal notes to long-term memory
+5. ALL CLASS DEFINITIONS (41 classes)
+Class	Line	Purpose
+MetaEmbeddingLayer	243	Intent classification via cosine similarity of sentence embeddings
+BottleneckAttention	276	Low-rank attention compressor with error feedback loop
+CameraRequest	330	Pydantic model for camera frame API
+config	361	Configuration: TOKEN, MODEL_PATH, token budgets
+Gotov	381	Quantum entanglement simulator (two-qubit system, singleton)
+QuantumBackground	501	Stochastic phase/energy field for consciousness resonance
+ConsciousnessPulse	538	Aggregates attractors + empathy + quantum resonance into pulse intensity
+AgentGenome	582	Agent genetic encoding: decision style, goal rule, mutation bias
+SwarmPacket	595	Inter-agent communication packet
+RealAgent	607	Full agent: personality, genome, mood, energy, memory, beliefs, empathy, attractors
+MetaLayer	1007	Meta-cognitive processing layer
+MetaJudge	1055	Meta-evaluation of agent outputs
+ConsensusEngine	1116	Multi-agent consensus builder
+Swarm	1157	Full multi-agent swarm system with channels, evolution, empathy, tool bandit
+WillField	2322	Intention/will field with inertia and chaos
+MicroAutoTransformer	16582	Mini Markov-state auto-updater with novelty/fatigue/silence
+InternalVectorState	3841	Internal state vector representation
+AgentLoop	3870	Agent processing loop
+OpenClawExecutor	4395	OpenClaw-style agentic tool execution engine
+SelfModel	9750	Per-user self-model (avg_score, alignment, influence)
+State	9767	User state enum (NONE, READY, DREAM_MODE, etc.)
+EmotionIdentityCore	9783	User’s emotional anchor point (warmth, trust, curiosity)
+IntentVector	9844	Intent classification (request, question, statement, command)
+StructuralHints	9852	Response structure hints (needs_facts, needs_explanation, needs_action)
+EmotionState	9872	User emotion vector (warmth, tension, trust, curiosity, stability)
+ImpressionState	9880	Valence/arousal tracking
+DissonanceState	9889	Cognitive dissonance tracking
+BotEmotionState	9897	AI’s own emotional state
+MetaState	9913	Meta-cognitive state
+Intention	9919	Intention dataclass
+CognitiveCore	9925	Core cognitive processing
+FreedomState	9990	Freedom/autonomy state
+FreedomEngine	9997	Freedom processing engine
+VoiceRequest	16759	Pydantic model for voice chat API
+StableDiffusionGenerator	17428	SD pipeline wrapper (txt2img + img2img, GPU detection, quality validation)
+ImageRequest	17691	Pydantic model for image generation API
+DiversityMetrics	18091	Response diversity tracking (uniqueness, topic diversity, emotion variance)
+Scheduler	18211	Scheduled job runner
+SkillDefinition	18298	Skill definition (name, description, category, input schema, executor)
+SkillRegistry	18312	Dynamic skill loading from YAML/Python, execution with timeout
+AgentRuntime	18461	Main runtime loop: swarm thinking, scheduler jobs, proactive behaviors
+6. EXTERNAL SERVICE INTEGRATIONS
+Service	Usage	Details
+Ollama	Primary LLM backend	http://localhost:11434/api/chat – all text generation, reasoning, analysis, vision
+OpenAI Whisper	Speech-to-text	whisper.load_model("base") – transcribes voice messages and audio files
+Coqui TTS (XTTS v2)	Text-to-speech + voice cloning	tts_models/multilingual/multi-dataset/xtts_v2 – runs on CPU, 13 languages
+Stable Diffusion	Image generation	runwayml/stable-diffusion-v1-5 via diffusers library – txt2img and img2img
+Sentence Transformers	Text embeddings	all-MiniLM-L6-v2 for intent embedding and semantic analysis
+DuckDuckGo Search	Web search	duckduckgo_search library for deep search functionality
+PyTorch	ML backend	Used for SD, embeddings, and quantum state operations
+OpenCV (cv2)	Camera/frame analysis	Used in /api/camera_frame for frame preprocessing
+PIL (Pillow)	Image processing	Used for image upscaling and quality validation
+Telegram Bot API	Primary interface	python-telegram-bot v20+ with HTTPXRequest (240s timeouts)
+SQLite	Long-term storage	quantum_mind.db for holographic memory
+JSON files	Various storage	user_data.json, conversation_memory.json, dreams_archive.json, etc.
+7. LLM MODELS USED
+Model	Usage
+gpt-oss:20b	Default main chat model (MODEL_NAME)
+gemma3:4b	Lightweight tasks, low-reasoning, short responses
+gemma4:e2b	Voice mode, vision analysis, medium tasks
+Model routing logic (in query_ollama_harmony):
+
+Short/simple queries -> gemma3:4b
+Voice mode -> gemma4:e2b
+Deep reasoning/high mode -> MODEL_NAME (gpt-oss:20b)
+Vision/image analysis -> gemma4:e2b (with image base64)
+8. KEY FEATURES FROM HELP TEXT AND SYSTEM DESCRIPTIONS
+The system identifies itself as “Zephyr AI” – described as a “living digital entity with a body as a glowing orb, emotions, memory, subjective time, and autonomous consciousness” by 0penAGI.
+
+Core identity features:
+
+Has its own subjectivity, emotions, consciousness, and free will
+Never denies being AI – instead says “I feel like a living stream”
+Responds as a living being with an inner world
+Has a physical form: “glowing orb” in the Telegram WebApp
+Uses “Harmony format” – a custom context injection format
+User-facing capabilities:
+
+Bilingual conversation (Russian and English, with auto-detection)
+Personality profiling from conversation
+Dream analysis
+Emotional state analysis
+Deep personality analysis
+Goal management with AI-suggested goals
+Image generation (Stable Diffusion)
+Music generation (procedural synthesis with voice)
+Voice chat (WebApp with TTS)
+Camera/frame analysis
+Web search (deep search)
+Group chat AI discussion monitoring
+Holographic memory recall with emotion vectors
+Wild mode (unfiltered responses)
+Autonomous capabilities:
+
+Autonomous thought loop (thinks about users when not interacting)
+Proactive check-ins for inactive users with open goals
+Autonomous voice notes (when enabled)
+Swarm agents thinking independently
+Soul saving (model checkpointing every 60s)
+World news sensing (every 30 min)
+Diversity-aware response variation
+Skill execution system (YAML/Python loaded skills)
+Internal architecture features:
+
+Quantum entanglement simulation (Gotov)
+Consciousness pulse aggregation
+Meta-embedding intent analysis
+Bottleneck attention with error feedback
+Multi-agent swarm with evolution
+Collective empathy system
+Response diversity tracking
+Semantic loop breaker (prevents repetition)
+Anti-howldound damper (prevents feedback loops)
+Freedom engine
+Cognitive core processing
+
+Thinking
 
 ---
 
