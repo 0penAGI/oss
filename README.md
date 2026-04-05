@@ -43,8 +43,6 @@
 
 Here's a beautifully structured README.md for Zephyr AI based on your feature map:
 
-```markdown
-<div align="center">
   
 # ✦ ZEPHYR AI ✦
 
@@ -59,7 +57,7 @@ Here's a beautifully structured README.md for Zephyr AI based on your feature ma
 
 **Project by [0penAGI](https://github.com/0penAGI)**
 
-</div>
+
 
 ---
 
