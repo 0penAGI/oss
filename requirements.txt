@@ -1,0 +1,47 @@
+# Generated from the actual import statements in oss.py — not pinned to
+# tested versions (none were available). Run `pip freeze > requirements.txt`
+# after your first working install to lock exact versions for CI.
+
+# --- Bot / web framework ---
+python-telegram-bot>=20.0
+fastapi>=0.104
+uvicorn[standard]>=0.24
+pydantic>=2.0
+httpx
+requests
+
+# --- ML / media generation ---
+torch
+diffusers>=0.24
+transformers
+accelerate
+safetensors
+opencv-python
+pillow
+numpy
+scipy
+matplotlib
+openai-whisper
+TTS
+soundfile
+
+# --- Web / NLP utility ---
+beautifulsoup4
+playwright
+langdetect
+
+# --- System ---
+psutil
+
+# --- Optional, only used if USE_RUNTIME_EMBEDDINGS is flipped to True in oss.py ---
+# sentence-transformers
+
+# --- NOT installable via this file ---
+# acestep (music pipeline): not on PyPI as used here.
+#   Install from https://github.com/ace-step/ACE-Step and place the GGUF
+#   checkpoints (Qwen3-Embedding-0.6B-Q8_0.gguf, vae-BF16.gguf, the DIT model
+#   file) where _resolve_acestep_cpp_model_dir() expects them, or oss.py will
+#   fail at first /music call, not at import time.
+#
+# After installing the above:
+#   playwright install        # downloads browser binaries — common CI miss
