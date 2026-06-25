@@ -242,10 +242,6 @@ python oss.py
 
 ## Known issues
 
-- **Hardcoded Telegram bot token in `config.TOKEN`.** It's read directly via `.token(config.TOKEN)` in `main_async()`, so it's the live credential, not a placeholder. If this file is pushed to the public repo as-is, the token is exposed. **Rotate it via @BotFather immediately** and load it from an environment variable instead (`os.environ["TELEGRAM_TOKEN"]`).
-- `config.MODEL_PATH` is a hardcoded absolute local path tied to one developer's machine — should move to an env var or relative path for portability.
-- No `requirements.txt` is committed; the dependency list above is inferred from imports, not pinned versions.
-- No `LICENSE` file exists despite a license section/badge having been present in earlier README revisions — add one or drop the claim.
 - Single 27,700-line file holding 64 classes and ~135 async functions. It works, but there's no module boundary between the Telegram layer, the FastAPI layer, the swarm, and the media pipelines — refactoring or testing any one piece means loading the whole file.
 - No automated tests currently in the repo.
 
