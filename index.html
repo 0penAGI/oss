@@ -4266,6 +4266,7 @@ uiScale?.addEventListener('input', () => {
 
         function startListeningVibration() {
             stopListeningVibration();
+            if (!voiceModeEnabled) return;
             if (tg?.HapticFeedback) {
                 listeningVibrationInterval = setInterval(() => {
                     tg.HapticFeedback.impactOccurred('light');
@@ -4707,6 +4708,7 @@ uiScale?.addEventListener('input', () => {
 
     function startThinkingVibration() {
         stopThinkingVibration();
+        if (!voiceModeEnabled) return;
         if (tg?.HapticFeedback) {
             thinkingVibrationInterval = setInterval(() => {
                 tg.HapticFeedback.impactOccurred('light');
@@ -4726,6 +4728,7 @@ uiScale?.addEventListener('input', () => {
     }
 
     function vibrateSpeaking() {
+        if (!voiceModeEnabled) return;
         stopThinkingVibration();
         stopSpeakingVibration();
     
@@ -5493,6 +5496,7 @@ window.__aiTypingLock = true;
                     utter.volume = Math.max(0.01, Math.min(1.0, interjVol));
                     if (currentVoice) utter.voice = currentVoice;
                     utter.onstart = () => {
+                        if (!voiceModeEnabled) return;
                         if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
                         speakingVibrationInterval = setInterval(() => {
                             if (tg?.HapticFeedback) {
@@ -5527,6 +5531,7 @@ window.__aiTypingLock = true;
                 utter.volume = localVol;
                 if (currentVoice) utter.voice = currentVoice;
                 utter.onstart = () => {
+                    if (!voiceModeEnabled) return;
                     if (speakingVibrationInterval) clearInterval(speakingVibrationInterval);
                     speakingVibrationInterval = setInterval(() => {
                         if (tg?.HapticFeedback) {
