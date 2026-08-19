@@ -655,6 +655,16 @@
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
 
+        // Tunnel URL: запрашиваем у бэкена какой туннель активен
+        window.TUNNEL_BASE = '';
+        (async () => {
+            try {
+                const r = await fetch('/api/tunnel_config');
+                const d = await r.json();
+                if (d.url) window.TUNNEL_BASE = d.url;
+            } catch(e) {}
+        })();
+
         
         
         const canvas = document.getElementById('webgl-canvas');
@@ -4824,8 +4834,9 @@ uiScale?.addEventListener('input', () => {
                     external_context: window.externalSearchContext.slice(-6)
                 };
 
+                const tunnelApi = window.TUNNEL_BASE || '';
                 const response = await fetch(
-                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
+                    tunnelApi + '/api/voice_chat',
                     {
                         method: 'POST',
                         headers: {
@@ -5806,7 +5817,8 @@ window.__aiTypingLock = true;
 
                 try {
                     const userId = user_id_int;
-                    await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
+                    const tunnelApi2 = window.TUNNEL_BASE || '';
+                    await fetch(tunnelApi2 + '/api/camera_analysis', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
                         body: JSON.stringify({
