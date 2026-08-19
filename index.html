@@ -655,6 +655,23 @@
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js';
 
+        // Backend URLs: fallback если один из аккаунтов ngrok в лимите
+        const BACKEND_URLS = [
+            'https://patronal-mayme-unexpandable.ngrok-free.dev',
+            'https://payback-celibacy-bagginess.ngrok-free.dev'
+        ];
+        window.ACTIVE_BACKEND = BACKEND_URLS[0];
+        async function backendFetch(path, opts) {
+            const urls = [window.ACTIVE_BACKEND, ...BACKEND_URLS.filter(u => u !== window.ACTIVE_BACKEND)];
+            for (const base of urls) {
+                try {
+                    const r = await fetch(base + path, { ...opts, headers: { ...opts?.headers, 'ngrok-skip-browser-warning': 'true' } });
+                    if (r.ok) { window.ACTIVE_BACKEND = base; return r; }
+                } catch(e) { /* try next */ }
+            }
+            throw new Error('Backend offline');
+        }
+
         
         
         const canvas = document.getElementById('webgl-canvas');
@@ -4824,17 +4841,11 @@ uiScale?.addEventListener('input', () => {
                     external_context: window.externalSearchContext.slice(-6)
                 };
 
-                const response = await fetch(
-                    'https://patronal-mayme-unexpandable.ngrok-free.dev/api/voice_chat',
-                    {
+                const response = await backendFetch('/api/voice_chat', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
-                    }
-                );
+                });
 
                 // clear external context after successful handoff to backend
                 window.externalSearchContext = [];
@@ -5806,9 +5817,9 @@ window.__aiTypingLock = true;
 
                 try {
                     const userId = user_id_int;
-                    await fetch('https://patronal-mayme-unexpandable.ngrok-free.dev/api/camera_analysis', {
+                    await backendFetch('/api/camera_analysis', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             user_id: userId,
                             description: latestCameraDescription,
@@ -6503,8 +6514,10 @@ window.__aiTypingLock = true;
 
     </script>
 
+    
 </body>
 </html>
 </script>
 <script>
+
 </script>
