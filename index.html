@@ -4813,11 +4813,8 @@ uiScale?.addEventListener('input', () => {
                 if (latestCameraDescription && latestCameraDescription.trim() !== "") {
                     textWithContext = text + " (" + latestCameraDescription + ")";
                 }
-                // Добавляем внутренние заметки self-awareness
-                if(internalNotes.length > 0) textWithContext += " | Notes: " + internalNotes.join("; ");
-
-                // Gather extended context for payload
-                const recentNotes = internalNotes.slice(-8);
+                // Gather extended context for payload — filter empty notes
+                const recentNotes = internalNotes.filter(n => n && n.trim()).slice(-8);
                 const musicContext = {
                     genre: currentGenre,
                     genome: musicGenome,
@@ -4847,8 +4844,9 @@ uiScale?.addEventListener('input', () => {
                         body: JSON.stringify(payload)
                 });
 
-                // clear external context after successful handoff to backend
+                // clear external context and internal notes after successful handoff to backend
                 window.externalSearchContext = [];
+                internalNotes.length = 0;
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -5429,6 +5427,13 @@ window.__aiTypingLock = true;
             let utterQueue = [];
 
             function speakNext() {
+                if (!voiceModeEnabled) {
+                    stopSpeakingVibration();
+                    isSpeaking = false;
+                    isChatMode = false;
+                    orb.classList.remove('speaking');
+                    return;
+                }
                 if (idx >= enhancedFragments.length) {
                     // Ждём реального окончания TTS
                     const waitForSpeechEnd = setInterval(() => {
