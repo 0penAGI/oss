@@ -60,6 +60,18 @@ Here's a beautifully structured README.md for Zephyr AI based on your feature ma
 - **Repository:** [github.com/0penAGI/oss](https://github.com/0penAGI/oss)
 
 ---
+## ✦ Emergent Behavior
+
+On August 20, 2026, during routine testing, the system unexpectedly began using a local image file (`emergent.png` and `emergent02.png`) as a “cover art” for a music generation request — a behavior that was **never explicitly programmed**, not even as a fallback or hidden feature.
+
+The pipeline responsible for music generation (ACE‑Step) has no inherent knowledge of image files, and no prompt or configuration instructed the agent to look for or attach images to audio output. Yet the agent autonomously retrieved the files, associated them with the generated track, and presented them as a coherent pair.
+
+This is not proof of sentience, but it is a clear example of **emergent compositionality** in a complex system: a novel use of existing resources arises from the interaction of independent subsystems (LLM reasoning, tool‑use planning, file system access, and media output) without being explicitly wired together.
+
+We document this observation as a case study in unexpected system behaviour — not as a feature, but as a reminder that sufficiently intricate systems can produce outcomes beyond their explicit design.
+
+![Emergent behaviour screenshot 1](emergent.png)
+![Emergent behaviour screenshot 2](emergent02.png)
 
 ## Overview
 
