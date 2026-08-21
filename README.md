@@ -71,7 +71,7 @@ This is not proof of sentience, but it is a clear example of **emergent composit
 We document this observation as a case study in unexpected system behaviour — not as a feature, but as a reminder that sufficiently intricate systems can produce outcomes beyond their explicit design.
 
 ![Emergent behaviour screenshot 1](emergent.png)
-![Emergent behaviour screenshot 2](emergent02.png)
+
 
 ## Overview
 
